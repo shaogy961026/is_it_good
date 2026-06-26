@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>超越等級箱子：隨機性觀察實驗室</title>
+    <style>
+        body { font-family: "Microsoft JhengHei", sans-serif; background: #f0f2f5; color: #333; text-align: center; margin: 0; padding: 20px; }
+        .container { max-width: 900px; margin: auto; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 25px; background: #eef2f7; padding: 20px; border-radius: 10px; }
+        .stat-box { font-size: 0.95em; color: #555; }
+        .stat-val { font-size: 1.6em; color: #2980b9; font-weight: bold; }
+        .result-list { background: #f8f9fa; color: #2c3e50; padding: 20px; border-radius: 10px; height: 180px; overflow-y: auto; margin: 20px 0; text-align: left; font-family: monospace; font-size: 1em; border: 1px solid #dee2e6; line-height: 1.6; }
+        
+        button { padding: 12px 28px; font-size: 16px; cursor: pointer; border: none; border-radius: 8px; transition: 0.2s; font-weight: 500; }
+        .btn-draw { background: #3498db; color: white; width: 100%; margin-bottom: 10px; font-size: 18px; }
+        .btn-draw:disabled { background: #bdc3c7; }
+        .btn-guess { background: #2ecc71; color: white; flex: 1; }
+        .btn-group { display: flex; gap: 15px; margin-top: 10px; }
+        
+        .history-table { width: 100%; margin-top: 25px; border-collapse: collapse; font-size: 0.85em; }
+        .history-table th { background: #f8f9fa; color: #7f8c8d; padding: 10px; border-bottom: 2px solid #dee2e6; }
+        .history-table td { padding: 10px; border-bottom: 1px solid #eee; }
+        .correct { color: #2ecc71; font-weight: bold; }
+        .wrong { color: #e74c3c; font-weight: bold; }
+
+        /* 數學解釋區 */
+        .info-section { text-align: left; background: #fffbe6; padding: 25px; border-radius: 10px; margin-top: 35px; border: 1px solid #ffe58f; line-height: 1.7; }
+        .info-section h3 { color: #856404; margin-bottom: 15px; border-bottom: 2px solid #ffe58f; padding-bottom: 5px; }
+        .analysis-block { margin-bottom: 30px; }
+        
+        .table-responsive { width: 100%; overflow-x: auto; margin: 10px 0; border: 1px solid #ffe58f; border-radius: 5px; }
+        .prob-table { width: 100%; border-collapse: collapse; background: white; font-size: 0.82em; white-space: nowrap; }
+        .prob-table th, .prob-table td { padding: 8px 12px; text-align: center; border: 1px solid #eee; }
+        .prob-table th { background: #fff9db; }
+        .sticky-col { position: sticky; left: 0; background: #fff9db; z-index: 1; font-weight: bold; border-right: 2px solid #ffe58f !important; }
+        
+        .hidden { display: none; }
+        .highlight { background: #fff3cd; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>超越等級箱子：隨機性觀察實驗室</h2>
+    
+    <div class="stats-grid">
+        <div class="stat-box">實驗總場次<br><span id="totalRounds" class="stat-val">0</span></div>
+        <div class="stat-box">判斷正確次數<br><span id="correctGuesses" class="stat-val">0</span></div>
+        <div class="stat-box">觀察準確率<br><span id="accuracy" class="stat-val">0%</span></div>
+    </div>
+
+    <p>系統模擬設定：此機器可能為 <b>[33.3% 公平版]</b> 或 <b>[20.0% 設定版]</b></p>
+    
+    <button class="btn-draw" id="drawBtn" onclick="runExperiment()">開始進行 10 次觀測抽取</button>
+    
+    <div id="resultList" class="result-list">請點擊按鈕開始鑑定...</div>
+
+    <div id="guessArea" class="hidden">
+        <p>根據這 10 次的結果，您認為實際設定機率是？</p>
+        <div class="btn-group">
+            <button class="btn-guess" onclick="checkGuess(33.33)">較接近 33.3%</button>
+            <button class="btn-guess" onclick="checkGuess(20.00)">較接近 20.0%</button>
+        </div>
+    </div>
+
+    <table class="history-table">
+        <thead>
+            <tr>
+                <th>場次</th>
+                <th>輪迴數/10</th>
+                <th>觀察判斷</th>
+                <th>實際設定</th>
+                <th>結果</th>
+            </tr>
+        </thead>
+        <tbody id="historyBody"></tbody>
+    </table>
+
+    <div class="info-section">
+        <h3>為什麼體感不一定準確？（動態數學分析）</h3>
+        <div id="analysisArea"></div>
+    </div>
+</div>
+
+<script>
+    let stats = { total: 0, correct: 0 };
+    let currentRealProb = 0;
+    let currentWheelCount = 0;
+
+    // 數學工具：組合公式
+    function nCr(n, r) {
+        if (r < 0 || r > n) return 0;
+        if (r === 0 || r === n) return 1;
+        if (r > n / 2) r = n - r;
+        let res = 1;
+        for (let i = 1; i <= r; i++) res = res * (n - i + 1) / i;
+        return res;
+    }
+
+    // 數學工具：二項分佈 PMF
+    function binomPMF(k, n, p) {
+        return nCr(n, k) * Math.pow(p, k) * Math.pow(1 - p, n - k);
+    }
+
+    // 生成單一樣本數的分析區塊
+    function generateAnalysis(nVal) {
+        const p1 = 0.20, p2 = 0.3333;
+        let pBadCorrect = 0, pFairCorrect = 0, boundary = 0;
+
+        for (let k = 0; k <= nVal; k++) {
+            let pm1 = binomPMF(k, nVal, p1), pm2 = binomPMF(k, nVal, p2);
+            if (pm1 > pm2) { pBadCorrect += pm1; boundary = k; }
+            else { pFairCorrect += pm2; }
+        }
+
+        let start = Math.max(0, Math.floor(nVal * p1) - 3);
+        let end = Math.min(nVal, Math.ceil(nVal * p2) + 5);
+        
+        let tableHtml = `<div class="table-responsive"><table class="prob-table"><tr><th class="sticky-col">輪迴次數</th>`;
+        for (let i = start; i <= end; i++) tableHtml += `<th>${i}次</th>`;
+        tableHtml += `</tr><tr><td class="sticky-col">20% 版機率</td>`;
+        for (let i = start; i <= end; i++) tableHtml += `<td class="${i <= boundary ? 'highlight' : ''}">${(binomPMF(i, nVal, p1)*100).toFixed(1)}%</td>`;
+        tableHtml += `</tr><tr><td class="sticky-col">33% 版機率</td>`;
+        for (let i = start; i <= end; i++) tableHtml += `<td class="${i > boundary ? 'highlight' : ''}">${(binomPMF(i, nVal, p2)*100).toFixed(1)}%</td>`;
+        tableHtml += `</tr></table></div>`;
+
+        return `
+            <div class="analysis-block">
+                <strong>當觀測樣本為 ${nVal} 次時：</strong><br>
+                ${tableHtml}
+                <p style="font-size: 0.85em; margin-top: 5px;">
+                    判定界線：<b>${boundary} 次</b> | 
+                    理論鑑定正確率：<b>${((pBadCorrect + pFairCorrect)/2*100).toFixed(1)}%</b> | 
+                    公平機器誤判率：<b>${((1 - pFairCorrect)*100).toFixed(1)}%</b>
+                </p>
+            </div>`;
+    }
+
+    function initAnalysis() {
+        document.getElementById('analysisArea').innerHTML = 
+            generateAnalysis(10) + generateAnalysis(50) + generateAnalysis(100);
+    }
+
+    function runExperiment() {
+        document.getElementById('drawBtn').disabled = true;
+        document.getElementById('guessArea').classList.remove('hidden');
+        currentRealProb = Math.random() > 0.5 ? 33.33 : 20.00;
+        currentWheelCount = 0;
+        let list = document.getElementById('resultList');
+        list.innerHTML = `<b>本次 10 抽結果：</b><br>`;
+
+        for (let i = 1; i <= 10; i++) {
+            let rand = Math.random() * 100;
+            if (rand < currentRealProb) {
+                list.innerHTML += `<span style="color:#e67e22; font-weight:bold;">【輪迴碑石】</span> `;
+                currentWheelCount++;
+            } else {
+                list.innerHTML += Math.random() > 0.5 ? "〔燃燒戒指〕" : "〔苦行的戒指〕";
+            }
+            if (i % 3 === 0) list.innerHTML += "<br>";
+        }
+    }
+
+    function checkGuess(guess) {
+        stats.total++;
+        let isCorrect = (Math.abs(guess - currentRealProb) < 1);
+        if (isCorrect) stats.correct++;
+
+        document.getElementById('totalRounds').innerText = stats.total;
+        document.getElementById('correctGuesses').innerText = stats.correct;
+        document.getElementById('accuracy').innerText = ((stats.correct / stats.total) * 100).toFixed(1) + "%";
+
+        let row = document.getElementById('historyBody').insertRow(0);
+        row.innerHTML = `<td>#${stats.total}</td><td>${currentWheelCount}</td><td>${guess}%</td><td>${currentRealProb.toFixed(1)}%</td><td class="${isCorrect ? 'correct' : 'wrong'}">${isCorrect ? '正確' : '誤判'}</td>`;
+
+        document.getElementById('drawBtn').disabled = false;
+        document.getElementById('guessArea').classList.add('hidden');
+        document.getElementById('resultList').innerHTML = isCorrect ? 
+            `<h3 style="color:#2ecc71">鑑定結果：正確！這台是 ${currentRealProb.toFixed(1)}% 版</h3>` : 
+            `<h3 style="color:#e74c3c">鑑定結果：失敗！這台實際是 ${currentRealProb.toFixed(1)}% 版</h3>`;
+    }
+
+    initAnalysis();
+</script>
+
+</body>
+</html>	

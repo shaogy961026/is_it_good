@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>新楓之谷 機率型卷軸分析</title>
+    <meta name="description" content="比較《新楓之谷》各類機率型卷軸效益，設定不同保留門檻並精算每單位攻擊力的預期造價與 CP 值，協助您找出最適合的衝裝策略。">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📜</text></svg>">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="merge-mode-active"> <div id="global-nav"></div>
+<script>window.TOOL_ID = 11;</script>
+<script src="../shared-nav.js"></script>
+<script src="../shared-subtitle.js"></script>
+<div class="container">
+    <h1>新楓之谷 機率型卷軸分析</h1>
+    
+    <div id="tool-subtitle"></div>
+    
+    <div class="control-panel">
+        <h3 style="margin: 0 0 15px 0; padding-bottom: 10px; border-bottom: 2px solid #f0f2f5;">全域參數設定</h3>
+        
+        <div class="global-wrapper" style="margin-bottom: 0;">
+            <div class="global-mini-settings">
+                <div class="global-input-group">
+                    <div class="global-input-row">
+                        <label>恢復卡單價</label>
+                        <input type="number" id="global-price-card" placeholder="0" oninput="handleGlobalCardPrice()">
+                    </div>
+                    <div class="currency-preview" id="global-preview-card"></div>
+                </div>
+
+                <div class="global-separator">|</div>
+
+                <div class="global-input-group">
+                    <div class="global-input-row">
+                        <label>主屬換算</label>
+                        <input type="number" id="global-ratio-main" placeholder="不填不計" min="0.1" step="0.1" oninput="handleGlobalStats()">
+                    </div>
+                </div>
+                <div class="global-input-group">
+                    <div class="global-input-row">
+                        <label>副屬換算</label>
+                        <input type="number" id="global-ratio-vice" placeholder="不填不計" min="0.1" step="0.1" oninput="handleGlobalStats()">
+                    </div>
+                </div>
+
+                <div class="global-separator">|</div>
+
+                <div class="global-input-group">
+                    <div class="global-input-row">
+                        <label>門檻精度</label>
+                        <select id="global-interval-mode" onchange="handleGlobalInterval()" style="padding: 4px; border-radius: 4px; border: 1px solid #ccc; font-size: 0.9rem;">
+                            <option value="integer">整數 (最簡潔)</option>
+                            <option value="step05">0.5 單位</option>
+                            <option value="precise">精確 (所有組合)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="global-hint-box">
+                <strong>屬性換算說明：</strong> 輸入「4」代表 4 主屬 = 1 攻擊力 (依此類推)。若不填寫則只計算卷軸攻擊力，不計屬性。
+            </div>
+        </div>
+    </div>
+
+    <div class="control-panel">
+        <div style="margin-bottom: 15px; border-bottom: 2px solid #f0f2f5; padding-bottom: 10px;">
+            <h3 style="margin:0; border:none; padding:0;">勾選想計算的卷軸</h3>
+        </div>
+
+        <div class="category-title">【武器類 (含屬性計算)】</div>
+        <div class="toggle-group" id="toggle-container-wep"></div>
+        <hr class="divider">
+        
+        <div class="category-title">【防具類】</div>
+        <div class="toggle-group" id="toggle-container-def"></div>
+        <hr class="divider">
+
+        <div class="category-title">【飾品類】</div>
+        <div class="toggle-group" id="toggle-container-acc"></div>
+        <hr class="divider">
+
+        <div class="category-title">【寵物裝備】</div>
+        <div class="toggle-group" id="toggle-container-pet"></div>
+    </div>
+
+    <div id="merged-tables-container">
+        
+        <div id="merge-warning-msg" class="merge-warning-box">
+            可勾選多個項目進行比較
+        </div>
+
+        <div class="legend-box" id="legend-box" style="display:none;">
+            <span class="legend-item"><span class="legend-icon optimal">🔥</span> <strong>預算內最強</strong></span>
+            <span class="legend-item"><span class="legend-icon dominated">📉</span> <strong>次級方案 (不推薦)</strong></span>
+        </div>
+
+        <div id="merged-section-wep" class="scroll-card merged-card hidden">
+            <div class="card-header" style="background: linear-gradient(135deg, #2c3e50, #e67e22);">
+                <span>武器類 - 合併比較表 (單次強化基準)</span>
+            </div>
+            <div id="merge-settings-wep" class="merge-dashboard" style="display: none; border:none; background:#fff; border-bottom:1px solid #eee; margin:0; border-radius:0;"></div>
+            <div class="table-responsive">
+                <table id="merged-table-wep" class="sortable-table">
+                    <thead></thead><tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="merged-section-def" class="scroll-card merged-card hidden">
+            <div class="card-header" style="background: linear-gradient(135deg, #2c3e50, #27ae60);">
+                <span>防具類 - 合併比較表 (單次強化基準)</span>
+            </div>
+            <div id="merge-settings-def" class="merge-dashboard" style="display: none; border:none; background:#fff; border-bottom:1px solid #eee; margin:0; border-radius:0;"></div>
+            <div class="table-responsive">
+                <table id="merged-table-def" class="sortable-table">
+                    <thead></thead><tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="merged-section-acc" class="scroll-card merged-card hidden">
+            <div class="card-header" style="background: linear-gradient(135deg, #2c3e50, #8e44ad);">
+                <span>飾品類 - 合併比較表 (單次強化基準)</span>
+            </div>
+            <div id="merge-settings-acc" class="merge-dashboard" style="display: none; border:none; background:#fff; border-bottom:1px solid #eee; margin:0; border-radius:0;"></div>
+            <div class="table-responsive">
+                <table id="merged-table-acc" class="sortable-table">
+                    <thead></thead><tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="merged-section-pet" class="scroll-card merged-card hidden">
+            <div class="card-header" style="background: linear-gradient(135deg, #2c3e50, #d35400);">
+                <span>寵物裝備 - 合併比較表 (單次強化基準)</span>
+            </div>
+            <div id="merge-settings-pet" class="merge-dashboard" style="display: none; border:none; background:#fff; border-bottom:1px solid #eee; margin:0; border-radius:0;"></div>
+            <div class="table-responsive">
+                <table id="merged-table-pet" class="sortable-table">
+                    <thead></thead><tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="cards-container"></div>
+</div>
+
+<div id="analysis-modal" class="modal-overlay">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modal-title">分佈分析</h3>
+            <button class="close-btn" onclick="closeModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="analysis-input-section">
+                <label id="analysis-input-label" for="user-total-atk">輸入你實際衝完的總攻擊力(含屬)：</label>
+                <div style="margin-top: 10px;">
+                    <input type="number" id="user-total-atk" placeholder="例如: 85.5" step="0.1" 
+                           style="padding: 8px; width: 120px; text-align: center; font-size: 1.1rem; border-radius: 4px; border: 1px solid #ccc;">
+                </div>
+                <div id="user-rank-result" class="analysis-result-box">
+                    <div style="color:#7f8c8d; font-weight:bold;">請輸入數值以查看PR值</div>
+                </div>
+            </div>
+
+            <h4 style="border-bottom: 2px solid #eee; padding-bottom: 8px; margin-bottom: 10px;">總分 PR值對照表</h4>
+            <div class="table-responsive">
+                <table class="dist-table">
+                    <thead>
+                        <tr>
+                            <th>PR 值</th>
+                            <th>總分 (>=)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="modal-dist-tbody">
+                    </tbody>
+                </table>
+            </div>
+
+            <div id="pr-warning-msg" style="display: none; background: #fff3cd; color: #856404; padding: 12px; margin-top: 15px; border-radius: 6px; font-size: 0.9rem; text-align: left; border: 1px solid #ffeeba; animation: fadeIn 0.3s ease-out;">
+                <strong>為什麼高 PR 值顯示「 - 」？</strong><br>
+                因為卷軸數較少或機率分佈集中，導致即使拿到最高分，也無法成為極少數的前段班。<br>
+            </div>
+            <p style="font-size: 0.85rem; color: #7f8c8d; margin-top: 10px; text-align: right;">
+                *PR值計算：(勝過比例 + 0.5×同分比例)
+            </p>
+        </div>
+    </div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
+
+

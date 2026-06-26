@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>新楓之谷角色 API 全資料擷取工具</title>
+    <meta name="description" content="提供《新楓之谷》角色數據的一鍵擷取功能。透過串接 NEXON Open API，獲取包含基本資訊、詳細能力值、裝備道具、技能等級、V矩陣、HEXA核心、聯盟戰地及公會資料等全方位數據。">
+    <style>
+        body { font-family: "Microsoft JhengHei", sans-serif; background-color: #f4f4f9; color: #333; padding: 20px; }
+        .container { max-width: 900px; margin: auto; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        h2 { color: #222; margin-top: 0; }
+        
+        /* 網站用途說明區塊 */
+        .purpose-box { font-size: 15px; color: #555; line-height: 1.6; margin-bottom: 20px; background-color: #f8f9fa; padding: 15px; border-radius: 6px; border: 1px solid #e2e8f0; }
+        
+        /* 教學與官方注意事項區塊 */
+        .info-box { background-color: #eef2f7; border-left: 4px solid #4a5568; padding: 15px; margin-bottom: 20px; border-radius: 4px; font-size: 14px; color: #444; line-height: 1.6; }
+        .info-box ul { margin: 0; padding-left: 20px; }
+        .tutorial-box { background-color: #fff8e1; border-left: 4px solid #f5b041; padding: 15px; margin-bottom: 20px; border-radius: 4px; font-size: 15px; color: #555; line-height: 1.6; }
+        .tutorial-box a { color: #0056b3; font-weight: bold; text-decoration: none; }
+        .tutorial-box a:hover { text-decoration: underline; }
+        
+        .input-group { margin-bottom: 15px; display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+        .input-row { width: 100%; display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+        input[type="text"], input[type="password"] { padding: 8px; font-size: 16px; border: 1px solid #ccc; border-radius: 4px; }
+        input[type="password"] { width: 350px; }
+        input[type="text"] { width: 200px; }
+        
+        button { padding: 8px 16px; font-size: 16px; cursor: pointer; background-color: #4a5568; color: white; border: none; border-radius: 4px; transition: background 0.2s; white-space: nowrap; }
+        button:hover { background-color: #2d3748; }
+        button:disabled { background-color: #cccccc; cursor: not-allowed; }
+        
+        #status { font-weight: bold; color: #d9534f; margin-top: 10px; }
+        #ocidDisplay { margin-top: 15px; font-size: 15px; }
+        
+        /* 仿官方深色風格的結果區塊 */
+        .result-box { margin-top: 20px; border: 1px solid #1e2025; border-radius: 6px; overflow: hidden; background: #1a1b1f; color: #e2e8f0; }
+        .result-header { 
+            background: #26282f; padding: 12px 15px; font-weight: bold; font-size: 16px; 
+            border-bottom: 1px solid #353842; cursor: pointer; display: flex; 
+            justify-content: space-between; align-items: center; user-select: none; transition: background 0.2s;
+        }
+        .result-header:hover { background: #32353e; }
+        .result-content { 
+            padding: 15px; max-height: 400px; overflow-y: auto; font-family: Consolas, monospace; 
+            font-size: 13px; margin: 0; white-space: pre-wrap; word-wrap: break-word; color: #a1b0c8; 
+        }
+
+        /* 縮合狀態的 CSS 控制 */
+        .result-box.collapsed .result-content { display: none; }
+        .toggle-icon { font-size: 12px; color: #a0aec0; transition: transform 0.3s; }
+        .result-box.collapsed .toggle-icon { transform: rotate(-90deg); }
+        
+        .highlight-note { color: #d9534f; font-weight: bold; }
+    </style>
+</head>
+<body>
+<div id="global-nav"></div>
+<script src="../shared-nav.js"></script>
+<div class="container">
+    <h2>新楓之谷角色 API 全資料擷取器</h2>
+    
+    <div class="purpose-box">
+        <b>網站用途：</b><br>
+        本工具用於快速擷取與檢視《新楓之谷》官方 API 實際開放的角色原始數據（JSON 格式）。輸入 API Key 後，即可一鍵獲取官方允許查詢的能力值、裝備、技能與戰地等底層資料，方便進行數據檢閱或開發，也適合單純好奇的你！
+    </div>
+    
+    <div class="tutorial-box">
+        <b>如何取得 API Key？</b><br>
+        1. 前往 <a href="https://openapi.nexon.com/" target="_blank">NEXON Open API 官方網站</a> 並登入您的帳號。<br>
+        2. 點擊右上角的 <b>My Applications</b> ➔ <b>Register Application</b> 註冊一個新應用程式。<br>
+        3. 選擇「Maplestory (TW)」，填寫簡單名稱後送出。<br>
+        4. 複製配發給您的 <b>API Key</b>（發行金鑰），貼到下方的欄位中即可使用。<br>
+        <span style="font-size: 13px; color: #888;">* 您的金鑰僅會保存在您的瀏覽器本地，不會傳送給任何人，請安心使用。</span>
+    </div>
+
+    <div class="info-box">
+        <ul>
+            <li>新楓之谷遊戲資料平均在 15 分鐘後即可使用。</li>
+            <li>您可以從 2025 年 10 月 15 日起搜尋資料。</li>
+            <li>您可以輸入所需日期以搜尋過往資料。前一日的資料將於翌日凌晨 2:00起提供。(當您搜尋 10 月 15 日的資料時，將會擷取從 15 日 00:00 到 16 日 00:00 的資料。)</li>
+            <li>由於遊戲內容變動，OCID 可能會有所變更。<span class="highlight-note">（註：本工具每次皆會透過角色名稱即時換取最新 OCID，因此不受此變更影響，請安心使用！）</span></li>
+            <li>此 API 提供來自新楓之谷台灣的資料。</li>
+        </ul>
+    </div>
+    
+    <div class="input-group">
+        <div class="input-row">
+            <label>您的 API Key：</label>
+            <input type="password" id="apiKeyInput" placeholder="請貼上您的 NEXON API Key">
+        </div>
+        <div class="input-row">
+            <label>角色名稱：</label>
+            <input type="text" id="charName" placeholder="例如：超級強00">
+            <button id="searchBtn" onclick="startFetching()">開始撈取資料</button>
+        </div>
+    </div>
+    
+    <div id="status">等待輸入中...</div>
+    <div id="ocidDisplay"></div>
+    
+    <div id="resultsArea"></div>
+</div>
+
+<script>
+    const BASE_URL = "https://open.api.nexon.com/maplestorytw/v1";
+    const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+    window.onload = function() {
+        const savedKey = localStorage.getItem("nexon_api_key");
+        if (savedKey) {
+            document.getElementById("apiKeyInput").value = savedKey;
+        }
+    }
+
+    const apiEndpoints = [
+        // 角色 (Character)
+        { name: "檢視基本資訊", path: "/character/basic" },
+        { name: "檢視名聲資訊", path: "/character/popularity" },
+        { name: "檢視綜合能力值資訊", path: "/character/stat" },
+        { name: "檢視極限屬性資訊", path: "/character/hyper-stat" },
+        { name: "檢視性向資訊", path: "/character/propensity" },
+        { name: "檢視能力資訊", path: "/character/ability" },
+        { name: "檢視已裝備道具資訊 (不含現金道具)", path: "/character/item-equipment" },
+        { name: "檢視已裝備現金道具資訊", path: "/character/cashitem-equipment" },
+        { name: "檢視已裝備符文資訊", path: "/character/symbol-equipment" },
+        { name: "檢視已套用的套裝效果資訊", path: "/character/set-effect" },
+        { name: "檢視已裝備的髮型、臉型與膚色資訊", path: "/character/beauty-equipment" },
+        { name: "檢視已裝備機器人資訊", path: "/character/android-equipment" },
+        { name: "檢視已裝備寵物資訊", path: "/character/pet-equipment" },
+        
+        { name: "檢視技能資訊 (0轉 / 神之子共用)", path: "/character/skill?character_skill_grade=0" },
+        { name: "檢視技能資訊 (1轉)", path: "/character/skill?character_skill_grade=1" },
+        { name: "檢視技能資訊 (1.5轉)", path: "/character/skill?character_skill_grade=1.5" },
+        { name: "檢視技能資訊 (2轉)", path: "/character/skill?character_skill_grade=2" },
+        { name: "檢視技能資訊 (2.5轉)", path: "/character/skill?character_skill_grade=2.5" },
+        { name: "檢視技能資訊 (3轉)", path: "/character/skill?character_skill_grade=3" },
+        { name: "檢視技能資訊 (4轉 / 神之子阿爾法、蓓塔)", path: "/character/skill?character_skill_grade=4" },
+        { name: "檢視技能資訊 (被動超技能)", path: "/character/skill?character_skill_grade=hyperpassive" },
+        { name: "檢視技能資訊 (主動超技能)", path: "/character/skill?character_skill_grade=hyperactive" },
+        { name: "檢視技能資訊 (5轉)", path: "/character/skill?character_skill_grade=5" },
+        { name: "檢視技能資訊 (6轉)", path: "/character/skill?character_skill_grade=6" },
+
+        { name: "檢視已裝備連結技能資訊", path: "/character/link-skill" },
+        { name: "檢視 V 矩陣資訊", path: "/character/vmatrix" },
+        { name: "檢視 HEXA 核心資訊", path: "/character/hexamatrix" },
+        { name: "檢視在 HEXA 矩陣中設定的 HEXA 屬性資訊", path: "/character/hexamatrix-stat" },
+        { name: "檢視武陵道場最高紀錄資訊", path: "/character/dojang" },
+        
+        // 聯盟 (Union)
+        { name: "檢視戰地資訊", path: "/user/union" },
+        { name: "檢視戰地攻擊隊資訊", path: "/user/union-raider" },
+        { name: "檢視戰地神器資訊", path: "/user/union-artifact" },
+        { name: "聯盟冠軍資訊查詢", path: "/user/union-champion" }
+    ];
+
+    async function fetchApi(url, headers) {
+        const response = await fetch(url, { headers: headers });
+        if (!response.ok) {
+            // 這裡會拋出錯誤給外層的 try...catch 處理
+            throw new Error(`HTTP 錯誤碼: ${response.status}`);
+        }
+        return await response.json();
+    }
+
+    function createResultBox(title, data) {
+        const area = document.getElementById("resultsArea");
+        const box = document.createElement("div");
+        box.className = "result-box";
+        
+        const header = document.createElement("div");
+        header.className = "result-header";
+        header.innerHTML = `<span>${title}</span> <span class="toggle-icon">▼</span>`;
+        
+        const content = document.createElement("pre");
+        content.className = "result-content";
+        content.innerText = JSON.stringify(data, null, 2);
+        
+        header.onclick = () => { box.classList.toggle("collapsed"); };
+        
+        box.appendChild(header);
+        box.appendChild(content);
+        area.appendChild(box);
+    }
+
+    async function startFetching() {
+        const apiKey = document.getElementById("apiKeyInput").value.trim();
+        const charName = document.getElementById("charName").value.trim();
+        const statusEl = document.getElementById("status");
+        const btn = document.getElementById("searchBtn");
+        const resultsArea = document.getElementById("resultsArea");
+
+        if (!apiKey) {
+            alert("請先輸入您的 API Key！");
+            return;
+        }
+        if (!charName) {
+            alert("請輸入角色名稱！");
+            return;
+        }
+
+        localStorage.setItem("nexon_api_key", apiKey);
+        const dynamicHeaders = { "x-nxopen-api-key": apiKey };
+
+        btn.disabled = true;
+        resultsArea.innerHTML = "";
+        document.getElementById("ocidDisplay").innerHTML = "";
+
+        let extractedGuildName = null;
+        let extractedWorldName = null;
+
+        try {
+            statusEl.innerText = "正在獲取 OCID...";
+            statusEl.style.color = "#f0ad4e";
+            
+            const idUrl = `${BASE_URL}/id?character_name=${encodeURIComponent(charName)}`;
+            const idData = await fetchApi(idUrl, dynamicHeaders);
+            const ocid = idData.ocid;
+
+            if (!ocid) {
+                throw new Error("找不到該角色，請確認名稱是否正確。");
+            }
+
+            document.getElementById("ocidDisplay").innerHTML = `<b>當前查詢 OCID:</b> ${ocid}<br><br><br><br>`;
+            createResultBox("檢視角色辨識器 (OCID)", idData);
+
+            const delayMs = 600; 
+
+            // 第一階段：角色與聯盟相關 API
+            for (let i = 0; i < apiEndpoints.length; i++) {
+                const endpoint = apiEndpoints[i];
+                statusEl.innerText = `進度 (${i + 1}/${apiEndpoints.length}): 正在獲取 [${endpoint.name}] ...`;
+                
+                const separator = endpoint.path.includes("?") ? "&" : "?";
+                const apiUrl = `${BASE_URL}${endpoint.path}${separator}ocid=${ocid}`;
+
+                try {
+                    const data = await fetchApi(apiUrl, dynamicHeaders);
+                    
+                    if (endpoint.path === "/character/basic" && data.character_guild_name) {
+                        extractedGuildName = data.character_guild_name;
+                        extractedWorldName = data.world_name;
+                    }
+                    
+                    createResultBox(endpoint.name, data);
+                } catch (err) {
+                    createResultBox(`${endpoint.name} (錯誤)`, { error: err.message });
+                }
+
+                await sleep(delayMs);
+            }
+
+            // 第二階段：公會資訊
+            if (extractedGuildName && extractedWorldName) {
+                statusEl.innerText = `角色附屬公會處理中：正在獲取 [公會識別碼 (oguild_id)] ...`;
+                try {
+                    const guildIdUrl = `${BASE_URL}/guild/id?guild_name=${encodeURIComponent(extractedGuildName)}&world_name=${encodeURIComponent(extractedWorldName)}`;
+                    const guildIdData = await fetchApi(guildIdUrl, dynamicHeaders);
+                    
+                    createResultBox(`檢視公會識別碼 (oguild_id) 資訊`, guildIdData);
+                    await sleep(delayMs);
+
+                    if (guildIdData.oguild_id) {
+                        statusEl.innerText = `角色附屬公會處理中：正在獲取 [公會基本資訊] ...`;
+                        const guildBasicUrl = `${BASE_URL}/guild/basic?oguild_id=${guildIdData.oguild_id}`;
+                        const guildBasicData = await fetchApi(guildBasicUrl, dynamicHeaders);
+                        
+                        createResultBox(`檢視基本資訊 (公會: ${extractedGuildName})`, guildBasicData);
+                        await sleep(delayMs);
+                    }
+                } catch (err) {
+                    createResultBox(`公會資訊 (錯誤)`, { error: err.message });
+                }
+            }
+
+            statusEl.innerText = "所有資料獲取完畢！";
+            statusEl.style.color = "#5cb85c";
+
+        } catch (error) {
+            statusEl.innerText = `發生錯誤: ${error.message}`;
+            statusEl.style.color = "#d9534f";
+            
+            // 針對網路請求失敗（包含 CORS 阻擋）提供更具體的除錯建議
+            if (error.message.includes("Failed to fetch") || error.message.includes("NetworkError")) {
+                statusEl.innerHTML += `<br><br><b>發生 CORS 跨來源請求阻擋或網路連線錯誤。</b><br>請確認您在 NEXON 申請 API Key 時，是否有將<b>本網站的網址</b>正確填寫至 <b>URL</b> 欄位（白名單）中。若剛修改完畢，可能需要等待幾分鐘才會生效。`;
+            }
+        } finally {
+            btn.disabled = false;
+        }
+    }
+</script>
+
+</body>
+</html>
+

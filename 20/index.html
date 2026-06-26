@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>新楓之谷 結合方塊/結合附加方塊分析</title>
+    <meta name="description" content="專為《新楓之谷》打造的結合方塊與結合附加方塊計算機。可自訂裝備部位、目標進度與可接受的詞條，精準計算洗煉出指定潛能組合的成功機率與期望消耗方塊數量，助您評估裝備製作成本。">
+    <style>
+        :root {
+            /* 明亮主題配色 */
+            --bg-color: #f4f7f6;
+            --panel-bg: #ffffff;
+            --text-main: #2d3436;
+            --text-accent: #d63031;
+            --border-color: #dfe6e9;
+            --btn-color: #0984e3;
+            --btn-hover: #74b9ff;
+            --leg-color: #009432;
+            --unique-color: #e1b12c;
+            --highlight-color: #0056b3;
+        }
+        body {
+            font-family: 'Microsoft JhengHei', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            background-color: var(--panel-bg);
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 900px;
+            border: 1px solid var(--border-color);
+            margin: 0 auto; /* 確保計算機在頁面中置中，避免被其他元素擠壓 */
+        }
+        h1 {
+            text-align: center;
+            color: var(--text-main);
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 10px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: var(--text-main);
+        }
+        select {
+            width: 100%;
+            padding: 10px;
+            background-color: var(--panel-bg);
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        .pool-section {
+            background-color: #fafafa;
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        .pool-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            padding-bottom: 5px;
+            border-bottom: 1px dashed var(--border-color);
+        }
+        .pool-leg { color: var(--leg-color); }
+        .pool-unique { color: var(--unique-color); }
+        
+        .checkbox-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 10px;
+        }
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            font-size: 14px;
+        }
+        .checkbox-item input {
+            margin-right: 8px;
+            accent-color: var(--btn-color);
+        }
+        button {
+            width: 100%;
+            padding: 15px;
+            background-color: var(--btn-color);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            margin-bottom: 20px;
+        }
+        button:hover {
+            background-color: var(--btn-hover);
+        }
+        .result-box {
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-left: 5px solid var(--text-accent);
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .result-title {
+            font-size: 20px;
+            font-weight: bold;
+            color: var(--text-accent);
+            margin-bottom: 10px;
+        }
+        .result-text {
+            font-size: 16px;
+            line-height: 1.6;
+            margin-bottom: 5px;
+        }
+        .highlight {
+            color: var(--highlight-color);
+            font-weight: bold;
+        }
+        
+        /* 表格樣式 */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+        th, td {
+            border: 1px solid var(--border-color);
+            padding: 8px 12px;
+            text-align: left;
+        }
+        th {
+            background-color: #f1f2f6;
+            color: var(--text-main);
+            position: sticky;
+            top: 0;
+        }
+        .table-container {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+        }
+        .row-leg td:first-child { color: var(--leg-color); font-weight: bold; }
+        .row-unique td:first-child { color: var(--unique-color); font-weight: bold; }
+    </style>
+</head>
+<body>
+<div id="global-nav"></div>
+<script>window.TOOL_ID = 20;</script>
+<script src="../shared-nav.js"></script>
+<script src="../shared-subtitle.js"></script>
+<div class="container">
+    <h1>新楓之谷 結合方塊/結合附加方塊分析</h1>
+    <div id="tool-subtitle"></div>
+    
+    <div class="form-group">
+        <label>方塊種類</label>
+        <select id="cubeType" onchange="updateUI()">
+            <option value="main">結合方塊 (潛在能力)</option>
+            <option value="bonus">結合附加方塊 (附加潛在能力)</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label>裝備部位</label>
+        <select id="equipPart" onchange="updateUI()">
+            </select>
+    </div>
+
+    <div class="form-group">
+        <label>目標進度</label>
+        <select id="goalType">
+            <option value="1">目前 2 排，需洗出剩下 1 排 (期望顆數 = 3 / P)</option>
+            <option value="2">目前 1 排，需洗出剩下 2 排 (期望顆數 = 4.5 / P)</option>
+            <option value="3">目前 0 排，需洗出剩下 3 排 (期望顆數 = 5.5 / P)</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label>請勾選可接受的目標詞條 (多選視為 OR)</label>
+        
+        <div class="pool-section">
+            <div class="pool-title pool-leg">🟢 傳說等級 (Legendary)</div>
+            <div class="checkbox-grid" id="legCheckboxes"></div>
+        </div>
+
+        <div class="pool-section">
+            <div class="pool-title pool-unique">🟡 罕見等級 (Unique)</div>
+            <div class="checkbox-grid" id="uniqueCheckboxes"></div>
+        </div>
+    </div>
+
+    <button onclick="calculate()">計算機率與期望值</button>
+
+    <div id="resultArea" class="result-box" style="display:none;"></div>
+
+    <div class="form-group">
+        <label style="border-top: 2px dashed #dfe6e9; padding-top: 20px;">當前部位完整機率表</label>
+        <div class="table-container">
+            <table id="probTable">
+                <thead>
+                    <tr>
+                        <th>等級</th>
+                        <th>詞條名稱</th>
+                        <th>機率</th>
+                    </tr>
+                </thead>
+                <tbody id="probTableBody">
+                    </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+// --- 資料區間 ---
+const DB = {
+    main: {
+        legWeight: 0.15, uniqueWeight: 0.85,
+        unique: {
+            "帽子": [["可以使用<實用的時空門> 技能", 1311], ["STR%", 656], ["DEX%", 656], ["INT%", 656], ["LUK%", 656], ["最大HP%", 656], ["最大MP%", 1311], ["全屬性%", 164], ["被擊中時有一定機率無視傷害", 1311], ["被擊中時有一定機率無視傷害", 1311], ["HP恢復道具及恢復技能效果增加", 1311]],
+            "上衣/套服": [["被擊中後無敵時間增加", 889], ["被擊中時有一定機率在時間內無敵", 889], ["有一定機率反射所受的傷害", 1000], ["有一定機率反射所受的傷害", 1000], ["STR%", 444], ["DEX%", 444], ["INT%", 444], ["LUK%", 444], ["最大HP%", 444], ["最大MP%", 889], ["全屬性%", 111], ["被擊中時有一定機率無視傷害", 1000], ["被擊中時有一定機率無視傷害", 1000], ["HP恢復道具及恢復技能效果增加", 1000]],
+            "下衣": [["可以使用<實用的神聖之火> 技能", 1250], ["STR%", 714], ["DEX%", 714], ["INT%", 714], ["LUK%", 714], ["最大HP%", 714], ["最大MP%", 1250], ["全屬性%", 179], ["被擊中時有一定機率無視傷害", 1250], ["被擊中時有一定機率無視傷害", 1250], ["HP恢復道具及恢復技能效果增加", 1250]],
+            "手套": [["STR", 575], ["DEX", 575], ["INT", 575], ["LUK", 575], ["可以使用<實用的會心之眼> 技能", 920], ["STR%", 575], ["DEX%", 575], ["INT%", 575], ["LUK%", 575], ["最大HP%", 575], ["最大MP%", 920], ["全屬性%", 115], ["被擊中時有一定機率無視傷害", 920], ["被擊中時有一定機率無視傷害", 920], ["HP恢復道具及恢復技能效果增加", 1034]],
+            "鞋子": [["可以使用<實用的速度激發> 技能", 1000], ["STR%", 714], ["DEX%", 714], ["INT%", 714], ["LUK%", 714], ["最大HP%", 714], ["最大MP%", 1286], ["全屬性%", 143], ["被擊中時有一定機率無視傷害", 1286], ["被擊中時有一定機率無視傷害", 1286], ["HP恢復道具及恢復技能效果增加", 1429]],
+            "披風/腰帶/肩膀/心臟/胸章": [["STR%", 877], ["DEX%", 877], ["INT%", 877], ["LUK%", 877], ["最大HP%", 877], ["最大MP%", 1228], ["全屬性%", 175], ["被擊中時有一定機率無視傷害", 1404], ["被擊中時有一定機率無視傷害", 1404], ["HP恢復道具及恢復技能效果增加", 1404]],
+            "飾品": [["STR%", 1351], ["DEX%", 1351], ["INT%", 1351], ["LUK%", 1351], ["最大HP%", 1351], ["最大MP%", 1351], ["全屬性%", 270], ["HP恢復道具及恢復技能效果增加", 1622]],
+            "武器/輔助武器": [["物理攻擊力%", 822], ["魔法攻擊力%", 822], ["總傷害%", 1644], ["無視怪物防禦力+30%", 2055], ["攻擊BOSS怪物時傷害增加+30%", 548], ["爆擊機率%", 2740], ["STR%", 274], ["DEX%", 274], ["INT%", 274], ["LUK%", 274], ["全屬性%", 274]],
+            "徽章": [["物理攻擊力%", 870], ["魔法攻擊力%", 870], ["總傷害%", 1739], ["無視怪物防禦力+30%", 2174], ["爆擊機率%", 2899], ["STR%", 290], ["DEX%", 290], ["INT%", 290], ["LUK%", 290], ["全屬性%", 290]]
+        },
+        leg: {
+            "帽子": [["減少所有技能冷卻時間(10秒以下會減少5%，不會減少到未滿5秒)", 1111], ["減少所有技能冷卻時間(10秒以下會減少5%，不會減少到未滿5秒)", 1111], ["可以使用<實用的進階祝福> 技能", 1250], ["STR%", 556], ["DEX%", 556], ["INT%", 556], ["LUK%", 556], ["最大HP%", 556], ["最大MP%", 1111], ["全屬性%", 139], ["被擊中時有一定機率無視傷害", 1250], ["被擊中時有一定機率無視傷害", 1250]],
+            "上衣/套服": [["被擊中後無敵時間增加", 1379], ["被擊中時有一定機率在時間內無敵", 1379], ["STR%", 690], ["DEX%", 690], ["INT%", 690], ["LUK%", 690], ["最大HP%", 690], ["最大MP%", 1207], ["全屬性%", 172], ["被擊中時有一定機率無視傷害", 1207], ["被擊中時有一定機率無視傷害", 1207]],
+            "下衣": [["STR%", 1026], ["DEX%", 1026], ["INT%", 1026], ["LUK%", 1026], ["最大HP%", 1026], ["最大MP%", 1538], ["全屬性%", 256], ["被擊中時有一定機率無視傷害", 1538], ["被擊中時有一定機率無視傷害", 1538]],
+            "手套": [["爆擊傷害%", 339], ["可以使用<實用的最終極速> 技能", 1356], ["STR%", 678], ["DEX%", 678], ["INT%", 678], ["LUK%", 678], ["最大HP%", 678], ["最大MP%", 1695], ["全屬性%", 169], ["被擊中時有一定機率無視傷害", 1525], ["被擊中時有一定機率無視傷害", 1525]],
+            "鞋子": [["可以使用<實用的戰鬥命令> 技能", 1250], ["STR%", 833], ["DEX%", 833], ["INT%", 833], ["LUK%", 833], ["最大HP%", 833], ["最大MP%", 1458], ["全屬性%", 208], ["被擊中時有一定機率無視傷害", 1458], ["被擊中時有一定機率無視傷害", 1458]],
+            "披風/腰帶/肩膀/心臟/胸章": [["STR%", 1026], ["DEX%", 1026], ["INT%", 1026], ["LUK%", 1026], ["最大HP%", 1026], ["最大MP%", 1538], ["全屬性%", 769], ["被擊中時有一定機率無視傷害", 1282], ["被擊中時有一定機率無視傷害", 1282]],
+            "飾品": [["STR%", 702], ["DEX%", 702], ["INT%", 702], ["LUK%", 702], ["最大HP%", 702], ["最大MP%", 1404], ["全屬性%", 175], ["所有技能的MP消耗%", 1404], ["所有技能的MP消耗%", 1404], ["楓幣獲得量%", 1053], ["道具掉落率%", 1053]],
+            "武器/輔助武器": [["物理攻擊力%", 324], ["魔法攻擊力%", 324], ["總傷害%", 1618], ["無視怪物防禦力+35%", 2589], ["無視怪物防禦力+40%", 1618], ["攻擊BOSS怪物時傷害增加+35%", 518], ["攻擊BOSS怪物時傷害增加+40%", 113], ["爆擊機率%", 2104], ["物理攻擊力", 113], ["魔法攻擊力", 113], ["STR%", 113], ["DEX%", 113], ["INT%", 113], ["LUK%", 113], ["全屬性%", 113]],
+            "徽章": [["物理攻擊力%", 345], ["魔法攻擊力%", 345], ["總傷害%", 1727], ["無視怪物防禦力+35%", 2763], ["無視怪物防禦力+40%", 1727], ["爆擊機率%", 2245], ["物理攻擊力", 121], ["魔法攻擊力", 121], ["STR%", 121], ["DEX%", 121], ["INT%", 121], ["LUK%", 121], ["全屬性%", 121]]
+        }
+    },
+    bonus: {
+        legWeight: 0.005, uniqueWeight: 0.995,
+        unique: {
+            "防具": [["STR", 791], ["DEX", 791], ["INT", 791], ["LUK", 791], ["最大HP", 791], ["最大MP", 791], ["物理攻擊力", 316], ["魔法攻擊力", 316], ["STR%", 190], ["DEX%", 190], ["INT%", 190], ["LUK%", 190], ["最大HP%", 190], ["最大MP%", 316], ["全屬性%", 190], ["HP恢復道具及恢復技能效果增加", 633], ["以角色等級為準每9級增加力量", 633], ["以角色等級為準每9級增加敏捷", 633], ["以角色等級為準每9級增加智力", 633], ["以角色等級為準每9級增加幸運", 633]],
+            "飾品": [["STR", 791], ["DEX", 791], ["INT", 791], ["LUK", 791], ["最大HP", 791], ["最大MP", 791], ["物理攻擊力", 316], ["魔法攻擊力", 316], ["STR%", 190], ["DEX%", 190], ["INT%", 190], ["LUK%", 190], ["最大HP%", 190], ["最大MP%", 316], ["全屬性%", 190], ["HP恢復道具及恢復技能效果增加", 633], ["以角色等級為準每9級增加力量", 633], ["以角色等級為準每9級增加敏捷", 633], ["以角色等級為準每9級增加智力", 633], ["以角色等級為準每9級增加幸運", 633]],
+            "武器/輔助武器": [["最大HP%", 246], ["最大MP%", 493], ["物理攻擊力%", 123], ["魔法攻擊力%", 123], ["爆擊機率%", 493], ["STR%", 246], ["DEX%", 246], ["INT%", 246], ["LUK%", 246], ["總傷害", 197], ["全屬性%", 246], ["無視怪物防禦力+4%", 985], ["攻擊BOSS怪物時傷害增加+12%", 197], ["攻擊時一定的機率恢復HP", 985], ["攻擊時一定的機率恢復MP", 985], ["以角色等級為準每9級增加力量", 985], ["以角色等級為準每9級增加敏捷", 985], ["以角色等級為準每9級增加智力", 985], ["以角色等級為準每9級增加幸運", 985]],
+            "徽章": [["最大HP%", 251], ["最大MP%", 503], ["物理攻擊力%", 126], ["魔法攻擊力%", 126], ["爆擊機率%", 503], ["STR%", 251], ["DEX%", 251], ["INT%", 251], ["LUK%", 251], ["總傷害", 201], ["全屬性%", 251], ["無視怪物防禦力+4%", 1005], ["攻擊時一定的機率恢復HP", 1005], ["攻擊時一定的機率恢復MP", 1005], ["以角色等級為準每9級增加力量", 1005], ["以角色等級為準每9級增加敏捷", 1005], ["以角色等級為準每9級增加智力", 1005], ["以角色等級為準每9級增加幸運", 1005]]
+        },
+        leg: {
+            "帽子": [["STR", 649], ["DEX", 649], ["INT", 649], ["LUK", 649], ["最大HP", 649], ["最大MP", 649], ["物理攻擊力", 260], ["魔法攻擊力", 260], ["STR%", 156], ["DEX%", 156], ["INT%", 156], ["LUK%", 156], ["最大HP%", 156], ["最大MP%", 260], ["爆擊傷害%", 260], ["全屬性%", 156], ["以角色等級為準每9級增加力量", 519], ["以角色等級為準每9級增加敏捷", 519], ["以角色等級為準每9級增加智力", 519], ["以角色等級為準每9級增加幸運", 519], ["HP恢復道具及恢復技能效果增加", 649], ["減少所有技能冷卻時間(10秒以下會減少5%，不會減少到未滿5秒)", 104], ["楓幣獲得量%", 649], ["道具掉落率%", 649]],
+            "手套": [["STR", 649], ["DEX", 649], ["INT", 649], ["LUK", 649], ["最大HP", 649], ["最大MP", 649], ["物理攻擊力", 260], ["魔法攻擊力", 260], ["STR%", 156], ["DEX%", 156], ["INT%", 156], ["LUK%", 156], ["最大HP%", 156], ["最大MP%", 260], ["爆擊傷害%", 104], ["爆擊傷害%", 260], ["全屬性%", 156], ["以角色等級為準每9級增加力量", 519], ["以角色等級為準每9級增加敏捷", 519], ["以角色等級為準每9級增加智力", 519], ["以角色等級為準每9級增加幸運", 519], ["HP恢復道具及恢復技能效果增加", 649], ["楓幣獲得量%", 649], ["道具掉落率%", 649]],
+            "一般防具": [["STR", 656], ["DEX", 656], ["INT", 656], ["LUK", 656], ["最大HP", 656], ["最大MP", 656], ["物理攻擊力", 262], ["魔法攻擊力", 262], ["STR%", 157], ["DEX%", 157], ["INT%", 157], ["LUK%", 157], ["最大HP%", 157], ["最大MP%", 262], ["爆擊傷害%", 262], ["全屬性%", 157], ["以角色等級為準每9級增加力量", 525], ["以角色等級為準每9級增加敏捷", 525], ["以角色等級為準每9級增加智力", 525], ["以角色等級為準每9級增加幸運", 525], ["HP恢復道具及恢復技能效果增加", 656], ["楓幣獲得量%", 656], ["道具掉落率%", 656]],
+            "飾品": [["STR", 631], ["DEX", 631], ["INT", 631], ["LUK", 631], ["最大HP", 631], ["最大MP", 631], ["物理攻擊力", 253], ["魔法攻擊力", 253], ["STR%", 152], ["DEX%", 152], ["INT%", 152], ["LUK%", 152], ["最大HP%", 152], ["最大MP%", 253], ["全屬性%", 152], ["以角色等級為準每9級增加力量", 505], ["以角色等級為準每9級增加敏捷", 505], ["以角色等級為準每9級增加智力", 505], ["以角色等級為準每9級增加幸運", 505], ["所有技能的MP消耗%", 631], ["HP恢復道具及恢復技能效果增加", 631], ["楓幣獲得量%", 631], ["道具掉落率%", 631]],
+            "武器": [["最大HP%", 253], ["最大MP%", 505], ["物理攻擊力%", 126], ["魔法攻擊力%", 126], ["爆擊機率%", 505], ["STR%", 253], ["DEX%", 253], ["INT%", 253], ["LUK%", 253], ["總傷害", 202], ["全屬性%", 253], ["無視怪物防禦力+5%", 1263], ["攻擊BOSS怪物時傷害增加+18%", 202], ["以角色等級為準每9級增加力量", 1010], ["以角色等級為準每9級增加敏捷", 1010], ["以角色等級為準每9級增加智力", 1010], ["以角色等級為準每9級增加幸運", 1010], ["攻擊力", 758], ["魔法攻擊力", 758]],
+            "輔助武器": [["最大HP%", 240], ["最大MP%", 481], ["物理攻擊力%", 120], ["魔法攻擊力%", 120], ["爆擊機率%", 481], ["爆擊傷害%", 481], ["STR%", 240], ["DEX%", 240], ["INT%", 240], ["LUK%", 240], ["總傷害", 192], ["全屬性%", 240], ["無視怪物防禦力+5%", 1202], ["攻擊BOSS怪物時傷害增加+18%", 192], ["以角色等級為準每9級增加力量", 962], ["以角色等級為準每9級增加敏捷", 962], ["以角色等級為準每9級增加智力", 962], ["以角色等級為準每9級增加幸運", 962], ["攻擊力", 721], ["魔法攻擊力", 721]],
+            "徽章": [["最大HP%", 258], ["最大MP%", 515], ["物理攻擊力%", 129], ["魔法攻擊力%", 129], ["爆擊機率%", 515], ["STR%", 258], ["DEX%", 258], ["INT%", 258], ["LUK%", 258], ["總傷害", 206], ["全屬性%", 258], ["無視怪物防禦力+5%", 1289], ["以角色等級為準每9級增加力量", 1031], ["以角色等級為準每9級增加敏捷", 1031], ["以角色等級為準每9級增加智力", 1031], ["以角色等級為準每9級增加幸運", 1031], ["攻擊力", 773], ["魔法攻擊力", 773]],
+            "心臟/胸章": [["STR", 674], ["DEX", 674], ["INT", 674], ["LUK", 674], ["最大HP", 674], ["最大MP", 674], ["物理攻擊力", 270], ["魔法攻擊力", 270], ["STR%", 162], ["DEX%", 162], ["INT%", 162], ["LUK%", 162], ["最大HP%", 162], ["最大MP%", 270], ["全屬性%", 162], ["以角色等級為準每9級增加力量", 539], ["以角色等級為準每9級增加敏捷", 539], ["以角色等級為準每9級增加智力", 539], ["以角色等級為準每9級增加幸運", 539], ["HP恢復道具及恢復技能效果增加", 674], ["楓幣獲得量%", 674], ["道具掉落率%", 674]]
+        }
+    }
+};
+
+const equipMapping = {
+    main: {
+        "帽子": {u: "帽子", l: "帽子"},
+        "上衣": {u: "上衣/套服", l: "上衣/套服"},
+        "套服": {u: "上衣/套服", l: "上衣/套服"},
+        "下衣": {u: "下衣", l: "下衣"},
+        "手套": {u: "手套", l: "手套"},
+        "鞋子": {u: "鞋子", l: "鞋子"},
+        "披風/腰帶/肩膀/心臟/胸章": {u: "披風/腰帶/肩膀/心臟/胸章", l: "披風/腰帶/肩膀/心臟/胸章"},
+        "飾品 (墜飾/戒指/臉飾/眼飾/耳環)": {u: "飾品", l: "飾品"},
+        "武器": {u: "武器/輔助武器", l: "武器/輔助武器"},
+        "輔助武器": {u: "武器/輔助武器", l: "武器/輔助武器"},
+        "徽章": {u: "徽章", l: "徽章"}
+    },
+    bonus: {
+        "帽子": {u: "防具", l: "帽子"},
+        "上衣": {u: "防具", l: "一般防具"},
+        "套服": {u: "防具", l: "一般防具"},
+        "下衣": {u: "防具", l: "一般防具"},
+        "手套": {u: "防具", l: "手套"},
+        "鞋子": {u: "防具", l: "一般防具"},
+        "披風/腰帶/肩膀": {u: "防具", l: "一般防具"},
+        "機器心臟/胸章": {u: "防具", l: "心臟/胸章"},
+        "飾品 (墜飾/戒指/臉飾/眼飾/耳環)": {u: "飾品", l: "飾品"},
+        "武器": {u: "武器/輔助武器", l: "武器"},
+        "輔助武器": {u: "武器/輔助武器", l: "輔助武器"},
+        "徽章": {u: "徽章", l: "徽章"}
+    }
+};
+
+// 徹底改寫演算法：將重複項目完全獨立，保存為陣列
+function restoreExactWeights(rawArray) {
+    let bestTotalW = 1;
+    let minError = Infinity;
+    let bestWeights = [];
+
+    for (let D = 1; D <= 3000; D++) {
+        let currentError = 0;
+        let tempWeights = [];
+        let sumW = 0;
+        
+        for (let i = 0; i < rawArray.length; i++) {
+            let targetRatio = rawArray[i][1] / 10000;
+            let w = Math.round(targetRatio * D);
+            tempWeights.push({ name: rawArray[i][0], w: w, original: rawArray[i][1] });
+            sumW += w;
+        }
+        
+        if (sumW === 0) continue;
+        
+        for (let i = 0; i < tempWeights.length; i++) {
+            let targetRatio = tempWeights[i].original / 10000;
+            let actualRatio = tempWeights[i].w / sumW;
+            currentError += Math.abs(targetRatio - actualRatio);
+        }
+        
+        if (currentError < minError) {
+            minError = currentError;
+            bestTotalW = sumW;
+            bestWeights = tempWeights;
+            if (currentError < 0.00001) break; // 找到完美分母
+        }
+    }
+    return { total: bestTotalW, items: bestWeights };
+}
+
+let processedDB = { main: { leg: {}, unique: {} }, bonus: { leg: {}, unique: {} } };
+
+function initDB() {
+    ['main', 'bonus'].forEach(cube => {
+        ['leg', 'unique'].forEach(tier => {
+            for (let [cat, rawArray] of Object.entries(DB[cube][tier])) {
+                processedDB[cube][tier][cat] = restoreExactWeights(rawArray);
+            }
+        });
+    });
+}
+
+function updateUI() {
+    const cubeType = document.getElementById("cubeType").value;
+    const equipSelect = document.getElementById("equipPart");
+    const currentEquip = equipSelect.value;
+    
+    equipSelect.innerHTML = "";
+    Object.keys(equipMapping[cubeType]).forEach(part => {
+        let opt = document.createElement("option");
+        opt.value = part;
+        opt.textContent = part;
+        equipSelect.appendChild(opt);
+    });
+    
+    if (equipMapping[cubeType][currentEquip]) {
+        equipSelect.value = currentEquip;
+    }
+
+    updateCheckboxesAndTable();
+}
+
+function updateCheckboxesAndTable() {
+    const cubeType = document.getElementById("cubeType").value;
+    const equipPart = document.getElementById("equipPart").value;
+    const map = equipMapping[cubeType][equipPart];
+    
+    const legPool = processedDB[cubeType].leg[map.l];
+    const uniquePool = processedDB[cubeType].unique[map.u];
+    
+    const legContainer = document.getElementById("legCheckboxes");
+    const uniqueContainer = document.getElementById("uniqueCheckboxes");
+    const tableBody = document.getElementById("probTableBody");
+    
+    legContainer.innerHTML = "";
+    uniqueContainer.innerHTML = "";
+    tableBody.innerHTML = "";
+    
+    // 改用陣列 index 避免 id 重複
+    legPool.items.forEach((item, index) => {
+        let prob = ((item.w / legPool.total) * 100).toFixed(2);
+        
+        let div = document.createElement("div");
+        div.className = "checkbox-item";
+        div.innerHTML = `<input type="checkbox" id="leg_${index}" value="${index}"><label for="leg_${index}">${item.name}</label>`;
+        legContainer.appendChild(div);
+
+        let tr = document.createElement("tr");
+        tr.className = "row-leg";
+        tr.innerHTML = `<td>傳說</td><td>${item.name}</td><td>${prob}% (${item.w}/${legPool.total})</td>`;
+        tableBody.appendChild(tr);
+    });
+
+    uniquePool.items.forEach((item, index) => {
+        let prob = ((item.w / uniquePool.total) * 100).toFixed(2);
+        
+        let div = document.createElement("div");
+        div.className = "checkbox-item";
+        div.innerHTML = `<input type="checkbox" id="uni_${index}" value="${index}"><label for="uni_${index}">${item.name}</label>`;
+        uniqueContainer.appendChild(div);
+
+        let tr = document.createElement("tr");
+        tr.className = "row-unique";
+        tr.innerHTML = `<td>罕見</td><td>${item.name}</td><td>${prob}% (${item.w}/${uniquePool.total})</td>`;
+        tableBody.appendChild(tr);
+    });
+}
+
+function calculate() {
+    const cubeType = document.getElementById("cubeType").value;
+    const equipPart = document.getElementById("equipPart").value;
+    const goalType = parseInt(document.getElementById("goalType").value);
+    
+    const map = equipMapping[cubeType][equipPart];
+    const legPool = processedDB[cubeType].leg[map.l];
+    const uniquePool = processedDB[cubeType].unique[map.u];
+    
+    let legHitWeight = 0;
+    let uniqueHitWeight = 0;
+    
+    // 透過 value 抓取陣列內的正確權重
+    document.querySelectorAll("#legCheckboxes input:checked").forEach(chk => {
+        legHitWeight += legPool.items[parseInt(chk.value)].w;
+    });
+    document.querySelectorAll("#uniqueCheckboxes input:checked").forEach(chk => {
+        uniqueHitWeight += uniquePool.items[parseInt(chk.value)].w;
+    });
+
+    if (legHitWeight === 0 && uniqueHitWeight === 0) {
+        alert("請至少在傳說或罕見區選擇一個目標詞條！");
+        return;
+    }
+
+    let pLeg = legHitWeight / legPool.total;
+    let pUnique = uniqueHitWeight / uniquePool.total;
+    let weightLegTier = DB[cubeType].legWeight;
+    let weightUniqueTier = DB[cubeType].uniqueWeight;
+    
+    let overallHitRate = (weightLegTier * pLeg) + (weightUniqueTier * pUnique);
+    
+    let expectedCubes = 0;
+    if (goalType === 1) {
+        expectedCubes = 3 / overallHitRate;
+    } else if (goalType === 2) {
+        expectedCubes = 4.5 / overallHitRate;
+    } else if (goalType === 3) {
+        expectedCubes = 5.5 / overallHitRate;
+    }
+
+    const resBox = document.getElementById("resultArea");
+    resBox.style.display = "block";
+    
+    let legTierPct = weightLegTier * 100;
+    let uniqueTierPct = weightUniqueTier * 100;
+    let overallPercent = (overallHitRate * 100).toFixed(4);
+
+    resBox.innerHTML = `
+        <div class="result-title">計算結果分析</div>
+        <div class="result-text">
+            單排命中率 P = (${legTierPct}% × ${legHitWeight}/${legPool.total}) + (${uniqueTierPct}% × ${uniqueHitWeight}/${uniquePool.total}) = <span class="highlight">${overallPercent}%</span>
+        </div>
+        <div class="result-text" style="font-size: 22px; margin-top: 10px;">
+            達成目標平均期望消耗：<span class="highlight">${Math.ceil(expectedCubes).toLocaleString()}</span> 顆
+            <span style="font-size: 14px; color: #888;">(未進位精確值: ${expectedCubes.toFixed(2)})</span>
+        </div>
+    `;
+}
+
+// ==========================================
+// localStorage 儲存機制
+// ==========================================
+const _SK20 = 'tool20_settings';
+
+function _save20() {
+    const legChecked = Array.from(document.querySelectorAll('#legCheckboxes input:checked')).map(el => el.value);
+    const uniChecked = Array.from(document.querySelectorAll('#uniqueCheckboxes input:checked')).map(el => el.value);
+    localStorage.setItem(_SK20, JSON.stringify({
+        cubeType:  document.getElementById('cubeType').value,
+        equipPart: document.getElementById('equipPart').value,
+        goalType:  document.getElementById('goalType').value,
+        legChecked, uniChecked
+    }));
+}
+
+function _load20() {
+    const raw = localStorage.getItem(_SK20);
+    if (!raw) return;
+    try {
+        const s = JSON.parse(raw);
+        if (s.cubeType) {
+            document.getElementById('cubeType').value = s.cubeType;
+            updateUI();
+        }
+        if (s.equipPart) {
+            const equipSel = document.getElementById('equipPart');
+            if ([...equipSel.options].some(o => o.value === s.equipPart)) {
+                equipSel.value = s.equipPart;
+                updateCheckboxesAndTable();
+            }
+        }
+        if (s.goalType) document.getElementById('goalType').value = s.goalType;
+        if (s.legChecked) s.legChecked.forEach(v => { const el = document.getElementById(`leg_${v}`); if (el) el.checked = true; });
+        if (s.uniChecked) s.uniChecked.forEach(v => { const el = document.getElementById(`uni_${v}`); if (el) el.checked = true; });
+    } catch(e) {}
+}
+
+initDB();
+updateUI();
+_load20();
+
+document.getElementById('cubeType').addEventListener('change', _save20);
+document.getElementById('equipPart').addEventListener('change', _save20);
+document.getElementById('goalType').addEventListener('change', _save20);
+document.getElementById('legCheckboxes').addEventListener('change', _save20);
+document.getElementById('uniqueCheckboxes').addEventListener('change', _save20);
+</script>
+
+</body>
+</html>
+
+

@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="新楓之谷殺人鯨拼圖期望值計算機，精準幫助玩家預估湊齊各類拼圖（包含一般、覺醒、真、真覺醒 1~12 部位）所需的「殺人鯨拼圖隨機箱」與「真殺人鯨拼圖隨機箱」開啟數量。系統採用排容原理與期望值數學模型，並完整支援多餘拼圖分解為碎片再兌換的回收成本分析，協助玩家找出最精確的開箱花費。">
+    <title>新楓之谷 殺人鯨拼圖期望值分析</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f4f9; color: #333; line-height: 1.6; padding: 20px; max-width: 1000px; margin: 0 auto; }
+        h1, h2, h3 { color: #2c3e50; }
+        .card { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .target-selector { margin-bottom: 20px; }
+        select { padding: 10px; font-size: 16px; width: 100%; border-radius: 5px; border: 1px solid #ccc; }
+        .grid-container { display: grid; grid-template-columns: repeat(12, 1fr); gap: 5px; text-align: center; margin-bottom: 15px; }
+        .grid-header { font-weight: bold; background: #e2e8f0; padding: 8px 5px; border-radius: 3px; font-size: 14px;}
+        .checkbox-cell { background: #f8fafc; padding: 0; border-radius: 3px; border: 1px solid #e2e8f0; cursor: pointer; transition: background 0.15s; }
+        .checkbox-cell:hover { background: #dbeafe; border-color: #93c5fd; }
+        .checkbox-cell label { display: flex; align-items: center; justify-content: center; padding: 14px 5px; cursor: pointer; width: 100%; height: 100%; box-sizing: border-box; }
+        input[type="checkbox"] { width: 20px; height: 20px; cursor: pointer; margin: 0; accent-color: #3b82f6; }
+        .puzzle-row { display: none; margin-bottom: 15px; }
+        .btn-clear { background: #6b7280; color: white; padding: 7px 16px; border: none; border-radius: 5px; font-size: 14px; cursor: pointer; transition: background 0.2s; white-space: nowrap; }
+        .btn-clear:hover { background: #dc2626; }
+        .btn { background: #3b82f6; color: white; padding: 12px 24px; border: none; border-radius: 5px; font-size: 16px; cursor: pointer; width: 100%; transition: background 0.3s; margin-top: 10px; }
+        .btn:hover { background: #2563eb; }
+        #result-area { display: none; background: #dcfce7; border-left: 5px solid #22c55e; padding: 15px; margin-top: 20px; font-size: 16px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 14px; text-align: center; background: #fff; }
+        th, td { border: 1px solid #cbd5e1; padding: 8px; }
+        th { background: #f1f5f9; }
+        .highlight { font-weight: bold; color: #dc2626; }
+        .chart-container { position: relative; height: 400px; width: 100%; margin-top: 20px; display: none; background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+    </style>
+</head>
+<body>
+<div id="global-nav"></div>
+<script>window.TOOL_ID = 22;</script>
+<script src="../shared-nav.js"></script>
+<script src="../shared-subtitle.js"></script>
+
+    <h1>新楓之谷 殺人鯨拼圖期望值分析</h1>
+    <div id="tool-subtitle"></div>
+
+    <div class="card">
+        <div class="target-selector">
+            <label for="target"><strong>1. 請先選擇目標：</strong></label>
+            <select id="target" onchange="updateGridVisibility()">
+                <option value="1">湊齊 殺人鯨拼圖 1-12，不限覺醒與否 (計算 殺人鯨拼圖隨機箱 期望值)</option>
+                <option value="2">湊齊 覺醒殺人鯨拼圖 1-12，全都要覺醒 (計算 殺人鯨拼圖隨機箱 期望值)</option>
+                <option value="3">湊齊 真殺人鯨拼圖 1-12，不限覺醒與否 (計算 真殺人鯨拼圖隨機箱 或 殺人鯨拼圖隨機箱 期望值)</option>
+                <option value="4">湊齊 真覺醒殺人鯨拼圖 1-12，全都要覺醒 (計算 真殺人鯨拼圖隨機箱 或 殺人鯨拼圖隨機箱 期望值)</option>
+            </select>
+        </div>
+
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+            <h3 style="margin: 0;">2. 勾選目前擁有的對應拼圖：</h3>
+            <button class="btn-clear" onclick="clearAllCheckboxes()">清空全部勾選</button>
+        </div>
+        <div id="checkbox-grid"></div>
+
+        <button class="btn" onclick="calculateExpectedValue()">執行計算</button>
+
+        <div id="result-area"></div>
+        
+        <div id="chart-section" class="chart-container">
+            <canvas id="probabilityChart"></canvas>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3>官方機率表參考</h3>
+        <table>
+            <tr>
+                <th colspan="4">藍箱：殺人鯨拼圖隨機箱 (攻擊力/魔力)</th>
+                <th colspan="4">紫箱：真殺人鯨拼圖隨機箱 (攻擊力/魔力)</th>
+            </tr>
+            <tr>
+                <th>殺人鯨拼圖</th><th>機率</th><th>覺醒殺人鯨拼圖</th><th>機率</th>
+                <th>真殺人鯨拼圖</th><th>機率</th><th>真覺醒殺人鯨拼圖</th><th>機率</th>
+            </tr>
+            <tr><td>1</td><td>4.00%</td><td>1</td><td>2.00%</td><td>1</td><td>10.00%</td><td>1</td><td>0.50%</td></tr>
+            <tr><td>2</td><td>4.00%</td><td>2</td><td>6.00%</td><td>2</td><td>6.00%</td><td>2</td><td>1.50%</td></tr>
+            <tr><td>3</td><td>2.00%</td><td>3</td><td>2.00%</td><td>3</td><td>1.00%</td><td>3</td><td>0.50%</td></tr>
+            <tr><td>4</td><td>6.00%</td><td>4</td><td>4.00%</td><td>4</td><td>8.00%</td><td>4</td><td>1.00%</td></tr>
+            <tr><td>5</td><td>5.00%</td><td>5</td><td>2.00%</td><td>5</td><td>10.00%</td><td>5</td><td>0.50%</td></tr>
+            <tr><td>6</td><td>6.00%</td><td>6</td><td>6.00%</td><td>6</td><td>12.00%</td><td>6</td><td>1.50%</td></tr>
+            <tr><td>7</td><td>2.00%</td><td>7</td><td>4.00%</td><td>7</td><td>1.50%</td><td>7</td><td>1.00%</td></tr>
+            <tr><td>8</td><td>6.00%</td><td>8</td><td>4.00%</td><td>8</td><td>10.00%</td><td>8</td><td>1.00%</td></tr>
+            <tr><td>9</td><td>5.00%</td><td>9</td><td>4.00%</td><td>9</td><td>6.00%</td><td>9</td><td>1.00%</td></tr>
+            <tr><td>10</td><td>6.00%</td><td>10</td><td>6.00%</td><td>10</td><td>7.00%</td><td>10</td><td>1.50%</td></tr>
+            <tr><td>11</td><td>2.00%</td><td>11</td><td>4.00%</td><td>11</td><td>1.00%</td><td>11</td><td>1.00%</td></tr>
+            <tr><td>12</td><td>6.00%</td><td>12</td><td>2.00%</td><td>12</td><td>10.00%</td><td>12</td><td>0.50%</td></tr>
+        </table>
+        <br>
+        <table>
+            <tr><th colspan="4">多餘拼圖分解碎片機率 (合成真殺人鯨拼圖隨機箱：殺人鯨拼圖碎片需 6 個 / 真殺人鯨拼圖碎片需 4 個)</th></tr>
+            <tr><th>獲得數量</th><th>殺人鯨拼圖 / 真殺人鯨拼圖</th><th>覺醒殺人鯨拼圖 / 真覺醒殺人鯨拼圖</th></tr>
+            <tr><td>1 個</td><td>40.00%</td><td>30.00%</td></tr>
+            <tr><td>2 個</td><td>35.00%</td><td>35.00%</td></tr>
+            <tr><td>3 個</td><td>10.00%</td><td>20.00%</td></tr>
+            <tr><td>4 個</td><td>10.00%</td><td>10.00%</td></tr>
+            <tr><td>5 個</td><td>5.00%</td><td>5.00%</td></tr>
+            <tr><td colspan="3">期望值：殺人鯨拼圖系列 (2.05個) ； 覺醒殺人鯨拼圖系列 (2.25個)</td></tr>
+        </table>
+    </div>
+
+    <script>
+        const probNormal = [0.04, 0.04, 0.02, 0.06, 0.05, 0.06, 0.02, 0.06, 0.05, 0.06, 0.02, 0.06];
+        const probAwakened = [0.02, 0.06, 0.02, 0.04, 0.02, 0.06, 0.04, 0.04, 0.04, 0.06, 0.04, 0.02];
+        const probTrue = [0.10, 0.12, 0.01, 0.08, 0.10, 0.12, 0.015, 0.10, 0.06, 0.07, 0.01, 0.10];
+        const probTrueAwakened = [0.005, 0.015, 0.005, 0.01, 0.005, 0.015, 0.01, 0.01, 0.01, 0.015, 0.01, 0.005];
+
+        // 碎片回收常數
+        const E_FRAG_BLUE = 0.54 * 2.05 + 0.46 * 2.25; 
+        const E_FRAG_PURPLE = 0.885 * 2.05 + 0.115 * 2.25; 
+
+        const puzzleTypes = [
+            { id: 'n', name: '殺人鯨拼圖', validForTargets: ['1'] },
+            { id: 'a', name: '覺醒殺人鯨拼圖', validForTargets: ['1', '2'] },
+            { id: 't', name: '真殺人鯨拼圖', validForTargets: ['3'] },
+            { id: 'ta', name: '真覺醒殺人鯨拼圖', validForTargets: ['3', '4'] }
+        ];
+
+        let chartInstance = null; 
+
+        function createGrid() {
+            const container = document.getElementById('checkbox-grid');
+            let html = `<div class="grid-container">`;
+            for(let i = 1; i <= 12; i++) html += `<div class="grid-header">部位 ${i}</div>`;
+            html += `</div>`;
+            puzzleTypes.forEach(type => {
+                html += `<div id="row_${type.id}" class="puzzle-row">`;
+                html += `<div style="margin-bottom: 5px;"><strong>${type.name}：</strong></div>`;
+                html += `<div class="grid-container">`;
+                for(let i = 1; i <= 12; i++) {
+                    html += `<div class="checkbox-cell"><label for="${type.id}_${i}"><input type="checkbox" id="${type.id}_${i}"></label></div>`;
+                }
+                html += `</div></div>`;
+            });
+            container.innerHTML = html;
+        }
+
+        function updateGridVisibility() {
+            const target = document.getElementById('target').value;
+            puzzleTypes.forEach(type => {
+                const rowElement = document.getElementById(`row_${type.id}`);
+                if (type.validForTargets.includes(target)) {
+                    rowElement.style.display = 'block'; 
+                } else {
+                    rowElement.style.display = 'none';  
+                    for(let i = 1; i <= 12; i++) {
+                        document.getElementById(`${type.id}_${i}`).checked = false;
+                    }
+                }
+            });
+            document.getElementById('result-area').style.display = 'none';
+            document.getElementById('chart-section').style.display = 'none';
+        }
+
+        function calculateInclusionExclusion(missingIndices, targetProbs) {
+            if (missingIndices.length === 0) return 0;
+            let expectedBoxes = 0;
+            let n = missingIndices.length;
+            let totalSubsets = 1 << n;
+            for (let i = 1; i < totalSubsets; i++) {
+                let sumProb = 0, count = 0;
+                for (let j = 0; j < n; j++) {
+                    if ((i & (1 << j)) !== 0) {
+                        sumProb += targetProbs[missingIndices[j] - 1];
+                        count++;
+                    }
+                }
+                if (sumProb > 0) {
+                    let term = 1 / sumProb;
+                    if (count % 2 === 1) expectedBoxes += term;
+                    else expectedBoxes -= term;
+                }
+            }
+            return expectedBoxes;
+        }
+
+        function calculateCDF(k, missingIndices, targetProbs) {
+            if (missingIndices.length === 0) return 1;
+            let n = missingIndices.length;
+            let totalSubsets = 1 << n;
+            let pFail = 0; 
+            for (let i = 1; i < totalSubsets; i++) {
+                let sumProb = 0, count = 0;
+                for (let j = 0; j < n; j++) {
+                    if ((i & (1 << j)) !== 0) {
+                        sumProb += targetProbs[missingIndices[j] - 1];
+                        count++;
+                    }
+                }
+                if (sumProb > 0) {
+                    let term = Math.pow(1 - sumProb, k);
+                    if (count % 2 === 1) pFail += term;
+                    else pFail -= term;
+                }
+            }
+            return Math.max(0, Math.min(1, 1 - pFail));
+        }
+
+        function calculateExpectedValue() {
+            const target = document.getElementById('target').value;
+            let missingIndices = [];
+            let targetProbs = [];
+            
+            for (let i = 1; i <= 12; i++) {
+                let nChecked = document.getElementById(`n_${i}`).checked;
+                let aChecked = document.getElementById(`a_${i}`).checked;
+                let tChecked = document.getElementById(`t_${i}`).checked;
+                let taChecked = document.getElementById(`ta_${i}`).checked;
+                if (target === "1") {
+                    if (!nChecked && !aChecked) missingIndices.push(i);
+                    targetProbs.push(probNormal[i-1] + probAwakened[i-1]);
+                } else if (target === "2") {
+                    if (!aChecked) missingIndices.push(i);
+                    targetProbs.push(probAwakened[i-1]);
+                } else if (target === "3") {
+                    if (!tChecked && !taChecked) missingIndices.push(i);
+                    targetProbs.push(probTrue[i-1] + probTrueAwakened[i-1]);
+                } else if (target === "4") {
+                    if (!taChecked) missingIndices.push(i);
+                    targetProbs.push(probTrueAwakened[i-1]);
+                }
+            }
+
+            // --- 精確計算保留拼圖的期望碎片價值 (E_K) ---
+            let E_K = 0;
+            for (let i = 0; i < missingIndices.length; i++) {
+                let idx = missingIndices[i] - 1;
+                if (target === "1") {
+                    let pN = probNormal[idx], pA = probAwakened[idx];
+                    E_K += (pN * 2.05 + pA * 2.25) / (pN + pA);
+                } else if (target === "2") {
+                    E_K += 2.25;
+                } else if (target === "3") {
+                    let pT = probTrue[idx], pTA = probTrueAwakened[idx];
+                    E_K += (pT * 2.05 + pTA * 2.25) / (pT + pTA);
+                } else if (target === "4") {
+                    E_K += 2.25;
+                }
+            }
+            // --------------------------------------------------
+
+            let grossBoxes = calculateInclusionExclusion(missingIndices, targetProbs);
+            if (grossBoxes === 0) {
+                document.getElementById('result-area').style.display = 'block';
+                document.getElementById('result-area').innerHTML = "您已經達成目標了，不需要再開任何箱子！";
+                document.getElementById('chart-section').style.display = 'none';
+                return;
+            }
+
+            let percentiles = { 50: 0, 80: 0, 90: 0, 95: 0, 99: 0 };
+            let chartData = [];
+            let k = missingIndices.length; 
+            let currentProb = 0;
+            while (currentProb < 0.995 && k <= 10000) { 
+                currentProb = calculateCDF(k, missingIndices, targetProbs);
+                [50, 80, 90, 95, 99].forEach(p => {
+                    if (currentProb >= p / 100 && percentiles[p] === 0) percentiles[p] = k;
+                });
+                if (k % Math.ceil(grossBoxes / 20) === 0 || currentProb >= 0.995) {
+                    chartData.push({ x: k, y: (currentProb * 100).toFixed(2) });
+                }
+                k++;
+            }
+
+            let resultHTML = "";
+            let E_fpb = (target === "1" || target === "2") ? E_FRAG_BLUE : E_FRAG_PURPLE;
+            let E_TotalF = grossBoxes * E_fpb;
+            let E_DismantledF = Math.max(0, E_TotalF - E_K); // 實際可供分解的期望碎片總數
+
+            if (target === "1" || target === "2") {
+                // 目標 1 & 2：扣除藍碎片期望餘數(2.5)後除以6，直接視為副產物
+                let expectedLeftoverBlue = 2.5; 
+                let totalExtraPurple = Math.max(0, E_DismantledF - expectedLeftoverBlue) / 6;
+                
+                resultHTML = `
+                    <h3>計算結果與分布分析</h3>
+                    <p>1. 理論平均需要<strong>購買並開啟</strong>：<span class="highlight">${grossBoxes.toFixed(2)}</span> 個 殺人鯨拼圖隨機箱(藍箱)</p>
+                    <p>2. 分解過程中，預計可額外兌換：<span class="highlight">${totalExtraPurple.toFixed(2)}</span> 個 真殺人鯨拼圖隨機箱(紫箱) (副產物)</p>
+                    <p style="font-size: 13px; color: #666;">*註：此處真殺人鯨拼圖隨機箱視為直接交易售出的副產物，故不計算開啟後的真殺人鯨拼圖碎片回收 (4:1) 收益。</p>
+                `;
+            } else {
+                // 目標 3 & 4：計算精準的碎片成本扣除
+                let expectedLeftoverPurple = 1.5; // 紫碎片除以4的平均期望餘數 (0,1,2,3 的平均)
+                let craftedPurple = Math.max(0, E_DismantledF - expectedLeftoverPurple) / 4;
+                let netPurpleBoxes = grossBoxes - craftedPurple;
+
+                let expectedLeftoverBlue = 2.5; // 藍碎片除以6的平均期望餘數 (0,1,2,3,4,5 的平均)
+                let netBlueBoxes = (netPurpleBoxes * 6 + expectedLeftoverBlue) / E_FRAG_BLUE;
+
+                resultHTML = `
+                    <h3>計算結果與分布分析</h3>
+                    <p>要達成此目標，<strong>理論平均需要開啟的總箱數為：<span class="highlight">${grossBoxes.toFixed(2)}</span> 箱</strong></p>
+                    <hr style="border: 0; border-top: 1px dashed #ccc; margin: 15px 0;">
+                    <p><strong>方案 A：購買 真殺人鯨拼圖隨機箱 (紫箱)</strong></p>
+                    <ul>
+                        <li>扣除多餘拼圖分解再抽的回收效益（4 個真殺人鯨拼圖碎片換 1 箱），實際只需購買：<span class="highlight">${netPurpleBoxes.toFixed(2)}</span> 個 真殺人鯨拼圖隨機箱(紫箱)</li>
+                    </ul>
+                    <p><strong>方案 B：購買 殺人鯨拼圖隨機箱 (藍箱) 分解兌換</strong></p>
+                    <ul>
+                        <li>全部靠藍箱分解換取（6 個殺人鯨拼圖碎片換 1 紫箱），並搭配紫箱的循環回收，實際需購買：<span class="highlight">${netBlueBoxes.toFixed(2)}</span> 個 殺人鯨拼圖隨機箱(藍箱)</li>
+                    </ul>
+                `;
+            }
+
+            let boxName = (target === "1" || target === "2") ? "個 殺人鯨拼圖隨機箱(藍箱)" : "個 真殺人鯨拼圖隨機箱(紫箱)";
+            let costFn = (k_val) => {
+                let E_TotalF_k = k_val * E_fpb;
+                let E_D_k = Math.max(0, E_TotalF_k - E_K);
+                let expectedLeftoverPurple = 1.5;
+                let crafted_k = Math.max(0, E_D_k - expectedLeftoverPurple) / 4;
+                return Math.max(0, k_val - crafted_k).toFixed(1);
+            };
+
+            // 根據不同目標動態產生列表 HTML，目標1、2不顯示 (約購 xx 箱)
+            let getListItemHTML = (percent, color, clicks) => {
+                if (target === "1" || target === "2") {
+                    return `<li><strong style="color: ${color};">${percent}% 的人</strong> 總計購買並開啟 <strong>${clicks}</strong> ${boxName} 湊齊</li>`;
+                } else {
+                    return `<li><strong style="color: ${color};">${percent}% 的人</strong> 總計開啟 <strong>${clicks}</strong> ${boxName} 湊齊 (約購 <span class="highlight">${costFn(clicks)}</span> 箱)</li>`;
+                }
+            };
+
+            resultHTML += `
+                <hr style="border: 0; border-top: 1px dashed #ccc; margin: 15px 0;">
+                <p>機率分布 (累積達標機率)：</p>
+                <ul>
+                    ${getListItemHTML(50, '#2563eb', percentiles[50])}
+                    ${getListItemHTML(80, '#16a34a', percentiles[80])}
+                    ${getListItemHTML(90, '#d97706', percentiles[90])}
+                    ${getListItemHTML(99, '#dc2626', percentiles[99])}
+                </ul>
+            `;
+
+            document.getElementById('result-area').style.display = 'block';
+            document.getElementById('result-area').innerHTML = resultHTML;
+            document.getElementById('chart-section').style.display = 'block';
+            const ctx = document.getElementById('probabilityChart').getContext('2d');
+            if (chartInstance) chartInstance.destroy(); 
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: chartData.map(d => d.x),
+                    datasets: [{
+                        label: '湊齊機率 (%)',
+                        data: chartData.map(d => d.y),
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'nearest', axis: 'x', intersect: false },
+                    plugins: {
+                        legend: { display: false },
+                        title: { display: true, text: `累積達標機率曲線`, font: { size: 16 } },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) { return `達標機率: ${context.parsed.y}%`; },
+                                title: function(context) { 
+                                    let k_val = parseInt(context[0].label);
+                                    // Tooltip 也根據目標動態顯示
+                                    if (target === "1" || target === "2") {
+                                        return `購買並開啟次數: ${k_val} 箱`;
+                                    } else {
+                                        return `總開啟次數: ${k_val} (約購: ${costFn(k_val)} 箱)`; 
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: { title: { display: true, text: '總計開啟箱數' } },
+                        y: { min: 0, max: 100, ticks: { stepSize: 20 } }
+                    }
+                }
+            });
+        }
+        // ==========================================
+        // localStorage 儲存機制
+        // ==========================================
+        const _SK22 = 'tool22_settings';
+
+        function _save22() {
+            const cbState = {};
+            ['n','a','t','ta'].forEach(type => {
+                for (let i = 1; i <= 12; i++) {
+                    const el = document.getElementById(`${type}_${i}`);
+                    if (el) cbState[`${type}_${i}`] = el.checked;
+                }
+            });
+            localStorage.setItem(_SK22, JSON.stringify({
+                target: document.getElementById('target').value,
+                checkboxes: cbState
+            }));
+        }
+
+        function _load22() {
+            const raw = localStorage.getItem(_SK22);
+            if (!raw) return;
+            try {
+                const s = JSON.parse(raw);
+                if (s.target) {
+                    document.getElementById('target').value = s.target;
+                    updateGridVisibility();
+                }
+                if (s.checkboxes) {
+                    Object.entries(s.checkboxes).forEach(([id, checked]) => {
+                        const el = document.getElementById(id);
+                        if (el) el.checked = checked;
+                    });
+                }
+            } catch(e) {}
+        }
+
+        function clearAllCheckboxes() {
+            ['n','a','t','ta'].forEach(type => {
+                for (let i = 1; i <= 12; i++) {
+                    const el = document.getElementById(`${type}_${i}`);
+                    if (el) el.checked = false;
+                }
+            });
+            _save22();
+        }
+
+        createGrid();
+        updateGridVisibility();
+        _load22();
+
+        document.getElementById('target').addEventListener('change', _save22);
+        document.getElementById('checkbox-grid').addEventListener('change', _save22);
+    </script>
+</body>
+</html>
+
+

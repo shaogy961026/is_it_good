@@ -1,0 +1,1015 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>新楓之谷 HEXA屬性策略分析</title>
+    <meta name="description" content="運用動態規劃 (DP) 與模擬技術，尋找《新楓之谷》HEXA 屬性強化的最佳路徑。預測碎片消耗期望值並驗證不同強化策略的成本效益。">
+    <style>
+        :root { 
+            --bg: #ffffff; 
+            --text: #333333; 
+            --accent: #2c3e50; 
+            --highlight: #2980b9;
+            --border: #e0e0e0;
+            --success: #27ae60;
+            --danger: #c0392b;
+            --warning: #d35400;
+        }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); padding: 20px; line-height: 1.5; }
+        .container { max-width: 1100px; margin: auto; }
+        
+        h2 { border-bottom: 3px solid var(--highlight); padding-bottom: 10px; color: var(--accent); margin-top: 0; }
+
+        .controls { background: #f8f9fa; padding: 20px; border-radius: 8px; border: 1px solid var(--border); display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-end; margin-bottom: 20px; }
+        .control-group { display: flex; flex-direction: column; gap: 5px; }
+        label { font-size: 0.9em; font-weight: bold; color: #555; }
+        
+        /* --- 修正版面跳動的核心樣式 --- */
+        .input-row-wrapper {
+            position: relative; 
+            display: flex;
+            align-items: center;
+        }
+        
+        select {
+            padding: 8px 12px; 
+            border: 1px solid #ccc; 
+            border-radius: 4px; 
+            background: #fff; 
+            font-size: 1em; 
+            height: 38px;
+            box-sizing: border-box;
+            min-width: 130px;
+        }
+
+        /* 輸入框樣式：改為絕對定位 (懸浮) */
+        #customSimVal {
+            position: absolute;  
+            top: 100%;           
+            left: 0;
+            margin-top: 5px;     
+            width: 130px;        
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            background: #fff;
+            font-size: 1em;
+            height: 38px;
+            box-sizing: border-box;
+            z-index: 100;        
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
+        }
+        /* --------------------------- */
+        
+        .checkbox-group { display: flex; align-items: center; gap: 8px; padding-bottom: 8px; }
+        input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; }
+        .cb-label { cursor: pointer; color: #8e44ad; font-weight: bold; }
+
+        button { background: var(--highlight); color: white; border: none; padding: 10px 30px; font-size: 1em; border-radius: 4px; cursor: pointer; font-weight: bold; transition: background 0.2s; margin-left: auto; }
+        button:hover { background: #2980b9; }
+        button:disabled { background: #95a5a6; cursor: not-allowed; }
+
+        .progress-wrap { width: 100%; height: 5px; background: #eee; margin-top: 0; overflow: hidden; display: none; }
+        .progress-bar { height: 100%; background: var(--success); width: 0%; transition: width 0.1s; }
+
+        .results-area { display: none; margin-top: 20px; }
+        
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); font-size: 0.95em; }
+        th, td { padding: 10px 12px; text-align: center; border: 1px solid var(--border); }
+        th { background: #f1f3f5; color: #495057; font-weight: 600; }
+        
+        .val-primary { color: var(--highlight); font-weight: bold; font-size: 1.1em; }
+        .val-secondary { color: var(--danger); font-weight: bold; }
+        .tag-save { background: rgba(39, 174, 96, 0.1); color: var(--success); padding: 2px 6px; border-radius: 4px; font-size: 0.85em; font-weight: bold; }
+
+        .card { border: 1px solid var(--border); border-radius: 8px; padding: 20px; margin-bottom: 20px; }
+        .card h3 { margin-top: 0; font-size: 1.1em; color: var(--accent); border-left: 4px solid var(--highlight); padding-left: 10px; display: flex; justify-content: space-between; align-items: center; }
+
+        /* --- 修正表格標題擠壓換行的問題 --- */
+        .strat-table-container { 
+            overflow-x: auto; 
+            width: 100%;
+        }
+        .strat-table th, .strat-table td { 
+            white-space: nowrap; 
+            min-width: 40px; 
+        }
+        /* ----------------------------------- */
+        
+        .strat-table th { position: sticky; top: 0; z-index: 10; background: #eee; }
+        .strat-row-header { background: #f8f9fa; font-weight: bold; border-right: 2px solid #ddd; }
+        
+        /* --- 表格左上角對角線切分 (終極防禦版) --- */
+        th.diag-cell-wrapper {
+            padding: 0 !important; /* 清除預設內邊距 */
+            vertical-align: top;
+        }
+        .diag-container {
+            position: relative;
+            min-width: 130px;
+            height: 60px;
+            /* 使用標準編碼的 SVG 畫出一條 100% 左上到右下的斜線 (\) */
+            background: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100%25' height='100%25'%3E%3Cline x1='0' y1='0' x2='100%25' y2='100%25' stroke='%23aaaaaa' stroke-width='1.5'/%3E%3C/svg%3E") #eee no-repeat center center;
+            background-size: 100% 100%;
+        }
+        .diag-top {
+            position: absolute;
+            top: 5px;
+            right: 12px;
+            font-size: 0.95em;
+            color: #555;
+            font-weight: bold;
+        }
+        .diag-bottom {
+            position: absolute;
+            bottom: 5px;
+            left: 12px;
+            font-size: 0.95em;
+            color: #555;
+            font-weight: bold;
+        }
+        /* -------------------------- */
+
+        .cell-keep { background-color: rgba(46, 204, 113, 0.2); color: #219150; font-weight: bold; }
+        .cell-reset { background-color: rgba(231, 76, 60, 0.1); color: #c0392b; font-size: 0.9em; }
+
+        .match-good { color: var(--success); font-weight: bold; }
+        .match-bad { color: var(--danger); font-weight: bold; }
+
+        /* 新增按鈕樣式 */
+        .btn-detail { background: #7f8c8d; padding: 4px 12px; font-size: 0.85em; border-radius: 4px; color: white; border:none; cursor: pointer; margin-top: 8px;}
+        .btn-detail:hover { background: #95a5a6; }
+
+        /* 自訂策略樣式 */
+        .custom-strat-wrap { display: none; margin-top: 15px; }
+        .custom-cell { cursor: pointer; user-select: none; transition: background 0.1s; }
+        .custom-cell:hover { filter: brightness(0.95); }
+        .c-keep { background-color: #d5f5e3; color: #219150; font-weight: bold; }
+        .c-reset { background-color: #fadbd8; color: #c0392b; font-weight: bold; }
+        
+        /* Popup Modal 樣式 */
+        .modal { display: none; position: fixed; z-index: 999; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4); }
+        .modal-content { background-color: #fefefe; margin: 5% auto; padding: 20px; border: 1px solid #888; width: 80%; max-width: 600px; border-radius: 8px; }
+        .close { color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer; }
+        .close:hover { color: black; }
+        .modal-table-wrap { max-height: 60vh; overflow-y: auto; margin-top: 15px; border: 1px solid #ddd; }
+        .modal-table { width: 100%; border-collapse: collapse; font-size: 0.9em; }
+        .modal-table th { position: sticky; top: 0; background: #2c3e50; color: white; padding: 8px; text-align: center; }
+        .modal-table td { padding: 6px; text-align: center; border-bottom: 1px solid #eee; }
+        .modal-table tr:nth-child(even) { background-color: #f9f9f9; }
+        
+        /* --- 副標題專用樣式 (精確版) --- */
+        .subtitle-container {
+            max-width: 900px;
+            margin: -10px auto 25px auto;
+            text-align: center;
+            color: #555;
+            background-color: #f8f9fa;
+            border-radius: 6px;
+            padding: 15px 20px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .subtitle-main {
+            margin: 0 0 12px 0;
+            font-size: 1.05rem;
+            color: #2c3e50;
+            line-height: 1.5;
+        }
+
+        .subtitle-main strong {
+            color: #2980b9; 
+            font-weight: 700;
+        }
+
+        .subtitle-features {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* 修復換行破版問題 */
+        .subtitle-features li {
+            font-size: 0.95rem;
+            color: #444;
+            line-height: 1.6;
+            text-align: center;
+        }
+
+        .subtitle-features li strong {
+            color: #2c3e50; 
+            margin-right: 6px;
+            font-weight: 600;
+        }
+
+        @media (max-width: 768px) {
+            .subtitle-container {
+                text-align: left;
+                padding: 15px;
+            }
+            .subtitle-features {
+                align-items: flex-start;
+            }
+            .subtitle-features li {
+                text-align: left;
+            }
+        }
+    </style>
+</head>
+<body>
+<div id="global-nav"></div>
+<script>window.TOOL_ID = 14;</script>
+<script src="../shared-nav.js"></script>
+<script src="../shared-subtitle.js"></script>
+<div class="container">
+    <h2>新楓之谷 HEXA屬性策略分析</h2>
+    <div id="tool-subtitle"></div>
+    <div class="controls">
+        <div class="control-group">
+            <label>目標「上面那排」等級</label>
+            <select id="targetLevel">
+                <option value="1">等級 1</option>
+                <option value="2">等級 2</option>
+                <option value="3">等級 3</option>
+                <option value="4">等級 4</option>
+                <option value="5">等級 5</option>
+                <option value="6">等級 6</option>
+                <option value="7">等級 7</option>
+                <option value="8" selected>等級 8</option>
+                <option value="9">等級 9</option>
+                <option value="10">等級 10</option>
+            </select>
+        </div>
+        <div class="control-group">
+            <label>模擬次數</label>
+            <div class="input-row-wrapper">
+                <select id="simCount">
+                    <option value="1">1 次</option>
+                    <option value="100000" selected>10 萬次</option>
+                    <option value="1000000">100 萬次</option>
+                    <option value="10000000">1000 萬次</option>
+                    <option value="50000000">5000 萬次</option>
+                    <option value="custom">自訂...</option>
+                </select>
+                <input type="number" id="customSimVal" placeholder="輸入次數" style="display:none;">
+            </div>
+        </div>
+        <div class="checkbox-group">
+            <input type="checkbox" id="eventMode">
+            <label for="eventMode" class="cb-label">啟用星期天楓之谷 [HEXA矩陣] 主要屬性(上面那排)5級以上，主要屬性(上面那排)強化機率增加20%</label>
+        </div>
+        <button id="runBtn">開始運算</button>
+    </div>
+
+    <div class="card">
+        <div class="checkbox-group">
+            <input type="checkbox" id="useCustomStrat">
+            <label for="useCustomStrat" class="cb-label" style="font-size:1.1em; color:var(--accent);">啟用自訂策略比較 (選填)</label>
+        </div>
+        <div id="customStratArea" class="custom-strat-wrap">
+            <p style="font-size:0.9em; color:#666; margin-top:5px; margin-bottom:10px;">
+                點擊表格設定：<span class="c-keep" style="padding:2px 5px; border-radius:3px;">綠色 = 留</span> / <span class="c-reset" style="padding:2px 5px; border-radius:3px;">紅色 = 洗</span>。<br>
+                為了方便填寫，點擊某格為「洗」時，該「上面那排」等級以下會自動設為洗；點擊「留」時，該「上面那排」等級以上會自動設為留。<br>
+            </p>
+            <div class="strat-table-container">
+                <table class="strat-table" id="customTable"></table>
+            </div>
+        </div>
+    </div>
+
+    <div class="progress-wrap" id="progContainer">
+        <div class="progress-bar" id="progBar"></div>
+    </div>
+    <div id="statusText" style="text-align:right; color:#888; font-size:0.8em; min-height: 1.2em;"></div>
+
+    <div class="results-area" id="results">
+        
+        <div class="card">
+            <h3>碎片最低消耗 - 決策參考</h3>
+            <p style="font-size: 0.85em; color: #666; background: #f8f9fa; padding: 10px; border-radius: 4px;">
+                <b>判斷方式：</b><br>
+                <span style="color:#219150"><b>留</b></span>：無條件保留。<br>
+                <span style="color:#c0392b"><b>洗</b></span>：期望值過低，直接重洗。<br>
+                <span style="font-size:0.9em; color:#999;">(註：表格僅適用於「碎片最低消耗策略」)</span>
+            </p>
+            <div class="strat-table-container">
+                <table class="strat-table" id="stratTable"></table>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>策略成本比較</h3>
+            <table style="margin-top: 15px;">
+                <thead>
+                    <tr>
+                        <th style="width: 40%;">策略模式</th>
+                        <th>平均碎片消耗</th>
+                        <th>平均重洗次數</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="text-align:left; padding-left:15px;">1. 點滿20次才洗</td>
+                        <td id="tNaiveFrag">-</td>
+                        <td id="tNaiveReset">-</td>
+                    </tr>
+                    <tr>
+                        <td style="text-align:left; padding-left:15px;">2. 不可能達成即重洗<br><span>(發現次數不夠時提早洗)</span></td>
+                        <td id="tSmartFrag">-</td>
+                        <td id="tSmartReset">-</td>
+                    </tr>
+                    <tr>
+                        <td style="text-align:left; padding-left:15px;">
+                            3. 碎片最低消耗策略
+                            <br>
+                            <button id="btnShowPopup" class="btn-detail" style="display:none;">顯示分位數 (P1~P99)</button>
+                        </td>
+                        <td id="tOptFrag">-</td>
+                        <td id="tOptReset">-</td>
+                    </tr>
+                    <tr id="rowCustom">
+                        <td style="text-align:left; padding-left:15px;">4. 自訂策略</td>
+                        <td id="tCustomFrag">-</td>
+                        <td id="tCustomReset">-</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="card">
+            <h3>理論 vs 模擬 驗證 (碎片)</h3>
+            <table style="margin-top: 10px; font-size: 0.9em;">
+                <thead>
+                    <tr>
+                        <th>項目</th>
+                        <th>數學理論值</th>
+                        <th>模擬實測值</th>
+                        <th>誤差率</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>1. 點滿才洗</td>
+                        <td id="vNaiveT">-</td>
+                        <td id="vNaiveS">-</td>
+                        <td id="vNaiveE">-</td>
+                    </tr>
+                    <tr>
+                        <td>2. 沒救就洗</td>
+                        <td id="vSmartT">-</td>
+                        <td id="vSmartS">-</td>
+                        <td id="vSmartE">-</td>
+                    </tr>
+                    <tr>
+                        <td>3. 碎片最低</td>
+                        <td id="vOptT">-</td>
+                        <td id="vOptS">-</td>
+                        <td id="vOptE">-</td>
+                    </tr>
+                    <tr id="vRowCustom" style="display:none;">
+                        <td>4. 自訂策略</td>
+                        <td id="vCustomT">-</td>
+                        <td id="vCustomS">-</td>
+                        <td id="vCustomE">-</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div id="myModal" class="modal">
+    <div class="modal-content">
+        <span class="close">&times;</span>
+        <h3 style="margin-top:0; color:#2c3e50; border-bottom:2px solid #eee; padding-bottom:10px;">「碎片最低消耗策略」模擬數據分位數 (P1~P99)</h3>
+        <div class="modal-table-wrap">
+            <table class="modal-table" id="modalTableBody">
+                </table>
+        </div>
+    </div>
+</div>
+
+<script id="workerCode" type="javascript/worker">
+    self.onmessage = function(e) {
+        const { targetLevel, useEvent, simCount, customStrat, enableCustom } = e.data;
+        const RESET_COST_MESO = 10000000;
+        
+        const baseProbs = [0.35, 0.35, 0.35, 0.20, 0.20, 0.20, 0.20, 0.15, 0.10, 0.05, 0.00];
+        const fragCosts = [10, 10, 10, 20, 20, 20, 20, 30, 30, 50, 50];
+
+        function getBaseProb(level) {
+            let p = baseProbs[level];
+            if (useEvent && level >= 5) p *= 1.2;
+            return p;
+        }
+
+        function idx(t, m, s1, s2) {
+            return t * 1331 + m * 121 + s1 * 11 + s2;
+        }
+
+        let dpFrag = new Float64Array(21 * 11 * 11 * 11);
+        let dpMeso = new Float64Array(21 * 11 * 11 * 11);
+        
+        const decisionMap = new Uint8Array(21 * 11 * 11 * 11);
+        const displayTable = Array.from({length: 21}, () => Array(11).fill(-1));
+
+        function solveDP(mode) {
+            let expFrag = 5000; 
+            let expMeso = 50000000;
+            let diff = 1;
+            let iter = 0;
+
+            while (diff > 1e-9 && iter < 5000) {
+                let prevFrag = expFrag;
+
+                for (let m = 0; m <= 10; m++) {
+                    for(let x=0; x<121; x++) { 
+                        let id = idx(20, m, 0, 0) + x; 
+                        if (m >= targetLevel) {
+                            dpFrag[id] = 0; 
+                            dpMeso[id] = 0;
+                        } else {
+                            dpFrag[id] = expFrag; 
+                            dpMeso[id] = RESET_COST_MESO + expMeso;
+                        }
+                    }
+                }
+
+                for (let t = 19; t >= 0; t--) {
+                    for (let m = 0; m <= 10; m++) {
+                        let keepCount = 0;
+                        let resetCount = 0;
+                        let validStates = 0;
+
+                        for (let s1 = 0; s1 <= 10; s1++) {
+                            for (let s2 = 0; s2 <= 10; s2++) {
+                                if ((m + s1 + s2) !== t) continue;
+                                validStates++;
+
+                                let id = idx(t, m, s1, s2);
+                                
+                                let rawPm = getBaseProb(m);
+                                let rawPs = (1 - rawPm) / 2;
+
+                                let pM = rawPm;
+                                let pS1 = rawPs;
+                                let pS2 = rawPs;
+
+                                if (m >= 10) { pS1 += rawPm/2; pS2 += rawPm/2; pM = 0; }
+                                if (s1 >= 10) { pS2 += pS1; pS1 = 0; }
+                                if (s2 >= 10) { pS1 += pS2; pS2 = 0; }
+
+                                let costF = fragCosts[m];
+                                let nF = 0, nM = 0;
+
+                                if (pM > 0) {
+                                    nF += pM * dpFrag[idx(t+1, m+1, s1, s2)];
+                                    nM += pM * dpMeso[idx(t+1, m+1, s1, s2)];
+                                }
+                                if (pS1 > 0) {
+                                    nF += pS1 * dpFrag[idx(t+1, m, s1+1, s2)];
+                                    nM += pS1 * dpMeso[idx(t+1, m, s1+1, s2)];
+                                }
+                                if (pS2 > 0) {
+                                    nF += pS2 * dpFrag[idx(t+1, m, s1, s2+1)];
+                                    nM += pS2 * dpMeso[idx(t+1, m, s1, s2+1)];
+                                }
+
+                                let contF = costF + nF;
+                                let contM = 0 + nM;
+
+                                let resetF = expFrag;
+                                let resetM = RESET_COST_MESO + expMeso;
+
+                                let doReset = false;
+                                
+                                if (m < targetLevel) {
+                                    let remainingOps = 20 - t;
+                                    let isImpossible = (m + remainingOps < targetLevel);
+
+                                    if (mode === 3) {
+                                        let stratVal = 1; 
+                                        if (customStrat && customStrat[t]) {
+                                            let lookM = Math.min(m, customStrat[t].length - 1);
+                                            stratVal = customStrat[t][lookM];
+                                        }
+                                        if (stratVal === 0) doReset = true;
+                                        
+                                    } else if (mode === 2) { 
+                                        if (isImpossible) {
+                                            doReset = true;
+                                        } else if (t >= 10 && resetF < contF) {
+                                            doReset = true;
+                                        }
+                                    } else if (mode === 1) {
+                                        if (isImpossible) {
+                                            doReset = true;
+                                        }
+                                    }
+                                }
+
+                                if (doReset) {
+                                    dpFrag[id] = resetF;
+                                    dpMeso[id] = resetM;
+                                    resetCount++;
+                                } else {
+                                    dpFrag[id] = contF;
+                                    dpMeso[id] = contM;
+                                    keepCount++;
+                                }
+
+                                if (mode === 2) {
+                                    decisionMap[id] = doReset ? 1 : 0;
+                                }
+                            }
+                        }
+                        
+                        if (mode === 2) {
+                            if (resetCount === validStates) {
+                                displayTable[t][m] = -1; 
+                            } else {
+                                displayTable[t][m] = 0; 
+                            }
+                        }
+                    }
+                }
+
+                expFrag = dpFrag[0];
+                expMeso = dpMeso[0];
+                diff = Math.abs(expFrag - prevFrag);
+                iter++;
+            }
+            return { f: expFrag, m: expMeso };
+        }
+
+        self.postMessage({ type: 'status', text: '運算中: 點滿才洗 理論值...' });
+        const naiveRes = solveDP(0); 
+
+        self.postMessage({ type: 'status', text: '運算中: 不可能就洗 理論值...' });
+        const smartRes = solveDP(1);
+
+        self.postMessage({ type: 'status', text: '運算中: 碎片最低策略 理論值...' });
+        const optRes = solveDP(2); 
+
+        let customRes = { f: 0, m: 0 };
+        if (enableCustom) {
+            self.postMessage({ type: 'status', text: '運算中: 自訂策略 理論值...' });
+            customRes = solveDP(3);
+        }
+
+        function runSimulation(mode) {
+            let totalF = 0;
+            const batch = Math.max(1, Math.floor(simCount / 20));
+
+            let recordData = false;
+            let simCosts = null; 
+            let simResets = null;
+
+            if (mode === 2 && simCount > 1) {
+                recordData = true;
+                simCosts = new Int32Array(simCount);
+                simResets = new Int16Array(simCount);
+            }
+
+            for (let i = 0; i < simCount; i++) {
+                let success = false;
+                let failsafe = 0; 
+                let userCost = 0;
+                let userResetCount = 0;
+
+                while (!success) {
+                    failsafe++;
+                    if (failsafe > 200000) break; 
+
+                    let m = 0, s1 = 0, s2 = 0;
+                    let runF = 0;
+                    let hasReachedTarget = false; 
+
+                    for (let t = 0; t < 20; t++) {
+                        if (m >= targetLevel) hasReachedTarget = true;
+
+                        if (!hasReachedTarget) {
+                            let remainingOps = 20 - t;
+                            
+                            if ((mode === 1 || mode === 2) && (m + remainingOps < targetLevel)) {
+                                break; 
+                            }
+
+                            if (mode === 2 && t >= 10) {
+                                let id = idx(t, m, s1, s2);
+                                if (decisionMap[id] === 1) break; 
+                            } else if (mode === 3) {
+                                let lookM = Math.min(m, customStrat[t].length - 1);
+                                if (customStrat[t][lookM] === 0) break;
+                            }
+                        }
+
+                        runF += fragCosts[m];
+
+                        let rawPm = getBaseProb(m);
+                        let rawPs = (1 - rawPm) / 2;
+                        
+                        let pM = rawPm;
+                        let pS1 = rawPs;
+                        let pS2 = rawPs;
+
+                        if (m >= 10) { pS1 += pM/2; pS2 += pM/2; pM = 0; }
+                        if (s1 >= 10) { pS2 += pS1; pS1 = 0; }
+                        if (s2 >= 10) { pS1 += pS2; pS2 = 0; }
+
+                        let r = Math.random();
+                        if (r < pM) { m++; } 
+                        else if (r < pM + pS1) { s1++; } 
+                        else { s2++; }
+                    }
+                    
+                    totalF += runF;
+                    userCost += runF;
+                    
+                    if (m >= targetLevel) {
+                        success = true;
+                    } else {
+                        userResetCount++;
+                    }
+                }
+                
+                if (recordData) {
+                    simCosts[i] = userCost;
+                    simResets[i] = userResetCount;
+                }
+
+                if (i % batch === 0) {
+                    let progress = 0;
+                    let steps = enableCustom ? 4 : 3;
+                    let currentStep = mode; 
+                    progress = (currentStep / steps * 100) + (i / simCount * (100/steps));
+                    self.postMessage({ type: 'progress', p: progress });
+                }
+            }
+
+            let percentileData = null;
+            if (recordData) {
+                simCosts.sort();
+                simResets.sort();
+                percentileData = [];
+                for(let p=1; p<=99; p++) {
+                    let idx = Math.floor(simCount * (p / 100));
+                    percentileData.push({ p: p, f: simCosts[idx], r: simResets[idx] });
+                }
+            }
+
+            return { avg: totalF / simCount, pData: percentileData };
+        }
+
+        self.postMessage({ type: 'status', text: '模擬中: 點滿才洗...' });
+        const simNaive = runSimulation(0); 
+        
+        self.postMessage({ type: 'status', text: '模擬中: 不可能就洗...' });
+        const simSmart = runSimulation(1);
+
+        self.postMessage({ type: 'status', text: '模擬中: 碎片最低策略...' });
+        const simOpt = runSimulation(2);
+
+        let simCustom = { avg: 0 };
+        if (enableCustom) {
+            self.postMessage({ type: 'status', text: '模擬中: 自訂策略...' });
+            simCustom = runSimulation(3);
+        }
+
+        self.postMessage({
+            type: 'result',
+            displayTable,
+            tNaiveF: naiveRes.f, tNaiveM: naiveRes.m,
+            tSmartF: smartRes.f, tSmartM: smartRes.m,
+            tOptF: optRes.f, tOptM: optRes.m,
+            tCustomF: customRes.f, tCustomM: customRes.m,
+            sNaive: simNaive.avg,
+            sSmart: simSmart.avg,
+            sOpt: simOpt.avg,
+            sCustom: simCustom.avg,
+            pList: simOpt.pData,
+            simCount
+        });
+    };
+</script>
+
+<script>
+    const workerBlob = new Blob([document.getElementById('workerCode').textContent], {type: "text/javascript"});
+    const workerUrl = URL.createObjectURL(workerBlob);
+    
+    const runBtn = document.getElementById('runBtn');
+    const statusText = document.getElementById('statusText');
+    const progWrap = document.getElementById('progContainer');
+    const progBar = document.getElementById('progBar');
+    const results = document.getElementById('results');
+    const btnShowPopup = document.getElementById('btnShowPopup');
+    const simCountSelect = document.getElementById('simCount');
+    const customSimVal = document.getElementById('customSimVal');
+
+    const checkEvent = document.getElementById('eventMode');
+    const checkCustom = document.getElementById('useCustomStrat');
+    const customStratArea = document.getElementById('customStratArea');
+    const customTable = document.getElementById('customTable');
+
+    const modal = document.getElementById("myModal");
+    const spanClose = document.getElementsByClassName("close")[0];
+    const modalTableBody = document.getElementById("modalTableBody");
+    
+    let currentPList = [];
+    let customStratMap = Array.from({length: 20}, () => Array(11).fill(1));
+
+    initCustomTable();
+
+    simCountSelect.onchange = function() {
+        if(this.value === 'custom') {
+            customSimVal.style.display = 'block';
+            customSimVal.focus();
+        } else {
+            customSimVal.style.display = 'none';
+        }
+    }
+
+    checkCustom.onchange = function() {
+        if(this.checked) {
+            customStratArea.style.display = 'block';
+        } else {
+            customStratArea.style.display = 'none';
+        }
+    }
+
+    runBtn.onclick = () => {
+        const target = parseInt(document.getElementById('targetLevel').value);
+        const useEvent = checkEvent.checked;
+        const enableCustom = checkCustom.checked;
+        
+        let simCount = 0;
+        if (simCountSelect.value === 'custom') {
+            simCount = parseInt(customSimVal.value);
+            if(isNaN(simCount) || simCount <= 0) {
+                alert("請輸入有效的模擬次數");
+                return;
+            }
+        } else {
+            simCount = parseInt(simCountSelect.value);
+        }
+        
+        runBtn.disabled = true;
+        btnShowPopup.style.display = 'none';
+        results.style.display = 'none';
+        progWrap.style.display = 'block';
+        progBar.style.width = '0%';
+        statusText.innerText = "初始化運算...";
+        
+        const worker = new Worker(workerUrl);
+        worker.postMessage({ 
+            targetLevel: target, 
+            useEvent: useEvent, 
+            simCount: simCount,
+            enableCustom: enableCustom,
+            customStrat: customStratMap
+        });
+
+        worker.onmessage = (e) => {
+            const d = e.data;
+            if (d.type === 'status') {
+                statusText.innerText = d.text;
+            } else if (d.type === 'progress') {
+                progBar.style.width = d.p + '%';
+            } else if (d.type === 'result') {
+                currentPList = d.pList;
+                render(d, enableCustom);
+                progBar.style.width = '100%';
+                statusText.innerText = "運算完成";
+                runBtn.disabled = false;
+                if(d.pList) {
+                    btnShowPopup.style.display = 'inline-block';
+                }
+                worker.terminate();
+            }
+        };
+    };
+
+    function initCustomTable() {
+        // 更新標題為精美的對角線
+        let html = `<thead><tr><th class="diag-cell-wrapper"><div class="diag-container"><span class="diag-top">上面那排</span><span class="diag-bottom">強化次數</span></div></th>`;
+        for(let m=0; m<=9; m++) html += `<th>${m}</th>`;
+        html += `</tr></thead><tbody>`;
+        
+        for(let t=10; t<20; t++) {
+            html += `<tr><td style="background:#eee; font-weight:bold;">${t}</td>`;
+            for(let m=0; m<=9; m++) {
+                html += `<td class="custom-cell c-keep" data-t="${t}" data-m="${m}" onclick="toggleCustomCell(${t}, ${m})">留</td>`;
+            }
+            html += `</tr>`;
+        }
+        html += `</tbody>`;
+        customTable.innerHTML = html;
+    }
+
+    window.toggleCustomCell = function(t, m) {
+        let currentVal = customStratMap[t][m]; 
+        let newVal = currentVal === 1 ? 0 : 1;
+        
+        if (newVal === 0) {
+            for (let i = 0; i <= m; i++) {
+                customStratMap[t][i] = 0;
+            }
+        } else {
+            for (let i = m; i <= 10; i++) {
+                customStratMap[t][i] = 1;
+            }
+        }
+        
+        updateCustomTableUI(t);
+    };
+
+    function updateCustomTableUI(rowIdx) {
+        const table = document.getElementById('customTable');
+        const tableRowIndex = rowIdx - 10 + 1;
+        
+        if (tableRowIndex < 1 || tableRowIndex >= table.rows.length) return;
+        
+        const row = table.rows[tableRowIndex]; 
+        
+        for(let m=0; m<=9; m++) {
+            let cell = row.cells[m+1];
+            let val = customStratMap[rowIdx][m];
+            if(val === 1) {
+                cell.className = "custom-cell c-keep";
+                cell.innerText = "留";
+            } else {
+                cell.className = "custom-cell c-reset";
+                cell.innerText = "洗";
+            }
+        }
+    }
+
+    function render(d, enableCustom) {
+        results.style.display = 'block';
+
+        document.getElementById('tNaiveFrag').innerText = Math.round(d.tNaiveF).toLocaleString();
+        document.getElementById('tNaiveReset').innerText = (d.tNaiveM / 10000000).toFixed(1) + " 次";
+
+        document.getElementById('tSmartFrag').innerText = Math.round(d.tSmartF).toLocaleString();
+        document.getElementById('tSmartReset').innerText = (d.tSmartM / 10000000).toFixed(1) + " 次";
+
+        document.getElementById('tOptFrag').innerText = Math.round(d.tOptF).toLocaleString();
+        document.getElementById('tOptReset').innerText = (d.tOptM / 10000000).toFixed(1) + " 次";
+
+        const rowCustom = document.getElementById('rowCustom');
+        const vRowCustom = document.getElementById('vRowCustom');
+        
+        if (enableCustom) {
+            rowCustom.style.display = 'table-row';
+            vRowCustom.style.display = 'table-row';
+            
+            document.getElementById('tCustomFrag').innerText = Math.round(d.tCustomF).toLocaleString();
+            document.getElementById('tCustomReset').innerText = (d.tCustomM / 10000000).toFixed(1) + " 次";
+            
+            updateVerify('vCustom', d.tCustomF, d.sCustom);
+        } else {
+            rowCustom.style.display = 'none';
+            vRowCustom.style.display = 'none';
+        }
+
+        renderStratTable(d.displayTable);
+
+        updateVerify('vNaive', d.tNaiveF, d.sNaive);
+        updateVerify('vSmart', d.tSmartF, d.sSmart);
+        updateVerify('vOpt', d.tOptF, d.sOpt);
+    }
+
+    function renderStratTable(tbl) {
+        const table = document.getElementById('stratTable');
+        table.innerHTML = '';
+
+        // 更新標題為精美的對角線
+        let thead = `<thead><tr><th class="diag-cell-wrapper"><div class="diag-container"><span class="diag-top">上面那排</span><span class="diag-bottom">強化次數</span></div></th>`;
+        for(let m=0; m<=9; m++) thead += `<th>${m}</th>`;
+        thead += `</tr></thead>`;
+        table.innerHTML += thead;
+
+        let tbody = `<tbody>`;
+        for(let t=10; t<20; t++) {
+            tbody += `<tr><td class="strat-row-header">${t}</td>`;
+            for(let m=0; m<=9; m++) {
+                let code = tbl[t][m];
+                
+                if ((t-m) < 0) {
+                    tbody += `<td>-</td>`;
+                } else if (code === -1) {
+                    tbody += `<td class="cell-reset">洗</td>`;
+                } else {
+                    tbody += `<td class="cell-keep">留</td>`;
+                }
+            }
+            tbody += `</tr>`;
+        }
+        tbody += `</tbody>`;
+        table.innerHTML += tbody;
+    }
+
+    function updateVerify(prefix, theory, sim) {
+        document.getElementById(prefix + 'T').innerText = Math.round(theory).toLocaleString();
+        document.getElementById(prefix + 'S').innerText = Math.round(sim).toLocaleString();
+        
+        let err = theory > 0 ? Math.abs((theory - sim) / theory) * 100 : 0;
+        let errStr = err.toFixed(2) + '%';
+        let cls = err < 0.3 ? 'match-good' : 'match-bad'; 
+        if (theory < 1000 && sim > 5000) cls = 'match-bad'; 
+        
+        let el = document.getElementById(prefix + 'E');
+        el.innerText = errStr;
+        el.className = cls;
+    }
+
+    btnShowPopup.onclick = function() {
+        modal.style.display = "block";
+        fillModalTable();
+    }
+    spanClose.onclick = function() {
+        modal.style.display = "none";
+    }
+    window.onclick = function(event) {
+        if (event.target == modal) {
+            modal.style.display = "none";
+        }
+    }
+
+    // ==========================================
+    // localStorage 儲存機制
+    // ==========================================
+    const _SK14 = 'tool14_settings';
+
+    function _save14() {
+        localStorage.setItem(_SK14, JSON.stringify({
+            targetLevel:     document.getElementById('targetLevel').value,
+            simCount:        document.getElementById('simCount').value,
+            eventMode:       document.getElementById('eventMode').checked,
+            useCustomStrat:  document.getElementById('useCustomStrat').checked,
+            customStratMap:  customStratMap
+        }));
+    }
+
+    function _load14() {
+        const raw = localStorage.getItem(_SK14);
+        if (!raw) return;
+        try {
+            const s = JSON.parse(raw);
+            if (s.targetLevel !== undefined) document.getElementById('targetLevel').value = s.targetLevel;
+            if (s.simCount    !== undefined) document.getElementById('simCount').value    = s.simCount;
+            if (s.eventMode   !== undefined) document.getElementById('eventMode').checked = s.eventMode;
+            if (s.useCustomStrat !== undefined) {
+                document.getElementById('useCustomStrat').checked = s.useCustomStrat;
+                if (s.useCustomStrat) document.getElementById('customStratArea').style.display = 'block';
+            }
+            if (s.customStratMap) {
+                customStratMap = s.customStratMap;
+                for (let t = 10; t < 20; t++) updateCustomTableUI(t);
+            }
+        } catch(e) {}
+    }
+
+    ['targetLevel', 'simCount', 'eventMode', 'useCustomStrat'].forEach(id => {
+        document.getElementById(id).addEventListener('change', _save14);
+    });
+
+    const _origToggle14 = window.toggleCustomCell;
+    window.toggleCustomCell = function(t, m) {
+        _origToggle14(t, m);
+        _save14();
+    };
+
+    _load14();
+
+    function fillModalTable() {
+        if(!currentPList) return;
+        let html = `<thead><tr>
+            <th>百分位 (P%)</th>
+            <th>平均碎片消耗</th>
+            <th>平均重洗次數</th>
+        </tr></thead><tbody>`;
+
+        currentPList.forEach(item => {
+            let bg = "";
+            if (item.p % 10 === 0) bg = "background:#f0f8ff; font-weight:bold;";
+            if (item.p === 95 || item.p === 99) bg = "background:#fff0f0; font-weight:bold; color:#c0392b;";
+            
+            html += `<tr style="${bg}">
+                <td>P${item.p}</td>
+                <td>${item.f.toLocaleString()}</td>
+                <td>${item.r}</td>
+            </tr>`;
+        });
+        html += `</tbody>`;
+        modalTableBody.innerHTML = html;
+    }
+</script>
+</body>
+</html>
+
+

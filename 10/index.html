@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>新楓之谷 星力強化計算機 BETA</title>
+    <meta name="description" content="新楓之谷星力強化計算機，或稱星力計算機，精算成本期望值與防爆策略。支援自訂星力活動、MVP折扣與 10-21 星強化券效益評估，找出最省錢的衝裝路徑。">
+    <meta property="og:title" content="新楓之谷 星力強化計算機 BETA">
+    <meta property="og:description" content="精算你的楓幣！提供詳細的星力強化成本期望值與策略分析。">
+    <meta property="og:type" content="website">
+
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⭐</text></svg>">
+
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+</head>
+<body>
+    <div id="global-nav"></div>
+    <script>window.TOOL_ID = 10;</script>
+    <script src="../shared-nav.js"></script>
+    <script src="../shared-subtitle.js"></script>
+    <div class="container">
+        <h1>新楓之谷 星力強化計算機 BETA</h1>
+        
+        <p style="text-align: center; margin-top: -10px; margin-bottom: 20px; font-size: 0.9em;">
+            <a href="https://www.youtube.com/watch?v=MgG4dG0aIxU" target="_blank" rel="noopener noreferrer" style="color: #777; text-decoration: none; transition: color 0.2s;" onmouseover="this.style.color='#333'" onmouseout="this.style.color='#777'">
+                <span style="text-decoration: underline;">點此觀看計算機介紹與教學影片</span>
+            </a>
+        </p>
+
+        <div id="tool-subtitle"></div>
+
+        <details class="hint-box" style="text-align:left; max-width:640px; margin: 0 auto 24px auto; background:#f8f9fa; border:1px solid #e0e4ea; border-radius:8px; padding:0;">
+            <summary style="cursor:pointer; padding:10px 16px; font-size:0.88rem; font-weight:600; color:#555; list-style:none; display:flex; align-items:center; gap:6px; user-select:none;">
+                <span style="color:#2980b9; font-size:1rem;">ℹ</span> 使用前須知
+            </summary>
+            <ul style="margin:0; padding:8px 16px 12px 32px; font-size:0.85rem; color:#555; line-height:1.8;">
+                <li>裝備等級、空裝備價格（裝備補償價格）、星期天楓之谷活動、星力強化券價格，皆是影響星力強化成本的主要因素。</li>
+                <li>即使同樣的裝備，決策也不是固定的，會隨著星力強化券價格的相對關係「動態」改變。</li>
+                <li>由於遊戲不允許撈拍賣場資料，請根據當下伺服器物價自行輸入（會在瀏覽器儲存你曾經的輸入），網頁預設輸入值未必符合你的情況。</li>
+                <li>點擊任何金額輸入框並按下 <kbd style="background:#eee; border:1px solid #ccc; border-radius:3px; padding:1px 5px; font-size:0.8rem;">Ctrl+V</kbd> 貼上圖片，即可自動辨識截圖中的數字並輸入！</li>
+                <li style="color: #e74c3c; font-weight: bold; margin-top: 5px;">【注意】神之子、阿斯特拉、命運2次超越等特殊裝備的完全復原規則不同，本計算機尚未支援此類特例裝備。</li>
+            </ul>
+        </details>
+
+        <div class="main-controls-grid">
+            <div class="control-group">
+                <label for="equip-level">裝備等級:</label>
+                <select id="equip-level">
+                    <option value="130">130</option><option value="140">140</option><option value="150" selected>150</option>
+                    <option value="160">160</option><option value="200">200</option><option value="250">250</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label for="target-star">目標星數:</label>
+                <select id="target-star"><option value="22" selected>22</option></select>
+                <p class="note">若模擬運算時間過長(電腦效能/星數過高)，將自動切換為僅顯示理論計算。</p>
+            </div>
+            <div class="control-group">
+                <label for="start-star">起始星數:</label>
+                <select id="start-star">
+                    <option value="0">0</option>
+                </select>
+            </div>
+
+            <div class="control-group" id="stat-preview-box">
+                <label>預期屬性提升 (不包含武器):</label>
+                <div class="stat-preview-content">
+                    <span id="preview-stat-main">屬性: -</span>
+                    <span id="preview-stat-atk">攻擊: -</span>
+                </div>
+            </div>
+            <div class="control-group">
+                <label for="compensation-price">裝備補償價格(楓幣):</label>
+                <input type="number" id="compensation-price" value="500000000" data-format-target="compensation-price-formatted">
+                <span class="formatted-currency" id="compensation-price-formatted"></span>
+                <p class="note">意思就是你炸裝要補一件的那件裝備價格</p>
+            </div>
+             <div class="control-group">
+                <label for="vip-discount">VIP 星力強化費用優惠:</label>
+                <select id="vip-discount">
+                    <option value="0" selected>無VIP (0%)</option>
+                    <option value="0.03">金牌 (3%)</option>
+                    <option value="0.05">鑽石 (5%)</option>
+                    <option value="0.10">皇家 (10%)</option>
+                </select>
+                <p class="note">此優惠僅作用於 0~16 星的強化。</p>
+            </div>
+            <div class="control-group event-group">
+                <label>活動選項:</label>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="cost-discount-event">
+                    <label for="cost-discount-event">星力強化 30%折扣</label>
+                </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="guaranteed-success-event">
+                    <label for="guaranteed-success-event">5/10/15星強化機率100%</label>
+                </div>
+                 <div class="checkbox-group">
+                    <input type="checkbox" id="reduce-destruction-event">
+                    <label for="reduce-destruction-event">21星以下強化，破壞機率降低30%</label>
+                </div>
+                <p class="note">部分活動台版尚未出現，但可以參考看看</p>
+            </div>
+        </div>
+        
+        <div class="control-group" style="margin-bottom: 15px; border-top: 1px solid #eee; padding-top: 15px;">
+            <label>一般星力強化券設定 (10-21星):</label>
+            <div class="checkbox-group" style="margin-bottom: 8px;">
+                <input type="checkbox" id="disable-coupons-event">
+                <label for="disable-coupons-event">不使用 10-21 星券(勾選代表不使用)</label>
+            </div>
+            
+            <details>
+                <summary class="settings-summary">
+                    🔻 點此設定：10-21 星券價格 (楓幣)
+                </summary>
+                <div class="coupon-section">
+                    <div class="coupon-header">
+                        <p class="note" style="margin-top:0;">
+                             (輸入框留空代表不使用該種券)
+                         </p>
+                    </div>
+                    <div class="coupon-controls-grid" id="coupon-grid">
+                        <div class="coupon-group"><label for="coupon-10">星力10星強化券</label><input type="number" id="coupon-10" value="2659998" data-format-target="coupon-10-formatted"><span class="formatted-currency" id="coupon-10-formatted"></span></div>
+                        <div class="coupon-group"><label for="coupon-11">星力11星強化券</label><input type="number" id="coupon-11" value="1222222" data-format-target="coupon-11-formatted"><span class="formatted-currency" id="coupon-11-formatted"></span></div>
+                        <div class="coupon-group"><label for="coupon-12">星力12星強化券</label><input type="number" id="coupon-12" value="1488800" data-format-target="coupon-12-formatted"><span class="formatted-currency" id="coupon-12-formatted"></span></div>
+                        <div class="coupon-group"><label for="coupon-13">星力13星強化券</label><input type="number" id="coupon-13" value="2222222" data-format-target="coupon-13-formatted"><span class="formatted-currency" id="coupon-13-formatted"></span></div>
+                        <div class="coupon-group"><label for="coupon-14">星力14星強化券</label><input type="number" id="coupon-14" value="4944444" data-format-target="coupon-14-formatted"><span class="formatted-currency" id="coupon-14-formatted"></span></div>
+                        <div class="coupon-group"><label for="coupon-15">星力15星強化券</label><input type="number" id="coupon-15" value="37555555" data-format-target="coupon-15-formatted"><span class="formatted-currency" id="coupon-15-formatted"></span></div>
+                        <div class="coupon-group"><label for="coupon-16">星力16星強化券</label><input type="number" id="coupon-16" value="177777765" data-format-target="coupon-16-formatted"><span class="formatted-currency" id="coupon-16-formatted"></span></div>
+                        <div class="coupon-group"><label for="coupon-17">星力17星強化券</label><input type="number" id="coupon-17" value="1523333333" data-format-target="coupon-17-formatted"><span class="formatted-currency" id="coupon-17-formatted"></span></div>
+                        <div class="coupon-group"><label for="coupon-18">星力18星強化券</label><input type="number" id="coupon-18" value="2967777777" data-format-target="coupon-18-formatted"><span class="formatted-currency" id="coupon-18-formatted"></span></div>
+                        <div class="coupon-group"><label for="coupon-19">星力19星強化券</label><input type="number" id="coupon-19" value="5033000000" data-format-target="coupon-19-formatted"><span class="formatted-currency" id="coupon-19-formatted"></span></div>
+                        <div class="coupon-group"><label for="coupon-20">星力20星強化券</label><input type="number" id="coupon-20" value="23188766666" data-format-target="coupon-20-formatted"><span class="formatted-currency" id="coupon-20-formatted"></span></div>
+                        <div class="coupon-group"><label for="coupon-21">星力21星強化券</label><input type="number" id="coupon-21" value="" data-format-target="coupon-21-formatted"><span class="formatted-currency" id="coupon-21-formatted"></span></div>
+                    </div>
+                </div>
+            </details>
+        </div>
+
+        <div class="control-group" style="margin-bottom: 15px; border-top: 1px solid #eee; padding-top: 15px;">
+            <label>突破/追加券設定:</label>
+            <div class="checkbox-group" style="margin-bottom: 8px;">
+                <input type="checkbox" id="disable-special-coupons-event">
+                <label for="disable-special-coupons-event">不使用突破/追加券(勾選代表不使用)</label>
+            </div>
+            <details>
+                <summary class="settings-summary">
+                    🔻 點此設定：突破 (100%/50%/30%) 與 追加 (30%) 價格 (楓幣)
+                </summary>
+                <div class="coupon-section">
+                    <div class="coupon-header">
+                         <p class="note" style="margin-top:0;">
+                             <strong>追加券</strong>，限200等以下裝備。<br>
+                             (輸入框留空代表不使用該種券)
+                         </p>
+                    </div>
+                    <div class="coupon-controls-grid" id="special-coupon-grid">
+                        <div class="coupon-group"><label>突破1星強化券100%(21星)</label><input type="number" id="sp-coupon-limit-21" value="35000000000" data-format-target="sp-21-formatted"><span class="formatted-currency" id="sp-21-formatted"></span></div>
+                        
+                        <div class="coupon-group"><label>突破1星強化券100%(22星)</label><input type="number" id="sp-coupon-limit-22" value="52222222219" data-format-target="sp-22-formatted"><span class="formatted-currency" id="sp-22-formatted"></span></div>
+
+                        <div class="coupon-group" style="background:#eef6ff;"><label>追加1星強化券30%(23星)</label><input type="number" id="sp-coupon-append-23" value="" data-format-target="sp-append-23-formatted"><span class="formatted-currency" id="sp-append-23-formatted"></span></div>
+                        <div class="coupon-group"><label>突破1星強化券30%(23星)</label><input type="number" id="sp-coupon-limit-30-23" value="16887777766" data-format-target="sp-23-30-formatted"><span class="formatted-currency" id="sp-23-30-formatted"></span></div>
+                        <div class="coupon-group"><label>突破1星強化券50%(23星)</label><input type="number" id="sp-coupon-limit-50-23" value="20533333333" data-format-target="sp-23-50-formatted"><span class="formatted-currency" id="sp-23-50-formatted"></span></div>
+                        <div class="coupon-group"><label>突破1星強化券100%(23星)</label><input type="number" id="sp-coupon-limit-23" value="42888888888" data-format-target="sp-23-formatted"><span class="formatted-currency" id="sp-23-formatted"></span></div>
+                        
+                        <div class="coupon-group"><label>突破1星強化券30%(24星)</label><input type="number" id="sp-coupon-limit-30-24" value="19955555554" data-format-target="sp-24-30-formatted"><span class="formatted-currency" id="sp-24-30-formatted"></span></div>
+                        <div class="coupon-group"><label>突破1星強化券50%(24星)</label><input type="number" id="sp-coupon-limit-50-24" value="31888888888" data-format-target="sp-24-50-formatted"><span class="formatted-currency" id="sp-24-50-formatted"></span></div>
+                        <div class="coupon-group"><label>突破1星強化券100%(24星)</label><input type="number" id="sp-coupon-limit-24" value="65999999999" data-format-target="sp-24-formatted"><span class="formatted-currency" id="sp-24-formatted"></span></div>
+
+                        <div class="coupon-group"><label>突破1星強化券30%(25星)</label><input type="number" id="sp-coupon-limit-30-25" value="" data-format-target="sp-25-30-formatted"><span class="formatted-currency" id="sp-25-30-formatted"></span></div>
+                        <div class="coupon-group"><label>突破1星強化券50%(25星)</label><input type="number" id="sp-coupon-limit-50-25" value="" data-format-target="sp-25-50-formatted"><span class="formatted-currency" id="sp-25-50-formatted"></span></div>
+                        <div class="coupon-group"><label>突破1星強化券100%(25星)</label><input type="number" id="sp-coupon-limit-25" value="" data-format-target="sp-25-formatted"><span class="formatted-currency" id="sp-25-formatted"></span></div>
+
+                        <div class="coupon-group"><label>突破1星強化券30%(26星)</label><input type="number" id="sp-coupon-limit-30-26" value="" data-format-target="sp-26-30-formatted"><span class="formatted-currency" id="sp-26-30-formatted"></span></div>
+                        <div class="coupon-group"><label>突破1星強化券50%(26星)</label><input type="number" id="sp-coupon-limit-50-26" value="" data-format-target="sp-26-50-formatted"><span class="formatted-currency" id="sp-26-50-formatted"></span></div>
+                    </div>
+                </div>
+            </details>
+        </div>
+
+        <div class="control-group" style="margin-bottom: 20px;">
+            <label>22-23 星券設定 (陶德專用，一般情況不必輸入):</label>
+            <div class="checkbox-group" style="margin-bottom: 8px;">
+                <input type="checkbox" id="disable-high-coupons-event" checked>
+                <label for="disable-high-coupons-event">不使用 22-23 星券</label>
+            </div>
+
+            <details>
+                <summary class="settings-summary">
+                    🔻 點此設定：22-23 星券價格 (楓幣)
+                </summary>
+                <div class="coupon-section">
+                    <div class="coupon-header">
+                        <p class="note" style="margin-top:0;">沒有22-23星力強化券，但如果你想陶德22~23星到裝備上(用23~24星的裝備)，可以使用這區塊</p>
+                    </div>
+                    <div class="coupon-controls-grid" id="high-coupon-grid">
+                        <div class="coupon-group"><label for="coupon-22">星力22星強化券</label><input type="number" id="coupon-22" data-format-target="coupon-22-formatted"><span class="formatted-currency" id="coupon-22-formatted"></span></div>
+                        <div class="coupon-group"><label for="coupon-23">星力23星強化券</label><input type="number" id="coupon-23" data-format-target="coupon-23-formatted"><span class="formatted-currency" id="coupon-23-formatted"></span></div>
+                    </div>
+                </div>
+            </details>
+        </div>
+
+        <div class="control-group" style="margin-bottom: 15px; border-top: 1px solid #eee; padding-top: 15px;">
+            <details id="custom-path-details">
+                <summary class="settings-summary">
+                    ▶ 進階：手動指定強化路徑（選填）
+                </summary>
+                <div style="padding: 12px 5px 0 5px;">
+                    <p class="note" style="margin-bottom: 12px; line-height: 1.8;">
+                        啟用後可自訂每個星等的強化方式與破壞後的復原策略。<br>
+                        選項依目前輸入的卷價格動態生成，若未輸入某種卷的價格，對應選項不會出現。
+                    </p>
+                    <div class="checkbox-group" style="margin-bottom: 12px;">
+                        <input type="checkbox" id="enable-custom-path">
+                        <label for="enable-custom-path" style="font-weight:bold;">啟用自訂路徑</label>
+                    </div>
+                                <div id="custom-path-settings" style="display:none;">
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px;">
+                            <div class="coupon-group">
+                                <label>初始跳躍方式</label>
+                                <select id="custom-initial-jump" style="font-size:14px; padding:7px;"></select>
+                                <p class="note">使用星力強化券直接跳到幾星後再繼續強化</p>
+                            </div>
+                            <div class="coupon-group">
+                                <label>降回12星後修復跳躍</label>
+                                <select id="custom-recovery-jump" style="font-size:14px; padding:7px;"></select>
+                                <p class="note">裝備炸掉若選擇退回12星，可用券直接跳回特定星數</p>
+                            </div>
+                        </div>
+                        <div>
+                            <label>各星等強化方式</label>
+                                        <p class="note" style="margin-bottom: 8px;">僅顯示有可選方式的星等，無可選項的星等不會出現。</p>
+                            <div id="custom-star-table-container" style="background:#f9f9f9; border:1px solid #ddd; border-radius:5px; padding:10px; max-height:320px; overflow-y:auto;">
+                                <p class="note" style="text-align:center; padding:20px 0;">請先勾選上方「啟用自訂路徑」，選項會根據目前設定自動生成。</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </details>
+        </div>
+        <div class="action-container">
+            <button id="share-settings-btn">🔗 分享目前設定</button>
+            <button id="start-simulation">開始計算/模擬</button>
+        </div>
+
+        <div id="results-container" class="hidden">
+            <h2 id="results-title"></h2>
+            <div class="currency-group">
+                <div class="control-group">
+                    <label for="exchange-rate">幣值換算率(僅影響顯示不影響計算)</label>
+                    <div class="exchange-rate-inputs">
+                        <span>1 台幣 =</span>
+                        <input type="number" id="exchange-rate" value="20000000" data-format-target="exchange-rate-formatted">
+                        <span>楓幣</span>
+                    </div>
+                    <span class="formatted-currency" id="exchange-rate-formatted"></span>
+                </div>
+                <div class="control-group switch-wrapper">
+                    <label>顯示單位</label>
+                    <div class="switch-container">
+                        <span id="label-for-meso">楓幣</span>
+                        <label class="switch">
+                          <input type="checkbox" id="currency-switch" disabled>
+                          <span class="slider round"></span>
+                        </label>
+                        <span id="label-for-twd">台幣</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="legend-note-container" style="background: #fff3cd; padding: 10px; border-radius: 5px; margin-bottom: 15px; border: 1px solid #ffeeba;">
+                <p style="margin: 0; color: #856404; font-size: 0.9em; text-align: center;">
+                    <strong>注意：</strong>下方顯示成本僅包含「強化過程消耗」、「星力強化券」與「破壞後的裝備補償」，<strong>不包含</strong>第一件原始裝備的購入成本。
+                </p>
+            </div>
+
+            <p class="legend-note" id="legend-note"></p>
+            <table id="results-table"></table>
+
+            <div id="efficiency-container" class="hidden" style="margin-top: 25px; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border: 1px solid #e0e0e0;">
+                <h3 style="margin-top: 0; border-bottom: 2px solid #f1f1f1; padding-bottom: 10px; margin-bottom: 15px;">性價比換算 (每 1 攻擊造價)</h3>
+                
+                <div style="display: flex; gap: 20px; flex-wrap: wrap; align-items: flex-start;">
+                    <div style="flex: 1; min-width: 250px;">
+                        <div class="global-input-group" style="margin-bottom: 10px;">
+                            <label style="display:block; margin-bottom:5px; font-weight:bold; color:#555;">主屬換算 (多少主屬=1攻)</label>
+                            <input type="number" id="ratio-main" value="2" placeholder="例如 4 (不填不計)" min="0.1" step="0.1" style="padding: 8px; width: 100%; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px;">
+                        </div>
+                        <div class="global-input-group">
+                            <label style="display:block; margin-bottom:5px; font-weight:bold; color:#555;">副屬換算 (多少副屬=1攻)</label>
+                            <input type="number" id="ratio-vice" value="" placeholder="不填不計" min="0.1" step="0.1" style="padding: 8px; width: 100%; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px;">
+                        </div>
+                        <div style="margin-top: 10px; font-size: 0.85em; color: #7f8c8d; background: #f8f9fa; padding: 8px; border-radius: 4px;">
+                            <strong>說明：</strong> 輸入「4」代表 4 屬性 = 1 攻擊力。系統將以「最低成本」的策略來計算性價比。
+                        </div>
+                    </div>
+
+                    <div style="flex: 1; min-width: 250px; background-color: #f0f8ff; padding: 15px; border-radius: 8px; border: 1px solid #bcdff1; text-align: center; display: flex; flex-direction: column; justify-content: center;">
+                        <div style="margin-bottom: 10px;">
+                            <span style="font-size: 0.9em; color: #555;">總等效攻擊力提升</span><br>
+                            <strong id="efficiency-total-atk" style="font-size: 1.8em; color: #2980b9;">0</strong>
+                        </div>
+                        <div style="border-top: 1px solid #bcdff1; padding-top: 10px;">
+                            <span style="font-size: 0.9em; color: #555;">每 1 攻擊造價 (成本參考最低平均成本)</span><br>
+                            <strong id="efficiency-cost-per-atk" style="font-size: 1.4em; color: #d35400;">0</strong>
+                            <span id="efficiency-currency-label" style="font-size: 0.8em; color: #7f8c8d;"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="data-tables-container" class="hidden">
+                <h2 id="data-tables-title"></h2>
+                <div class="data-table-wrapper">
+                    <h3 id="costs-table-title"></h3>
+                    <div id="costs-table-container"></div>
+                </div>
+                <div class="data-table-wrapper">
+                    <h3 id="probs-table-title"></h3>
+                    <div id="probs-table-container"></div>
+                </div>
+            </div>
+        </div>
+
+
+    </div>
+
+    <div id="detail-modal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h2 id="modal-title">單次模擬過程範例</h2>
+            <div id="modal-log-content" class="log-box"></div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

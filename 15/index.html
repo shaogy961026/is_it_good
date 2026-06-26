@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>新楓之谷 寶玉加工分析</title>
+    <meta name="description" content="透過數學期望值與百萬次模擬，試算《新楓之谷》寶玉加工至目標等級的平均楓幣花費、歸零次數與風險評估，並提供詳細的機率分位數分析。">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f8f9fa;
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            max-width: 650px;
+            width: 100%;
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            font-size: 26px;
+            margin-bottom: 25px;
+            font-weight: 600;
+        }
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        label { font-weight: 500; font-size: 14px; color: #555; }
+        select, input {
+            padding: 10px;
+            font-size: 16px;
+            border-radius: 6px;
+            border: 1px solid #ddd;
+            background-color: #fff;
+        }
+        button {
+            padding: 12px;
+            font-size: 16px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            width: 100%;
+            transition: background 0.2s;
+            font-weight: 500;
+        }
+        button:hover { background-color: #2980b9; }
+        button:disabled { background-color: #95a5a6; cursor: not-allowed; }
+
+        /* 進度條 */
+        #progressContainer {
+            width: 100%;
+            background-color: #eee;
+            border-radius: 10px;
+            margin: 15px 0;
+            height: 20px;
+            display: none;
+            overflow: hidden;
+        }
+        #progressBar {
+            width: 0%;
+            height: 100%;
+            background-color: #2ecc71;
+            transition: width 0.1s linear;
+        }
+        #progressText {
+            text-align: center;
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+            display: none;
+        }
+
+        /* 結果摘要 */
+        #summary {
+            margin-top: 25px;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+        }
+        .stat-row { margin: 8px 0; font-size: 15px; display: flex; justify-content: space-between; }
+        .highlight { font-weight: bold; color: #e67e22; }
+
+        /* 查詢區塊 */
+        #checkLuckSection {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #fff3e0;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+        .check-input-row { display: flex; align-items: center; gap: 8px; }
+        #luckResult { font-weight: bold; color: #d35400; min-height: 1.2em; font-size: 15px; }
+
+        /* 列表容器 */
+        .list-container {
+            margin-top: 25px;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .list-note {
+            background-color: #fff8e1;
+            font-size: 12px;
+            color: #8d6e63;
+            padding: 8px 20px;
+            border-bottom: 1px solid #eee;
+            text-align: center;
+        }
+
+        /* 表格標題列 */
+        .list-title-row {
+            display: grid;
+            grid-template-columns: 60px 1fr 1fr;
+            background-color: #e9ecef;
+            padding: 12px 20px;
+            font-weight: bold;
+            color: #495057;
+            font-size: 14px;
+            border-bottom: 2px solid #dee2e6;
+        }
+        .col-head { text-align: right; }
+        .col-head:first-child { text-align: left; }
+
+        .scroll-box {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        /* 數據行 */
+        .list-row {
+            display: grid;
+            grid-template-columns: 60px 1fr 1fr;
+            padding: 10px 20px;
+            border-bottom: 1px solid #f8f9fa;
+            font-size: 14px;
+            align-items: center;
+        }
+        .list-row:nth-child(even) { background-color: #fcfcfc; }
+        
+        .rank-col { color: #868e96; text-align: left; }
+        .val-col { font-weight: 600; color: #343a40; text-align: right; }
+        .reset-col { color: #c0392b; font-weight: 600; text-align: right; }
+        
+        .key-row { background-color: #e3f2fd !important; }
+
+        /* --- 副標題專用樣式 --- */
+        .subtitle-container {
+            max-width: 600px;
+            margin: -15px auto 25px auto;
+            text-align: center;
+            color: #555;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            border: 1px solid #e9ecef;
+        }
+
+        .subtitle-main {
+            margin: 0 0 10px 0;
+            font-size: 1rem;
+            color: #2c3e50;
+            line-height: 1.5;
+        }
+
+        .subtitle-main strong {
+            color: #2980b9;
+            font-weight: 700;
+        }
+
+        .subtitle-features {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .subtitle-features li {
+            font-size: 0.9rem;
+            color: #444;
+            display: flex;
+            align-items: center;
+        }
+
+        .subtitle-features li strong {
+            color: #2c3e50;
+            margin-right: 4px;
+        }
+    </style>
+</head>
+<body>
+<div id="global-nav"></div>
+<script>window.TOOL_ID = 15;</script>
+<script src="../shared-nav.js"></script>
+<script src="../shared-subtitle.js"></script>
+<div class="container">
+    <h1>新楓之谷 寶玉加工分析</h1>
+    
+    <div id="tool-subtitle"></div>
+
+    <div class="controls">
+        <div class="input-group">
+            <label for="target">目標等級</label>
+            <select id="target">
+                <option value="1">LV 1</option>
+                <option value="2">LV 2</option>
+                <option value="3">LV 3</option>
+                <option value="4">LV 4</option>
+                <option value="5">LV 5</option>
+                <option value="6" selected>LV 6</option>
+                <option value="7">LV 7</option>
+                <option value="8">LV 8</option>
+                <option value="9">LV 9</option>
+                <option value="10">LV 10</option>
+            </select>
+        </div>
+        <div class="input-group">
+            <label for="simCount">模擬次數</label>
+            <select id="simCount">
+                <option value="1">1 次</option>
+                <option value="100000">10 萬次</option>
+                <option value="1000000" selected>100 萬次</option>
+                <option value="10000000">1000 萬次</option>
+            </select>
+        </div>
+    </div>
+
+    <button id="btnRun" onclick="startSimulation()">開始加工</button>
+
+    <div id="progressContainer">
+        <div id="progressBar"></div>
+    </div>
+    <div id="progressText">處理中...</div>
+
+    <div id="resultArea" style="display:none;">
+        
+        <div id="summary"></div>
+
+        <div id="checkLuckSection">
+            <div class="check-input-row">
+                <label for="userCheckCost">花費查詢：</label>
+                <input type="number" id="userCheckCost" placeholder="例如: 50" style="width: 80px;">
+                <span>E</span>
+                <button onclick="checkPercentile()" style="width: auto; padding: 8px 15px;">查詢</button>
+            </div>
+            <div id="luckResult"></div>
+        </div>
+
+        <div class="list-container">
+            <div class="list-note">說明：花費與歸零次數為獨立排序 (例如 P99 為花費第99%多的人，以及歸零第99%多的人)</div>
+            <div class="list-title-row">
+                <div class="col-head">分位數</div>
+                <div class="col-head">累積花費</div>
+                <div class="col-head">歸零次數</div>
+            </div>
+            <div class="scroll-box" id="listContent"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const stages = [
+        { cost: 1, success: 1.00, drop: 0.00, fail: 0.00 },
+        { cost: 1, success: 0.40, drop: 0.60, fail: 0.00 },
+        { cost: 1, success: 0.40, drop: 0.55, fail: 0.05 },
+        { cost: 1, success: 0.30, drop: 0.60, fail: 0.10 },
+        { cost: 1, success: 0.30, drop: 0.60, fail: 0.10 },
+        { cost: 2, success: 0.80, drop: 0.00, fail: 0.20 },
+        { cost: 2, success: 0.40, drop: 0.40, fail: 0.20 },
+        { cost: 2, success: 0.40, drop: 0.40, fail: 0.20 },
+        { cost: 3, success: 0.30, drop: 0.40, fail: 0.30 },
+        { cost: 3, success: 0.30, drop: 0.40, fail: 0.30 }
+    ];
+
+    let sortedCosts = []; 
+    let sortedResets = [];
+    let simulations = 0;
+
+    function simulateOnce(target) {
+        let totalCost = 0;
+        let lv = 0;
+        let resets = 0;
+
+        while (lv < target) {
+            const stage = stages[lv];
+            totalCost += stage.cost;
+            const r = Math.random();
+
+            if (r < stage.success) {
+                lv += 1;
+            } else if (r < stage.success + stage.drop) {
+                lv = Math.max(0, lv - 1);
+            } else {
+                lv = 0;
+                resets++;
+            }
+        }
+        return { cost: totalCost, resets: resets };
+    }
+
+    // 數學理論值 (高斯消去法)
+    function calculateAccurateTheoretical(target) {
+        const N = target;
+        let A = Array.from({ length: N }, () => Array(N).fill(0));
+        let B = Array(N).fill(0);
+
+        for (let i = 0; i < N; i++) {
+            const s = stages[i];
+            A[i][i] += 1;
+            if (i + 1 < N) A[i][i + 1] -= s.success;
+            const dropLv = Math.max(0, i - 1);
+            if (dropLv < N) A[i][dropLv] -= s.drop;
+            if (s.fail > 0) A[i][0] -= s.fail;
+            B[i] = s.cost;
+        }
+        const result = solveGaussian(A, B);
+        return result[0];
+    }
+
+    function solveGaussian(A, B) {
+        const n = A.length;
+        for (let i = 0; i < n; i++) {
+            let maxEl = Math.abs(A[i][i]);
+            let maxRow = i;
+            for (let k = i + 1; k < n; k++) {
+                if (Math.abs(A[k][i]) > maxEl) {
+                    maxEl = Math.abs(A[k][i]);
+                    maxRow = k;
+                }
+            }
+            for (let k = i; k < n; k++) {
+                let tmp = A[maxRow][k];
+                A[maxRow][k] = A[i][k];
+                A[i][k] = tmp;
+            }
+            let tmp = B[maxRow];
+            B[maxRow] = B[i];
+            B[i] = tmp;
+
+            for (let k = i + 1; k < n; k++) {
+                let c = -A[k][i] / A[i][i];
+                for (let j = i; j < n; j++) {
+                    if (i === j) A[k][j] = 0;
+                    else A[k][j] += c * A[i][j];
+                }
+                B[k] += c * B[i];
+            }
+        }
+        let x = new Array(n).fill(0);
+        for (let i = n - 1; i > -1; i--) {
+            let sum = 0;
+            for (let j = i + 1; j < n; j++) {
+                sum += A[i][j] * x[j];
+            }
+            x[i] = (B[i] - sum) / A[i][i];
+        }
+        return x;
+    }
+
+    async function startSimulation() {
+        const btn = document.getElementById("btnRun");
+        const target = parseInt(document.getElementById("target").value);
+        const simSelect = parseInt(document.getElementById("simCount").value);
+        const resultArea = document.getElementById("resultArea");
+        const progressBar = document.getElementById("progressBar");
+        const progressContainer = document.getElementById("progressContainer");
+        const progressText = document.getElementById("progressText");
+
+        simulations = simSelect;
+        btn.disabled = true;
+        resultArea.style.display = "none";
+        progressContainer.style.display = "block";
+        progressText.style.display = "block";
+        progressBar.style.width = "0%";
+        progressText.textContent = "準備中...";
+
+        await new Promise(r => setTimeout(r, 10));
+
+        const CHUNK_SIZE = 50000;
+        sortedCosts = new Uint32Array(simulations); 
+        sortedResets = new Uint16Array(simulations);
+
+        let processed = 0;
+        let totalSum = 0;
+        let totalResets = 0; // 新增變數：總歸零次數
+        
+        while (processed < simulations) {
+            const remaining = simulations - processed;
+            const currentChunk = Math.min(CHUNK_SIZE, remaining);
+
+            for (let i = 0; i < currentChunk; i++) {
+                const res = simulateOnce(target);
+                sortedCosts[processed + i] = res.cost;
+                sortedResets[processed + i] = res.resets;
+                totalSum += res.cost;
+                totalResets += res.resets; // 累加歸零次數
+            }
+            
+            processed += currentChunk;
+            const percent = Math.round((processed / simulations) * 100);
+            progressBar.style.width = percent + "%";
+            progressText.textContent = `模擬進度: ${percent}%`;
+
+            await new Promise(r => setTimeout(r, 0));
+        }
+
+        progressText.textContent = "數據排序中 (獨立排序)...";
+        await new Promise(r => setTimeout(r, 0));
+        
+        sortedCosts.sort(); 
+        sortedResets.sort();
+
+        progressText.textContent = "計算統計數據...";
+        
+        const avgCost = totalSum / simulations;
+        const avgResets = totalResets / simulations; // 計算平均歸零
+        const theoreticalAvg = calculateAccurateTheoretical(target);
+        
+        renderResults(target, avgCost, theoreticalAvg, avgResets); // 傳遞給顯示函式
+        
+        progressContainer.style.display = "none";
+        progressText.style.display = "none";
+        resultArea.style.display = "block";
+        btn.disabled = false;
+        
+        document.getElementById("userCheckCost").value = "";
+        document.getElementById("luckResult").innerHTML = "";
+    }
+
+    function renderResults(target, avgCost, theoreticalAvg, avgResets) {
+        // 在這裡加入「平均歸零次數」的顯示
+        document.getElementById("summary").innerHTML = `
+            <div class="stat-row"><span>目標等級</span> <span class="highlight">LV ${target}</span></div>
+            <div class="stat-row"><span>平均花費</span> <span class="highlight">${avgCost.toFixed(2)} E</span></div>
+            <div class="stat-row"><span>數學理論值</span> <span class="highlight">${theoreticalAvg.toFixed(2)} E</span></div>
+            <div class="stat-row"><span>平均歸零次數</span> <span class="highlight">${avgResets.toFixed(2)} 次</span></div>
+        `;
+
+        const listContent = document.getElementById("listContent");
+        let htmlBuffer = "";
+
+        if (simulations === 1) {
+             htmlBuffer = `
+                <div class="list-row">
+                    <div class="rank-col">Result</div>
+                    <div class="val-col">${sortedCosts[0].toLocaleString()} E</div>
+                    <div class="reset-col">${sortedResets[0]} 次</div>
+                </div>`;
+        } else {
+            for (let p = 1; p <= 99; p++) {
+                const idx = Math.floor(simulations * (p / 100)) - 1;
+                const safeIdx = Math.max(0, Math.min(simulations - 1, idx));
+                
+                const cost = sortedCosts[safeIdx];
+                const resets = sortedResets[safeIdx];
+                
+                const isKey = (p % 10 === 0) || p === 1 || p === 5 || p === 95 || p === 99;
+                const rowClass = isKey ? "list-row key-row" : "list-row";
+                
+                htmlBuffer += `
+                    <div class="${rowClass}">
+                        <div class="rank-col">P${p}</div>
+                        <div class="val-col">${cost.toLocaleString()} E</div>
+                        <div class="reset-col">${resets} 次</div>
+                    </div>
+                `;
+            }
+        }
+        listContent.innerHTML = htmlBuffer;
+    }
+
+    // ==========================================
+    // localStorage 儲存機制
+    // ==========================================
+    const _SK15 = 'tool15_settings';
+
+    function _save15() {
+        localStorage.setItem(_SK15, JSON.stringify({
+            target:   document.getElementById('target').value,
+            simCount: document.getElementById('simCount').value
+        }));
+    }
+
+    (function _load15() {
+        const raw = localStorage.getItem(_SK15);
+        if (!raw) return;
+        try {
+            const s = JSON.parse(raw);
+            if (s.target)   document.getElementById('target').value   = s.target;
+            if (s.simCount) document.getElementById('simCount').value = s.simCount;
+        } catch(e) {}
+    })();
+
+    ['target', 'simCount'].forEach(id => {
+        document.getElementById(id).addEventListener('change', _save15);
+    });
+
+    function checkPercentile() {
+        const inputVal = parseInt(document.getElementById("userCheckCost").value);
+        const luckDiv = document.getElementById("luckResult");
+
+        if (isNaN(inputVal) || inputVal < 0) return;
+        if (sortedCosts.length === 0) return;
+
+        let low = 0, high = sortedCosts.length - 1;
+        let index = -1;
+        while (low <= high) {
+            let mid = Math.floor((low + high) / 2);
+            if (sortedCosts[mid] <= inputVal) {
+                index = mid;
+                low = mid + 1;
+            } else {
+                high = mid - 1;
+            }
+        }
+        
+        const count = index + 1;
+        const percentile = (count / simulations) * 100;
+
+        luckDiv.innerHTML = `多過其他 ${percentile.toFixed(2)}% 的數據`;
+    }
+</script>
+
+</body>
+</html>
+
+

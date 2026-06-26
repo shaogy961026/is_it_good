@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>歡迎贊助</title> 
+    <meta name="description" content="提供《新楓之谷》計算小工具開發者的贊助管道。如果您覺得工具好用且在經濟上有餘力，歡迎支持作者持續維護與開發更多實用工具.">
+
+    <style>
+        /* --- 核心浮誇動畫 --- */
+        @keyframes crazy-shake {
+            0%, 100% { transform: translate(0,0); }
+            25% { transform: translate(2px, -2px) rotate(-1deg); }
+            50% { transform: translate(-2px, 1px) rotate(1deg); }
+            75% { transform: translate(1px, 3px) rotate(0deg); }
+        }
+        @keyframes neon-rainbow {
+            0% { text-shadow: 0 0 10px #ff0000; color: #ff0000; }
+            33% { text-shadow: 0 0 10px #00ff00; color: #00ff00; }
+            66% { text-shadow: 0 0 10px #0000ff; color: #0000ff; }
+            100% { text-shadow: 0 0 10px #ff0000; color: #ff0000; }
+        }
+        @keyframes gold-flow { 0% { background-position: 0% 50%; } 100% { background-position: 200% 50%; } }
+        @keyframes border-dance { 0% { background-position: 0% 50%; } 100% { background-position: 200% 50%; } }
+        @keyframes insane-3d-pop {
+            0% { transform: perspective(800px) rotateX(0deg) scale(1); }
+            100% { transform: perspective(800px) rotateX(10deg) scale(1.05); }
+        }
+        @keyframes float-up {
+             0% { opacity: 1; transform: translateY(0) scale(0.5); }
+             100% { opacity: 0; transform: translateY(-60px) scale(1.5); }
+        }
+        @keyframes blue-pulse {
+            0% { color: #007bff; text-shadow: 0 0 2px #007bff; }
+            100% { color: #00d4ff; text-shadow: 0 0 12px #00d4ff; }
+        }
+        @keyframes gold-glitter {
+            0% { text-shadow: 0 0 5px #ffd700, 0 0 10px #b8860b; }
+            100% { text-shadow: 0 0 15px #ffd700, 0 0 20px #ffea00; }
+        }
+
+        /* --- 贊助階級樣式 --- */
+        li.li-father {
+            background: linear-gradient(60deg, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000);
+            background-size: 300% 300%;
+            animation: border-dance 2s linear infinite, insane-3d-pop 0.8s ease-in-out infinite alternate;
+            padding: 4px !important; border-radius: 12px; margin: 20px 0 !important; border: none !important; position: relative;
+        }
+        .father-inner {
+            background: #fff; padding: 15px 6px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center;
+        }
+        .rank-father { font-size: 1.6em !important; font-weight: 900 !important; animation: crazy-shake 0.2s infinite; display: inline-block; position: relative; }
+        .rank-father::before { content: '👑'; position: absolute; left: -25px; animation: float-up 1s infinite; }
+        .son-tag { background: #ff0000; color: white !important; padding: 2px 8px; border-radius: 4px; font-size: 11px; margin-left: 5px; animation: crazy-shake 0.1s infinite; }
+        li.li-god { background: linear-gradient(120deg, #fff, #ffd700, #ffb300, #ffd700, #fff); background-size: 200% auto; animation: gold-flow 2s linear infinite; border: 2px solid #ffd700 !important; border-radius: 8px; margin: 10px 0 !important; }
+        .rank-god { font-weight: 900; font-size: 1.3em !important; color: #b8860b; text-shadow: 1px 1px 0 #ffd700, 2px 2px 5px rgba(0,0,0,0.2); }
+        .rank-warrior { animation: blue-pulse 1s infinite alternate; font-weight: bold; }
+
+        /* --- 表單樣式 --- */
+        .custom-form-container { background: #ffffff; border: 1px solid #ececec; border-radius: 8px; padding: 20px; margin-bottom: 30px; }
+        .form-row { display: flex; gap: 15px; margin-bottom: 15px; }
+        .form-row input, .form-row select { flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; outline: none; font-family: inherit; }
+        .custom-textarea { width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; font-family: inherit; resize: vertical; margin-bottom: 15px; outline: none; }
+        .submit-btn { background: #007bff; color: #fff; border: none; padding: 12px 20px; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; width: 100%; transition: 0.2s; }
+        .submit-btn:hover { background: #0056b3; }
+        .submit-btn:disabled { background: #999; cursor: not-allowed; }
+
+        /* --- 留言板樣式 --- */
+        .message-board { margin-top: 20px; padding: 20px; background: #f8f9fa; border-radius: 12px; border: 1px solid #e9ecef; }
+        .message-card { background: #ffffff; border-radius: 8px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border-left: 4px solid #007bff; text-align: left; }
+        .message-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; border-bottom: 1px dashed #eee; padding-bottom: 8px; }
+        .message-name { font-weight: bold; color: #333; font-size: 14px; }
+        .message-type { background: #e7f1ff; color: #007bff; font-size: 11px; padding: 2px 8px; border-radius: 12px; margin-left: 8px; }
+        .message-time { font-size: 11px; color: #999; }
+        .message-content { font-size: 14px; color: #555; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+        .refresh-btn { font-size: 12px; padding: 4px 10px; cursor: pointer; border: 1px solid #ccc; border-radius: 4px; background: #fff; transition: 0.2s; }
+        
+        /* --- 作者回覆樣式 --- */
+        .author-reply { margin-top: 12px; padding: 10px 12px; background: #fff8e1; border-radius: 6px; border-left: 4px solid #ffc107; }
+        .reply-header { font-weight: bold; color: #856404; font-size: 12px; margin-bottom: 5px; display: flex; align-items: center; }
+        .reply-content { font-size: 13px; color: #555; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+        
+        @media (max-width: 480px) { .form-row { flex-direction: column; gap: 10px; } }
+
+        /* --- Loading 動畫樣式 --- */
+        .spinner-border {
+            display: inline-block;
+            width: 1.5rem;
+            height: 1.5rem;
+            vertical-align: text-bottom;
+            border: 0.25em solid #007bff;
+            border-right-color: transparent;
+            border-radius: 50%;
+            animation: spinner-border .75s linear infinite;
+            margin-right: 10px;
+        }
+        @keyframes spinner-border {
+            to { transform: rotate(360deg); }
+        }
+        .loading-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #007bff;
+            font-size: 15px;
+            font-weight: bold;
+            padding: 20px 0;
+        }
+    </style>
+</head>
+<body>
+  
+<div id="global-nav"></div>
+<script src="../shared-nav.js"></script>
+
+<section id="donation-section" style="max-width: 600px; margin: 40px auto; font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif; padding: 25px; border: 1px solid #eef2f7; border-radius: 12px; background-color: #fcfcfc;">
+  
+  <h2 style="text-align: center; color: #333; margin-bottom: 10px;">歡迎贊助</h2>
+  <p style="text-align: center; color: #666; font-size: 15px; line-height: 1.6; margin-bottom: 25px;">
+    如果這裡的工具曾幫您省下繁瑣的計算時間，或是讓您在衝裝前避開了不必要的風險。<br>
+    如果您剛好<strong>在經濟上有餘力</strong>，且<strong>喜歡我的作品</strong>並願意支持，<br>
+    可以透過下方的第三方金流連結進行贊助。我會非常的感謝您。
+  </p>
+
+  <div style="text-align: center; margin: 25px 0;">
+    <a href="https://p.ecpay.com.tw/BD6337C" style="display: inline-block; text-decoration: none; font-weight: bold; color: #007bff;">
+        <img src="https://payment.ecpay.com.tw/Upload/QRCode/202602/QRCode_354ac7ca-a033-45c2-8a74-6f5bde30bc2e.png" alt="綠界金流 QR Code" style="width: 150px; display: block; margin: 0 auto 10px;" />
+        前往綠界金流贊助
+    </a>
+  </div>
+
+  <div style="background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 12px 15px; margin-bottom: 25px; font-size: 13px; color: #856404; border-radius: 4px;">
+      <strong>贊助小提醒：</strong>大名預設會放入下方的感謝名單(中間字為隱碼)，若想改用<strong>不隱碼、綽號、匿名或不公開</strong>，請務必填寫至綠界結帳畫面的「留言」欄位中喔！
+  </div>
+
+  <hr style="border: 0; border-top: 1px solid #eee; margin: 30px 0;">
+
+  <div id="donors-list" style="margin-bottom: 40px;">
+    <h3 style="font-size: 16px; color: #444; margin-bottom: 15px; display: flex; align-items: center;">
+      感謝名單 <span style="font-size: 12px; color: #999; margin-left: 10px; font-weight: normal;">(永久累積，不定期更新)</span>
+    </h3>
+    <div id="list-header" style="display: flex; justify-content: space-between; padding: 0 10px 10px 10px; border-bottom: 2px solid #eee; font-weight: bold; color: #888; font-size: 13px;">
+        <span>名稱 / 日期</span>
+        <span>贊助金額</span>
+    </div>
+    <p id="no-donors" style="text-align: center; color: #bbb; font-style: italic; font-size: 14px; margin: 20px 0;">「目前尚無贊助紀錄。靜候第一位有緣人的支持。」</p>
+    <div id="donors-container" style="display: none;"><ul id="donors-ul" style="list-style: none; padding: 0; margin: 0;"></ul></div>
+  </div>
+
+  <hr style="border: 0; border-top: 1px solid #eee; margin: 40px 0;">
+
+  <div id="feedback-section" style="margin-bottom: 40px;">
+      <h3 style="font-size: 16px; color: #444; margin-bottom: 15px;">留言、建議與 Bug 回報 (會公開顯示哦)</h3>
+      <div class="custom-form-container">
+          <form id="feedback-form">
+              <div class="form-row">
+                  <input type="text" id="fb-name" placeholder="您的暱稱 (選填)" maxlength="20">
+                  <select id="fb-type">
+                      <option value="建議">功能建議</option>
+                      <option value="Bug回報">Bug 回報</option>
+                      <option value="留言">一般留言</option>
+                  </select>
+              </div>
+              <textarea id="fb-content" class="custom-textarea" rows="4" placeholder="請輸入回饋內容..." required></textarea>
+              <button type="submit" id="fb-submit-btn" class="submit-btn">送出留言</button>
+          </form>
+      </div>
+  </div>
+
+  <div class="message-board">
+    <h3 style="font-size: 16px; color: #444; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between;">
+        <span>最新留言與建議</span>
+        <button class="refresh-btn" onclick="fetchMessages()">🔄 重新整理</button>
+    </h3>
+    
+    <div style="background-color: #fff; border: 1px solid #eee; padding: 12px; border-radius: 6px; margin-bottom: 20px;">
+        <p style="font-size: 11px; color: #777; margin: 0; line-height: 1.6;">
+            <strong>【免責聲明】</strong><br>
+            1. 本留言板採「事後審查」機制，所有留言僅代表網友個人觀點，不代表本站立場。<br>
+            2. 本站不對使用者留言內容之合法性或正確性負責，所有法律責任由留言者自負。<br>
+            3. 獲知或接獲檢舉包含違法、侵權、色情、暴力或商業廣告等不當留言，本站有權逕行刪除。<br>
+            4. 若發現不當內容，請來信 <strong>shaogy961026@gmail.com</strong> 告知，本站將盡速處理。
+        </p>
+    </div>
+
+    <div id="loading-msg"></div>
+    <div id="messages-container"></div>
+</div>
+
+  <div style="background-color: #f9f9f9; padding: 15px; border-radius: 8px; font-size: 12px; color: #666; line-height: 1.8; margin-top: 30px; border: 1px solid #ececec;">
+      <h4 style="margin: 0 0 10px 0; color: #444; font-size: 14px;">作者的聯絡資訊</h4>
+      <strong>聯絡信箱：</strong> <a href="mailto:shaogy961026@gmail.com" style="color: #007bff; text-decoration: none;">shaogy961026@gmail.com</a>
+  </div>
+</section>
+
+<script>
+  const sheetApiUrl = 'https://script.google.com/macros/s/AKfycbxzyAw_VSNpVweECNlDsSVGEI_HbKolkw2Sq86PwevNQg070hl4R3h-Ugk4PJMmN93X7w/exec';
+  const jsonUrl = 'donors.json'; 
+
+  function renderDonors(data) {
+      if (data && data.length > 0) {
+        document.getElementById('no-donors').style.display = 'none';
+        const container = document.getElementById('donors-container');
+        const ul = document.getElementById('donors-ul');
+        container.style.display = 'block';
+        data.sort((a, b) => b.amount - a.amount);
+        data.forEach(item => {
+          const li = document.createElement('li');
+          const amount = parseInt(item.amount) || 0;
+          li.style.cssText = "border-bottom: 1px dashed #eee; padding: 15px 10px; display: flex; justify-content: space-between; align-items: center;";
+          
+          let nameClass = ""; let sonTagHtml = "";
+          if (amount >= 10000) { li.className = "li-father"; nameClass = "rank-father"; sonTagHtml = '<span class="son-tag">謝謝斗內 我是你兒子</span>'; }
+          else if (amount >= 5000) { li.className = "li-god"; nameClass = "rank-god"; }
+          else if (amount >= 1000) { nameClass = "rank-warrior"; }
+
+          const contentHtml = `
+            <div style="display: flex; flex-direction: column; text-align: left;">
+                <div><span class="${nameClass} d-name"></span>${sonTagHtml}</div>
+                <small style="font-size: 11px; color: #aaa;" class="d-date"></small>
+            </div>
+            <span style="font-weight: bold; font-size: 16px;" class="d-amount"></span>`;
+          
+          if (amount >= 10000) { li.innerHTML = `<div class="father-inner" style="width: 100%; box-sizing: border-box;">${contentHtml}</div>`; }
+          else { li.innerHTML = contentHtml; }
+
+          li.querySelector('.d-name').textContent = item.name;
+          li.querySelector('.d-date').textContent = item.date;
+          li.querySelector('.d-amount').textContent = '$' + amount.toLocaleString();
+          ul.appendChild(li);
+        });
+      }
+  }
+
+  fetch(jsonUrl).then(r => r.json()).then(d => renderDonors(d));
+
+let isFetching = false; 
+
+function fetchMessages() {
+    if (isFetching) return;
+    
+    const container = document.getElementById('messages-container');
+    const loadingMsg = document.getElementById('loading-msg');
+    
+    isFetching = true; 
+    loadingMsg.style.display = 'block';
+    loadingMsg.innerHTML = '<div class="loading-container"><div class="spinner-border"></div>正在讀取最新留言...</div>';
+
+    fetch(sheetApiUrl)
+        .then(response => response.json())
+        .then(data => {
+            container.innerHTML = ''; 
+            loadingMsg.style.display = 'none';
+            
+            if (!data || data.length === 0) {
+                container.innerHTML = '<p style="text-align:center; color:#999; font-size:13px; margin: 20px 0;">目前還沒有留言喔！</p>';
+                return;
+            }
+
+            const uniqueData = [];
+            const seenTimes = new Set();
+            data.forEach(item => {
+                const uniqueKey = item.time + item.content; 
+                if (!seenTimes.has(uniqueKey)) {
+                    seenTimes.add(uniqueKey);
+                    uniqueData.push(item);
+                }
+            });
+
+            uniqueData.slice(0, 15).forEach(msg => {
+                const card = document.createElement('div');
+                card.className = 'message-card';
+                
+                let borderColor = "#007bff"; let typeBg = "#e7f1ff"; let typeColor = "#007bff";
+                if(msg.type?.includes("Bug")){ borderColor = "#dc3545"; typeBg = "#f8d7da"; typeColor = "#dc3545"; }
+                else if(msg.type?.includes("建議")){ borderColor = "#28a745"; typeBg = "#d4edda"; typeColor = "#28a745"; }
+                
+                card.style.borderLeftColor = borderColor;
+                
+                // 判斷有沒有作者回覆
+                let replyHtml = '';
+                if (msg.reply && msg.reply.trim() !== '') {
+                    replyHtml = `
+                        <div class="author-reply">
+                            <div class="reply-header">作者回覆</div>
+                            <div class="reply-content"></div>
+                        </div>`;
+                }
+
+                card.innerHTML = `
+                    <div class="message-header">
+                        <div><span class="message-name"></span><span class="message-type"></span></div>
+                        <span class="message-time"></span>
+                    </div>
+                    <div class="message-content"></div>
+                    ${replyHtml}`;
+                
+                card.querySelector('.message-name').textContent = msg.name || '匿名楓友';
+                card.querySelector('.message-type').textContent = msg.type || '留言';
+                card.querySelector('.message-type').style.cssText = `color:${typeColor}; background:${typeBg};`;
+                card.querySelector('.message-time').textContent = msg.time;
+                card.querySelector('.message-content').textContent = msg.content;
+                
+                // 安全地寫入回覆內容
+                if (msg.reply && msg.reply.trim() !== '') {
+                    card.querySelector('.reply-content').textContent = msg.reply;
+                }
+
+                container.appendChild(card);
+            });
+        })
+        .catch(err => {
+            console.error('Fetch error:', err);
+            loadingMsg.innerHTML = '<div class="loading-container" style="color: #dc3545;">❌ 載入失敗，請稍後再試</div>';
+        })
+        .finally(() => {
+            isFetching = false; 
+        });
+}
+
+  document.getElementById('feedback-form').addEventListener('submit', function(e) {
+      e.preventDefault();
+      const btn = document.getElementById('fb-submit-btn');
+      btn.innerText = '傳送中...'; btn.disabled = true;
+      const params = new URLSearchParams();
+      params.append('name', document.getElementById('fb-name').value.trim() || '匿名楓友');
+      params.append('type', document.getElementById('fb-type').value);
+      params.append('content', document.getElementById('fb-content').value.trim());
+
+      fetch(sheetApiUrl, { method: 'POST', body: params }).then(r => r.json()).then(data => {
+          if(data.result === "success") { alert('留言成功！'); document.getElementById('feedback-form').reset(); fetchMessages(); }
+      }).catch(() => alert('留言失敗，請稍後再試。若持續無法送出，歡迎來信 shaogy961026@gmail.com 聯繫。')).finally(() => { btn.innerText = '送出留言'; btn.disabled = false; });
+  });
+
+  fetchMessages();
+</script>
+</body>
+</html>

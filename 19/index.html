@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>新楓之谷 珍貴的附加方塊分析</title>
+    <meta name="description" content="專為《新楓之谷》打造的珍貴附加方塊計算機。可自訂附加潛能詞條價值與目標門檻，精準計算特定裝備部位的洗煉成功機率與期望方塊消耗數量，協助您評估洗煉效益與花費。">
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #f8fafc; padding: 20px; color: #333; line-height: 1.6; }
+        .container { max-width: 1200px; margin: 0 auto; background: #fff; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border-radius: 8px; overflow: hidden; padding: 20px; }
+        h2, h3 { color: #1e293b; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; margin-bottom: 16px; }
+        .controls { display: flex; flex-wrap: wrap; gap: 20px; margin-bottom: 20px; }
+        .control-group { display: flex; flex-direction: column; gap: 5px; }
+        label { font-weight: bold; color: #475569; }
+        select, input[type="number"] { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 16px; min-width: 150px;}
+        button { background-color: #2563eb; color: white; border: none; padding: 10px 20px; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        button:hover { background-color: #1d4ed8; }
+        
+        .calculator-section { background-color: #f1f5f9; padding: 20px; border-radius: 8px; margin-top: 30px; }
+        
+        #active-values-summary { background: #eff6ff; border: 1px solid #bfdbfe; padding: 15px; border-radius: 6px; margin-bottom: 15px; font-size: 0.95em; transition: all 0.3s; }
+
+        .stat-tag {
+            display: inline-block; padding: 6px 12px; background: #f1f5f9; border: 1px solid #cbd5e1;
+            border-radius: 20px; font-size: 0.9em; color: #475569; cursor: pointer; transition: 0.2s;
+            user-select: none;
+        }
+        .stat-tag:hover { background: #e2e8f0; color: #0f172a; border-color: #94a3b8; transform: translateY(-1px); }
+        .stat-tag::before { content: '+ '; font-weight: bold; color: #3b82f6; }
+
+        .active-stat-card {
+            display: flex; justify-content: space-between; align-items: center; 
+            background: #fff; border: 1px solid #bfdbfe; border-left: 4px solid #3b82f6;
+            padding: 10px 15px; border-radius: 6px; margin-bottom: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            animation: fadeInDown 0.25s ease-out; 
+        }
+        .active-stat-card span { font-weight: 500; color: #1e293b; font-size: 0.95em; }
+        .active-stat-controls { display: flex; align-items: center; gap: 10px; }
+        .active-stat-controls input { width: 80px; text-align: center; font-weight: bold; border: 1px solid #cbd5e1; padding: 6px; border-radius: 4px; }
+        .btn-remove { background: #fee2e2; color: #b91c1c; border: none; border-radius: 4px; padding: 6px 10px; cursor: pointer; font-size: 0.9em; font-weight: bold; transition: 0.2s; }
+        .btn-remove:hover { background: #fca5a5; }
+
+        #calc-results { margin-top: 20px; background: #fff; padding: 15px; border-radius: 6px; border: 1px solid #e2e8f0; }
+        .result-highlight { font-size: 1.2em; font-weight: bold; color: #b91c1c; margin-bottom: 15px; }
+        
+        table { width: 100%; border-collapse: collapse; text-align: left; }
+        th, td { padding: 10px; border: 1px solid #e2e8f0; }
+        th { background-color: #f1f5f9; font-weight: bold; }
+        .level-row { background-color: #cbd5e1; font-weight: bold; text-align: center; }
+        .group-row { background-color: #e2e8f0; font-weight: bold; text-align: center; color: #0f172a; font-size: 1.05em; }
+        @keyframes fadeInDown {
+            from { opacity: 0; transform: translateY(-8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .info-box {
+            background-color: #eff6ff;
+            color: #1e3a8a;
+            padding: 12px 16px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            font-size: 0.95em;
+            border: 1px solid #bfdbfe;
+            border-left: 4px solid #3b82f6;
+            line-height: 1.5;
+        }
+        .min-count-select {
+            padding: 5px;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            background: #f8fafc;
+            color: #475569;
+            font-size: 0.9em;
+            cursor: pointer;
+            outline: none;
+            transition: 0.2s;
+        }
+        .min-count-select:hover { border-color: #94a3b8; }
+        .min-count-select.active { background: #e0e7ff; border-color: #10b981; color: #047857; font-weight: bold; }
+    </style>
+</head>
+<body>
+<div id="global-nav"></div>
+<script>window.TOOL_ID = 19;</script>
+<script src="../shared-nav.js"></script>
+<script src="../shared-subtitle.js"></script>
+<div class="container">
+    <h2>新楓之谷 珍貴的附加方塊分析</h2>
+    <div id="tool-subtitle"></div>
+    
+    <div class="info-box">
+        <strong>ℹ️ 資料來源說明</strong><br>
+        本系統之「機率設定」源自於官方公告；而各裝備等級對應的「潛能屬性數值」因官方並未公開，故參考網路上由其他作者開發之小工具資料整理提供。
+    </div>
+
+    <div class="controls">
+        <div class="control-group">
+            <label for="equip-part">1. 裝備部位</label>
+            <select id="equip-part" onchange="onPartChange()">
+                <option value="全部">全部部位 (僅供檢視，無法計算機率)</option>
+                <option value="帽子">帽子</option>
+                <option value="上衣">上衣</option>
+                <option value="下衣">下衣</option>
+                <option value="套服">套服</option>
+                <option value="手套">手套</option>
+                <option value="鞋子">鞋子</option>
+                <option value="披風">披風</option>
+                <option value="腰帶">腰帶</option>
+                <option value="肩膀裝飾">肩膀裝飾</option>
+                <option value="耳環">耳環</option>
+                <option value="戒指">戒指</option>
+                <option value="墜飾">墜飾 (含項鍊)</option>
+                <option value="臉部裝飾">臉部裝飾 (含臉飾)</option>
+                <option value="眼睛裝飾">眼睛裝飾 (含眼飾)</option>
+                <option value="武器">武器</option>
+                <option value="輔助武器">輔助武器</option>
+                <option value="徽章">徽章</option>
+                <option value="機器心臟">機器心臟</option>
+                <option value="胸章">胸章</option>
+            </select>
+        </div>
+        <div class="control-group">
+            <label for="equip-level">2. 裝備等級</label>
+            <select id="equip-level" onchange="updateAll()">
+                </select>
+        </div>
+        <div class="control-group">
+            <label for="pot-tier">3. 附加屬性等級</label>
+            <select id="pot-tier" onchange="updateAll()">
+                <option value="特殊等級">特殊</option>
+                <option value="稀有等級">稀有</option>
+                <option value="罕見等級">罕見</option>
+                <option value="傳說等級">傳說</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="calculator-section">
+        <h3>自訂詞條價值與門檻計算</h3>
+        <p style="font-size: 0.9em; color: #64748b; margin-bottom: 15px;">請點擊下方您需要的詞條將其加入列表，並為其設定價值 (例如等效攻擊力或權重)。未加入或留白則視為無用詞條(價值為0)。(系統會自動儲存您的設定)</p>
+        
+        <div id="active-values-summary" style="display: none;"></div>
+        
+        <div id="config-areas"></div>
+
+        <div class="controls" style="align-items: flex-end; margin-top: 10px;">
+            <div class="control-group">
+                <label>目標門檻 (三排總價值 >= 該值視為成功)</label>
+                <input type="number" id="threshold-val" value="10" onchange="saveSetting('threshold', this.value)">
+            </div>
+            <button onclick="calculateProb()">開始計算機率</button>
+        </div>
+        <div id="calc-results">請先設定詞條價值並點擊上方按鈕計算機率。</div>
+    </div>
+
+    <h3 style="margin-top: 30px;">詞條資料表</h3>
+    <table>
+        <thead>
+            <tr>
+                <th style="width: 15%;">大分類</th>
+                <th style="width: 35%;">小分類</th>
+                <th style="width: 30%;">屬性 (自動套用數值)</th>
+                <th style="width: 20%;">珍貴附加 (單排池內權重)</th>
+            </tr>
+        </thead>
+        <tbody id="table-body"></tbody>
+    </table>
+</div>
+
+<script src="rates.js"></script>
+<script src="data.js"></script>
+
+<script>
+// ==========================================
+// 系統儲存與讀取功能 (LocalStorage)
+// ==========================================
+let userValues = {};
+
+function saveSetting(key, value) {
+    localStorage.setItem(`ms_calc_${key}`, value);
+}
+
+function updateLevelOptions() {
+    const partSelect = document.getElementById('equip-part');
+    const levelSelect = document.getElementById('equip-level');
+    const selectedPart = partSelect.value;
+    const previousLevelNum = parseInt(levelSelect.value);
+    
+    levelSelect.innerHTML = ''; 
+    
+    if (typeof statValueMap === 'undefined') {
+        levelSelect.innerHTML = '<option value="">無法讀取資料</option>';
+        return;
+    }
+
+    function getLevelDataString(lvl, part) {
+        if (part === "全部") return JSON.stringify(statValueMap[lvl]);
+        let data = {};
+        for (const tier of tierOrder) {
+            if (statValueMap[lvl][tier] && statValueMap[lvl][tier][part]) {
+                data[tier] = statValueMap[lvl][tier][part];
+            }
+        }
+        return JSON.stringify(data);
+    }
+    
+    const levelGroups = {}; 
+    const allLevels = Object.keys(statValueMap).map(Number).sort((a,b)=>a-b);
+    
+    allLevels.forEach(lvl => {
+        let hasData = false;
+        if (selectedPart === "全部") {
+            hasData = true;
+        } else {
+            for (const tier of tierOrder) {
+                if (statValueMap[lvl][tier] && statValueMap[lvl][tier][selectedPart] && Object.keys(statValueMap[lvl][tier][selectedPart]).length > 0) {
+                    hasData = true;
+                    break;
+                }
+            }
+        }
+        
+        if (hasData) {
+            const dataStr = getLevelDataString(lvl, selectedPart);
+            if (!levelGroups[dataStr]) levelGroups[dataStr] = [];
+            levelGroups[dataStr].push(lvl);
+        }
+    });
+
+    const groupKeys = Object.keys(levelGroups);
+    if (groupKeys.length > 0) {
+        let matchedValue = null;
+        let storedLevel = parseInt(localStorage.getItem('ms_calc_equipLevel'));
+        
+        groupKeys.forEach(key => {
+            const lvls = levelGroups[key];
+            const opt = document.createElement('option');
+            opt.value = lvls[0]; 
+            opt.textContent = lvls.join(' / ') + " 裝備";
+            levelSelect.appendChild(opt);
+            
+            if (previousLevelNum && lvls.includes(previousLevelNum)) {
+                matchedValue = lvls[0];
+            } else if (storedLevel && lvls.includes(storedLevel) && !matchedValue) {
+                matchedValue = lvls[0];
+            }
+        });
+        
+        if (matchedValue) {
+            levelSelect.value = matchedValue;
+        } else {
+            levelSelect.value = levelGroups[groupKeys[0]][0];
+        }
+    } else {
+        levelSelect.innerHTML = '<option value="">該部位無對應等級資料</option>';
+    }
+}
+
+function loadSettings() {
+    const savedValues = localStorage.getItem('ms_calc_values');
+    if (savedValues) {
+        try { 
+            let parsed = JSON.parse(savedValues); 
+            let migrated = {};
+            for (let key in parsed) {
+                let val = parsed[key];
+                if (typeof val !== 'object') {
+                    migrated[key] = { v: val, c: 0 };
+                } else {
+                    migrated[key] = val;
+                }
+            }
+            userValues = migrated;
+        } catch (e) { userValues = {}; }
+    }
+    
+    if (localStorage.getItem('ms_calc_equipPart')) document.getElementById('equip-part').value = localStorage.getItem('ms_calc_equipPart');
+    
+    updateLevelOptions();
+    
+    if (localStorage.getItem('ms_calc_potTier')) document.getElementById('pot-tier').value = localStorage.getItem('ms_calc_potTier');
+    if (localStorage.getItem('ms_calc_threshold')) document.getElementById('threshold-val').value = localStorage.getItem('ms_calc_threshold');
+}
+
+function updateAll() {
+    saveSetting('equipLevel', document.getElementById('equip-level').value);
+    saveSetting('potTier', document.getElementById('pot-tier').value);
+    saveSetting('equipPart', document.getElementById('equip-part').value);
+    
+    renderTable();
+    renderConfig();
+    document.getElementById('calc-results').innerHTML = "請重新確認目標門檻並點擊計算機率。";
+}
+
+function onPartChange() {
+    updateLevelOptions();
+    updateAll();
+}
+
+// ==========================================
+// 處理互動邏輯 (購物車模式)
+// ==========================================
+function handleValueChange(text, valStr) {
+    const val = valStr.trim() === '' ? '' : parseFloat(valStr);
+    if (!userValues[text]) userValues[text] = { v: '', c: 0 };
+    userValues[text].v = val;
+    localStorage.setItem('ms_calc_values', JSON.stringify(userValues));
+    
+    const inputs = document.querySelectorAll('.val-input');
+    inputs.forEach(input => {
+        if (input.getAttribute('data-text') === text && input.value !== valStr) {
+            input.value = valStr;
+        }
+    });
+}
+
+function handleCountChange(text, countStr) {
+    const count = parseInt(countStr) || 0;
+    if (!userValues[text]) userValues[text] = { v: '', c: 0 };
+    userValues[text].c = count;
+    localStorage.setItem('ms_calc_values', JSON.stringify(userValues));
+    
+    const selects = document.querySelectorAll('.min-count-select');
+    selects.forEach(select => {
+        // 【修復】只要是同名的詞條，全部強制同步數值與綠色狀態
+        if (select.getAttribute('data-text') === text) {
+            select.value = countStr;
+            if (count > 0) {
+                select.classList.add('active');
+            } else {
+                select.classList.remove('active');
+            }
+        }
+    });
+}
+
+function getCurrentPools() {
+    const equipLevel = document.getElementById('equip-level').value;
+    const selectedTier = document.getElementById('pot-tier').value;
+    const selectedPart = document.getElementById('equip-part').value;
+    const rates = cubeRates[selectedTier];
+    if (!rates) return [];
+    const poolC = getPool(equipLevel, selectedTier, selectedPart);
+    const poolD = getPool(equipLevel, rates.down, selectedPart);
+    return [...poolC, ...poolD];
+}
+
+function getBaseName(rawName) {
+    return rawName.replace(/_\d+$/, '').replace(/\+\d+%?$/, '');
+}
+
+function addStat(rawName, text, element) {
+    if (element) {
+        element.style.opacity = '0';
+        element.style.transform = 'scale(0.8)';
+        element.style.pointerEvents = 'none'; 
+    }
+    
+    const baseName = getBaseName(rawName);
+    let syncCount = 0;
+    
+    const allPool = getCurrentPools();
+    allPool.forEach(item => {
+        if (getBaseName(item.rawName) === baseName && userValues[item.text] === undefined) {
+            userValues[item.text] = { v: '', c: 0 };
+            syncCount++;
+        }
+    });
+    
+    if (userValues[text] === undefined) {
+        userValues[text] = { v: '', c: 0 };
+    }
+    
+    localStorage.setItem('ms_calc_values', JSON.stringify(userValues));
+    
+    setTimeout(() => {
+        if (syncCount > 1) {
+            showSyncNotification('已為您自動加入相關層級的詞條，請一併設定價值。');
+        }
+        renderConfig(); 
+    }, 200);
+}
+
+function removeStat(rawName, text, element) {
+    if (element) {
+        const card = element.closest('.active-stat-card');
+        if (card) {
+            card.style.transition = 'all 0.2s ease';
+            card.style.opacity = '0';
+            card.style.transform = 'translateY(-8px)';
+        }
+    }
+    
+    const baseName = getBaseName(rawName);
+    let syncCount = 0;
+    
+    const allPool = getCurrentPools();
+    allPool.forEach(item => {
+        if (getBaseName(item.rawName) === baseName && userValues[item.text] !== undefined) {
+            delete userValues[item.text];
+            syncCount++;
+        }
+    });
+    
+    localStorage.setItem('ms_calc_values', JSON.stringify(userValues));
+    
+    setTimeout(() => {
+        if (syncCount > 1) {
+            showSyncNotification('已自動移除相關層級的詞條。');
+        }
+        renderConfig(); 
+    }, 200);
+}
+
+let syncTimeout;
+function showSyncNotification(msg) {
+    let notif = document.getElementById('sync-notif');
+    if (!notif) {
+        notif = document.createElement('div');
+        notif.id = 'sync-notif';
+        notif.style = 'position:fixed; bottom:20px; right:20px; background:#10b981; color:white; padding:12px 20px; border-radius:8px; z-index:9999; transition: opacity 0.3s; box-shadow: 0 4px 6px rgba(0,0,0,0.1); font-weight: bold; pointer-events: none;';
+        document.body.appendChild(notif);
+    }
+    notif.innerText = msg;
+    notif.style.opacity = 1;
+    clearTimeout(syncTimeout);
+    syncTimeout = setTimeout(() => { notif.style.opacity = 0; }, 3000);
+}
+
+// ==========================================
+// 定義與基本函數
+// ==========================================
+const tierOrder = ["普通等級", "特殊等級", "稀有等級", "罕見等級", "傳說等級"];
+const tierRanks = { "傳說等級": 5, "罕見等級": 4, "稀有等級": 3, "特殊等級": 2, "普通等級": 1 };
+const tierColors = { 
+    "傳說等級": "#A4E61C", "罕見等級": "#FFCC00", "稀有等級": "#CC66FF", "特殊等級": "#00CCFF", "普通等級": "#FFFFFF"  
+};
+
+const cubeRates = {
+    "傳說等級": { down: "罕見等級", p1: [1.0, 0.0], p2: [0.005, 0.995], p3: [0.005, 0.995] },
+    "罕見等級": { down: "稀有等級", p1: [1.0, 0.0], p2: [0.0196, 0.9804], p3: [0.0196, 0.9804] }, 
+    "稀有等級": { down: "特殊等級", p1: [1.0, 0.0], p2: [0.0476, 0.9524], p3: [0.0476, 0.9524] },
+    "特殊等級": { down: "普通等級", p1: [1.0, 0.0], p2: [0.0196, 0.9804], p3: [0.0196, 0.9804] }
+};
+
+const allData = [];
+const lines = officialRawDataStr.trim().split('\n');
+let currentTier = "";
+const statCounters = {}; // 【關鍵修改】用來追蹤同群組內的重複詞條
+
+for (const line of lines) {
+    const t = line.trim();
+    if (!t) continue;
+    if (t.startsWith('#')) {
+        currentTier = t.replace('#', '');
+    } else {
+        const parts = t.split('|');
+        if (parts.length === 4) {
+            let statName = parts[2];
+            let cat2 = parts[1];
+            
+            // 【關鍵修改】自動幫 TSV 中的同名次級潛能加上後綴 (例如 STR%_2)
+            const trackingKey = currentTier + "|" + cat2 + "|" + statName;
+            if (!statCounters[trackingKey]) {
+                statCounters[trackingKey] = 2;
+            } else {
+                const count = statCounters[trackingKey];
+                statCounters[trackingKey] = count + 1;
+                statName = statName + "_" + count;
+            }
+
+            allData.push({ tier: currentTier, cat1: parts[0], cat2: cat2, stat: statName, weight: parts[3] });
+        }
+    }
+}
+
+function isPartMatch(cat2, selectedPart) {
+    if (selectedPart === "全部") return true;
+    const parts = cat2.split(/[,、\s]+/).filter(Boolean);
+    if (selectedPart === "墜飾" && (parts.includes("項鍊") || parts.includes("墜飾"))) return true;
+    if (selectedPart === "臉部裝飾" && (parts.includes("臉飾") || parts.includes("臉部裝飾"))) return true;
+    if (selectedPart === "眼睛裝飾" && (parts.includes("眼飾") || parts.includes("眼睛裝飾"))) return true;
+    return parts.includes(selectedPart);
+}
+
+function getStatInfo(equipLevel, tier, statName, selectedPart) {
+    let partKey = selectedPart === "全部" ? "帽子" : selectedPart;
+    let text = statName; 
+    
+    let searchKey = statName;
+    if (searchKey === "攻擊力") searchKey = "物理攻擊力";
+    if (searchKey === "MaxHP") searchKey = "最大HP";
+    if (searchKey === "MaxMP") searchKey = "最大MP";
+    if (searchKey === "MaxHP%") searchKey = "最大HP%";
+    if (searchKey === "MaxMP%") searchKey = "最大MP%";
+    
+    if (typeof statValueMap !== 'undefined' && statValueMap[equipLevel] && statValueMap[equipLevel][tier]) {
+        const tierMap = statValueMap[equipLevel][tier];
+        if (selectedPart !== "全部" && tierMap[partKey] && tierMap[partKey][searchKey]) {
+            text = tierMap[partKey][searchKey];
+        } else {
+            for (const part in tierMap) {
+                if (tierMap[part][searchKey]) {
+                    text = tierMap[part][searchKey];
+                    break;
+                }
+            }
+        }
+    }
+    
+    if (text === statName || text === searchKey) {
+        let cleanKey = searchKey.replace(/_\d+$/, '');
+        text = cleanKey; 
+    }
+    
+    const htmlText = text.replace(/([+-]?\d+(?:\.\d+)?%?)/g, '<span style="color: #2563eb; font-weight: bold;">$1</span>');
+    return { text: text, html: htmlText };
+}
+
+function getCategory(statText) {
+    if (statText.includes('實用')) return 'MAX1_DECENT';
+    if (statText.includes('無敵時間')) return 'MAX1_INVINC_DUR'; 
+    if (statText.includes('機率無視')) return 'MAX2_IGNDMG'; 
+    if (statText.includes('機率在') && statText.includes('無敵')) return 'MAX2_INVINC_PROB'; 
+    return 'NONE';
+}
+
+function isValid(stat, prevStats) {
+    const cat = stat.category;
+    if (cat === 'NONE') return true;
+    let count = 0;
+    for (let s of prevStats) {
+        if (s.category === cat) count++;
+    }
+    if (cat.startsWith('MAX1')) return count < 1;
+    if (cat.startsWith('MAX2')) return count < 2;
+    return true;
+}
+
+function getPool(equipLevel, tier, selectedPart) {
+    const filtered = allData.filter(d => d.tier === tier && isPartMatch(d.cat2, selectedPart));
+    return filtered.map(d => {
+        const num = parseInt(d.weight.split('/')[0], 10);
+        const info = getStatInfo(equipLevel, tier, d.stat, selectedPart);
+        
+        let score = 0;
+        let valObj = userValues[info.text];
+        if (valObj !== undefined) {
+            if (typeof valObj === 'object') score = parseFloat(valObj.v) || 0;
+            else score = parseFloat(valObj) || 0;
+        }
+
+        return {
+            rawName: d.stat,
+            text: info.text, 
+            num: num,
+            category: getCategory(info.text), 
+            value: score,
+            tier: tier
+        };
+    });
+}
+
+function renderConfig() {
+    const equipLevel = document.getElementById('equip-level').value;
+    const selectedTier = document.getElementById('pot-tier').value;
+    const selectedPart = document.getElementById('equip-part').value;
+    
+    if (selectedPart === "全部") {
+        document.getElementById('config-areas').innerHTML = "<p style='color:#b91c1c; font-weight:bold; padding: 10px; background: #fee2e2; border-radius: 6px;'>請先在上方選擇特定的「裝備部位」，才能載入該部位的潛能詞條供您設定價值。</p>";
+        document.getElementById('active-values-summary').style.display = 'none';
+        return;
+    }
+
+    const rates = cubeRates[selectedTier];
+    if (!rates) return;
+
+    const poolC = getPool(equipLevel, selectedTier, selectedPart);
+    const poolD = getPool(equipLevel, rates.down, selectedPart);
+    
+    const uniqueC = new Map();
+    poolC.forEach(s => { if (!uniqueC.has(s.text)) uniqueC.set(s.text, s); });
+    
+    const uniqueD = new Map();
+    poolD.forEach(s => { 
+        if (!uniqueD.has(s.text)) uniqueD.set(s.text, s); 
+    });
+
+    const activeC = [];
+    const activeD = [];
+    const inactiveC = [];
+    const inactiveD = [];
+
+    uniqueC.forEach((item, text) => {
+        if (userValues[text] !== undefined) activeC.push(item);
+        else inactiveC.push(item);
+    });
+
+    uniqueD.forEach((item, text) => {
+        if (userValues[text] !== undefined) activeD.push(item);
+        else inactiveD.push(item);
+    });
+
+    const summaryDiv = document.getElementById('active-values-summary');
+    if (activeC.length === 0 && activeD.length === 0) {
+        summaryDiv.style.display = 'none';
+        summaryDiv.innerHTML = '';
+    } else {
+        summaryDiv.style.display = 'block';
+        let html = `
+            <p style="color: #1e3a8a; margin-bottom: 12px; font-weight:bold; font-size: 1.05em;">目前已加入的詞條：</p>
+            <p style="font-size: 0.85em; color: #475569; margin-bottom: 12px;"><b>進階用法</b>：除了設定價值分數外，您也可從下拉選單指定某個詞條「最少需出現幾排」，進行雙重篩選。</p>
+        `;
+        
+        function createCardHtml(item, borderColor) {
+            let valObj = userValues[item.text] || { v: '', c: 0 };
+            let currentVal = valObj.v !== undefined ? valObj.v : '';
+            let currentCount = valObj.c || 0;
+            // 【修復】一開始渲染時，大於 0 的排數自動加上綠色
+            let activeClass = currentCount > 0 ? 'active' : '';
+
+            return `
+                <div class="active-stat-card" style="border-left-color: ${borderColor};">
+                    <span title="${item.text}">[${item.tier}] ${item.text}</span>
+                    <div class="active-stat-controls">
+                        <select class="min-count-select ${activeClass}" data-text="${item.text}" title="設定此詞條最少出現的排數" onchange="handleCountChange('${item.text}', this.value)">
+                            <option value="0" ${currentCount === 0 ? 'selected' : ''}>不限排數</option>
+                            <option value="1" ${currentCount === 1 ? 'selected' : ''}>≥ 1 排</option>
+                            <option value="2" ${currentCount === 2 ? 'selected' : ''}>≥ 2 排</option>
+                            <option value="3" ${currentCount === 3 ? 'selected' : ''}>3 排</option>
+                        </select>
+                        <input type="number" class="val-input" step="0.1" value="${currentVal}" placeholder="分數" 
+                               data-text="${item.text}" 
+                               oninput="handleValueChange('${item.text}', this.value)">
+                        <button class="btn-remove" title="移除" onclick="removeStat('${item.rawName}', '${item.text}', this)">❌</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        if (activeC.length > 0) {
+            activeC.forEach(item => { html += createCardHtml(item, '#3b82f6'); });
+        }
+
+        if (activeC.length > 0 && activeD.length > 0) {
+            html += `<hr style="border: 0; border-top: 1px dashed #93c5fd; margin: 12px 0;">`;
+        }
+
+        if (activeD.length > 0) {
+            activeD.forEach(item => { html += createCardHtml(item, '#94a3b8'); });
+        }
+        
+        summaryDiv.innerHTML = html;
+    }
+
+    let configHtml = '';
+    if (inactiveC.length > 0 || inactiveD.length > 0) {
+        configHtml += `<div style="background: #fff; border: 1px solid #e2e8f0; padding: 15px; border-radius: 6px; margin-bottom: 25px;">`;
+        configHtml += `<h4 style="margin-top: 0; color: #475569; margin-bottom: 15px; font-size: 1.05em;">點擊下方標籤加入計算 (僅顯示此部位可用)：</h4>`;
+        
+        if (inactiveC.length > 0) {
+            configHtml += `<div style="margin-bottom: 15px;">`;
+            configHtml += `<div style="font-size: 0.9em; font-weight: bold; color: #1e3a8a; margin-bottom: 8px;">【${selectedTier}】專屬與對應數值詞條</div>`;
+            configHtml += `<div style="display: flex; flex-wrap: wrap; gap: 8px;">`;
+            inactiveC.forEach(item => { configHtml += `<span class="stat-tag" onclick="addStat('${item.rawName}', '${item.text}', this)">${item.text}</span>`; });
+            configHtml += `</div></div>`;
+        }
+        
+        if (inactiveD.length > 0) {
+            if (inactiveC.length > 0) configHtml += `<hr style="border: 0; border-top: 1px dashed #cbd5e1; margin: 15px 0;">`;
+            configHtml += `<div>`;
+            configHtml += `<div style="font-size: 0.9em; font-weight: bold; color: #475569; margin-bottom: 8px;">【${rates.down}】專屬與對應數值詞條</div>`;
+            configHtml += `<div style="display: flex; flex-wrap: wrap; gap: 8px;">`;
+            inactiveD.forEach(item => { configHtml += `<span class="stat-tag" onclick="addStat('${item.rawName}', '${item.text}', this)">${item.text}</span>`; });
+            configHtml += `</div></div>`;
+        }
+        configHtml += `</div>`;
+    } else if (activeC.length > 0 || activeD.length > 0) {
+        configHtml += `<div style="background: #ecfdf5; border: 1px solid #a7f3d0; padding: 15px; border-radius: 6px; color: #065f46; margin-bottom: 25px; font-weight: bold;">此部位所有可用的詞條均已加入上方列表。</div>`;
+    }
+
+    document.getElementById('config-areas').innerHTML = configHtml;
+}
+
+function calculateProb() {
+    const selectedPart = document.getElementById('equip-part').value;
+    if (selectedPart === "全部") {
+        alert("請先選擇特定的「裝備部位」，才能進行機率計算！");
+        return;
+    }
+
+    const equipLevel = document.getElementById('equip-level').value;
+    const selectedTier = document.getElementById('pot-tier').value;
+    const threshold = parseFloat(document.getElementById('threshold-val').value) || 0;
+    
+    // 【關鍵修改】過濾掉已經不在當前選取池子裡的幽靈條件，防範 0% 錯誤
+    const currentPools = getCurrentPools();
+    const activeTexts = new Set(currentPools.map(p => p.text));
+    
+    const requiredCounts = {};
+    for (const textKey in userValues) {
+        if (userValues[textKey] && userValues[textKey].c > 0 && activeTexts.has(textKey)) {
+            requiredCounts[textKey] = userValues[textKey].c;
+        }
+    }
+    const hasReqs = Object.keys(requiredCounts).length > 0;
+    
+    const rates = cubeRates[selectedTier];
+    if (!rates) return;
+
+    const poolC = getPool(equipLevel, selectedTier, selectedPart);
+    const poolD = getPool(equipLevel, rates.down, selectedPart);
+
+    const paths = [
+        { tiers: [poolC, poolC, poolC], p: rates.p1[0] * rates.p2[0] * rates.p3[0], currentTierCount: 3 },
+        { tiers: [poolC, poolC, poolD], p: rates.p1[0] * rates.p2[0] * rates.p3[1], currentTierCount: 2 },
+        { tiers: [poolC, poolD, poolC], p: rates.p1[0] * rates.p2[1] * rates.p3[0], currentTierCount: 2 },
+        { tiers: [poolC, poolD, poolD], p: rates.p1[0] * rates.p2[1] * rates.p3[1], currentTierCount: 1 }
+    ];
+
+    let totalProb = 0;
+    const resultsMap = { 3: {}, 2: {}, 1: {} };
+
+    for (const path of paths) {
+        if (path.p === 0) continue;
+        const [p1Pool, p2Pool, p3Pool] = path.tiers;
+        const sumP1 = p1Pool.reduce((a, b) => a + b.num, 0);
+
+        for (const s1 of p1Pool) {
+            const prob1 = s1.num / sumP1;
+            const validP2 = p2Pool.filter(s => isValid(s, [s1]));
+            const sumP2 = validP2.reduce((a, b) => a + b.num, 0);
+            if (sumP2 === 0) continue;
+
+            for (const s2 of validP2) {
+                const prob2 = s2.num / sumP2;
+                const validP3 = p3Pool.filter(s => isValid(s, [s1, s2]));
+                const sumP3 = validP3.reduce((a, b) => a + b.num, 0);
+                if (sumP3 === 0) continue;
+
+                for (const s3 of validP3) {
+                    const prob3 = s3.num / sumP3;
+                    const finalProb = path.p * prob1 * prob2 * prob3;
+                    const totalVal = s1.value + s2.value + s3.value;
+
+                    if (totalVal >= threshold) {
+                        
+                        let meetsReq = true;
+                        if (hasReqs) {
+                            const currentCounts = {};
+                            currentCounts[s1.text] = (currentCounts[s1.text] || 0) + 1;
+                            currentCounts[s2.text] = (currentCounts[s2.text] || 0) + 1;
+                            currentCounts[s3.text] = (currentCounts[s3.text] || 0) + 1;
+
+                            for (const reqKey in requiredCounts) {
+                                if ((currentCounts[reqKey] || 0) < requiredCounts[reqKey]) {
+                                    meetsReq = false;
+                                    break;
+                                }
+                            }
+                        }
+
+                        if (meetsReq) {
+                            totalProb += finalProb;
+                            
+                            const linesComb = [
+                                { text: s1.value > 0 || requiredCounts[s1.text] ? s1.text : '任意', tier: s1.tier, isAny: s1.value === 0 && !requiredCounts[s1.text] },
+                                { text: s2.value > 0 || requiredCounts[s2.text] ? s2.text : '任意', tier: s2.tier, isAny: s2.value === 0 && !requiredCounts[s2.text] },
+                                { text: s3.value > 0 || requiredCounts[s3.text] ? s3.text : '任意', tier: s3.tier, isAny: s3.value === 0 && !requiredCounts[s3.text] }
+                            ];
+
+                            linesComb.sort((a, b) => {
+                                const rankA = a.isAny ? 0 : (tierRanks[a.tier] || 0);
+                                const rankB = b.isAny ? 0 : (tierRanks[b.tier] || 0);
+                                if (rankA !== rankB) return rankB - rankA;
+                                return a.text.localeCompare(b.text);
+                            });
+
+                            const keyLines = linesComb.map(item => {
+                                if (item.isAny) return '<span style="color: #94a3b8; margin-left: 18px;">任意</span>';
+                                const color = tierColors[item.tier];
+                                const square = item.tier === "普通等級" ? 
+                                    `<span style="color: #fff; font-size: 0.8em; margin-right: 4px; text-shadow: -1px -1px 0 #cbd5e1, 1px -1px 0 #cbd5e1, -1px 1px 0 #cbd5e1, 1px 1px 0 #cbd5e1;">&#9632;</span>` : 
+                                    `<span style="color: ${color}; font-size: 0.8em; margin-right: 4px; text-shadow: 1px 1px 1px rgba(0,0,0,0.3);">&#9632;</span>`;
+                                return `${square}<span style="font-weight: 500;">${item.text}</span>`;
+                            });
+                            
+                            const key = keyLines.join('<br>');
+
+                            if (!resultsMap[path.currentTierCount][key]) {
+                                resultsMap[path.currentTierCount][key] = { prob: 0, val: totalVal };
+                            }
+                            resultsMap[path.currentTierCount][key].prob += finalProb;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    const resDiv = document.getElementById('calc-results');
+
+    if (totalProb === 0) {
+        resDiv.innerHTML = `<div class="result-highlight">此門檻與限制條件下，成功機率為 0%。</div>`;
+        return;
+    }
+
+    const expectedCubes = Math.ceil(1 / totalProb);
+    let html = `
+        <div class="result-highlight">
+            總成功機率: ${(totalProb * 100).toFixed(4)}% <br>
+            期望消耗方塊: 約 ${expectedCubes.toLocaleString()} 顆
+        </div>
+        <table style="width: 100%; font-size: 0.95em;">
+            <tr><th style="width: 50%">潛能組合內容</th><th style="width: 15%">總價值</th><th style="width: 35%">佔比</th></tr>
+    `;
+
+    [3, 2, 1].forEach(count => {
+        const group = resultsMap[count];
+        const sortedKeys = Object.keys(group).sort((a, b) => {
+            if (group[b].val !== group[a].val) return group[b].val - group[a].val;
+            return group[b].prob - group[a].prob;
+        });
+        
+        if (sortedKeys.length > 0) {
+            const countText = count === 3 ? "三個" : (count === 2 ? "兩個" : "一個");
+            html += `<tr class="group-row"><td colspan="3">包含 ${countText}「${selectedTier}」詞條</td></tr>`;
+            
+            for (const key of sortedKeys) {
+                html += `<tr>
+                            <td style="line-height: 1.6; padding-left: 15px;">${key}</td>
+                            <td style="font-weight:bold; color:#0f172a; vertical-align: middle;">${group[key].val.toFixed(1)}</td>
+                            <td style="vertical-align: middle; color: #333;">${(group[key].prob * 100).toFixed(4)}%</td>
+                         </tr>`;
+            }
+        }
+    });
+
+    html += `</table>`;
+    resDiv.innerHTML = html;
+}
+
+function renderTable() {
+    const equipLevel = document.getElementById('equip-level').value;
+    const selectedTier = document.getElementById('pot-tier').value;
+    const selectedPart = document.getElementById('equip-part').value;
+    
+    const tierIndex = tierOrder.indexOf(selectedTier);
+    const allowedTiers = [];
+    if (tierIndex !== -1) {
+        allowedTiers.push(tierOrder[tierIndex]);
+        if (tierIndex > 0) allowedTiers.push(tierOrder[tierIndex - 1]);
+    }
+
+    const displayData = [];
+    for (const tier of allowedTiers) {
+        const filtered = allData.filter(d => d.tier === tier && isPartMatch(d.cat2, selectedPart));
+        if (filtered.length > 0) {
+            displayData.push({ isLevel: true, text: tier });
+            displayData.push(...filtered);
+        }
+    }
+
+    const tbody = document.getElementById('table-body');
+    if (displayData.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;">該條件下沒有對應的潛能資料</td></tr>`;
+        return;
+    }
+
+    for (let i = 0; i < displayData.length; i++) {
+        if (displayData[i].isLevel) continue;
+        if (i === 0 || displayData[i-1].isLevel || displayData[i].cat1 !== displayData[i-1].cat1) {
+            let span = 1;
+            for (let j = i + 1; j < displayData.length; j++) {
+                if (displayData[j].isLevel || displayData[j].cat1 !== displayData[i].cat1) break;
+                span++;
+            }
+            displayData[i].cat1Rowspan = span;
+        } else {
+            displayData[i].cat1Rowspan = 0; 
+        }
+
+        if (i === 0 || displayData[i-1].isLevel || displayData[i].cat1 !== displayData[i-1].cat1 || displayData[i].cat2 !== displayData[i-1].cat2) {
+            let span = 1;
+            for (let j = i + 1; j < displayData.length; j++) {
+                if (displayData[j].isLevel || displayData[j].cat1 !== displayData[i].cat1 || displayData[j].cat2 !== displayData[i].cat2) break;
+                span++;
+            }
+            displayData[i].cat2Rowspan = span;
+        } else {
+            displayData[i].cat2Rowspan = 0; 
+        }
+    }
+
+    let html = '';
+    for (const item of displayData) {
+        if (item.isLevel) {
+            html += `<tr class="level-row"><td colspan="4">${item.text}</td></tr>`;
+            continue;
+        }
+        html += `<tr>`;
+        if (item.cat1Rowspan > 0) html += `<td rowspan="${item.cat1Rowspan}">${item.cat1}</td>`;
+        if (item.cat2Rowspan > 0) html += `<td rowspan="${item.cat2Rowspan}">${item.cat2}</td>`;
+        
+        const info = getStatInfo(equipLevel, item.tier, item.stat, selectedPart);
+        const [num, den] = item.weight.split('/').map(Number);
+        const percent = ((num / den) * 100).toFixed(2);
+        
+        html += `<td>${info.html}</td><td>${percent}% (${item.weight})</td></tr>`;
+    }
+    tbody.innerHTML = html;
+}
+
+window.onload = function() {
+    loadSettings();
+    updateAll();
+};
+</script>
+
+</body>
+</html>
+
+

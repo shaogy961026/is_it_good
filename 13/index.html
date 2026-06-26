@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>新楓之谷 閃炫&紅閃分析</title>
+    <meta name="description" content="透過數學理論與模擬雙重驗證，精算《新楓之谷》閃炫方塊與紅閃方塊的成本。針對雙排傳說、次頂級詞條等目標提供詳細的期望值分析。">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .alert-box { background-color: #e8f4fd; border: 1px solid #b6e0fe; color: #0d5283; padding: 12px; border-radius: 8px; margin-bottom: 20px; font-size: 14px; line-height: 1.5; text-align: left; }
+        .alert-icon { font-weight: bold; margin-right: 5px; font-size: 1.2em; }
+    </style>
+</head>
+<body>
+<div id="global-nav"></div>
+<script>window.TOOL_ID = 13;</script>
+<script src="../shared-nav.js"></script>
+<script src="../shared-subtitle.js"></script>
+<div class="container">
+    <h2>新楓之谷 閃炫&紅閃分析</h2>
+    <div id="tool-subtitle"></div>
+
+    <div class="alert-box">
+        <ul style="margin: 5px 0 0 20px; padding: 0;">
+            <li><b>STR / DEX / INT / LUK</b> 的出現機率與權重皆完全相同，系統內部以 <b>STR</b> 作為代表計算，並統一顯示為 <b>指定主屬</b>。</li>
+            <li><b>物理攻擊力% / 魔法攻擊力%</b> 的出現機率與權重皆完全相同，系統內部以 <b>物理攻擊力</b> 作為代表計算，並統一顯示為 <b>物理攻擊力(魔法攻擊力)</b>。</li>
+        </ul>
+    </div>
+
+    <div class="controls">
+        <div class="control-group">
+            <span class="control-label">[1] 選擇部位</span>
+            <select id="partSelect" onchange="updateUI()">
+                <option value="Hat">帽子</option>
+                <option value="Top">上衣,套服</option>
+                <option value="Bottom">下衣</option>
+                <option value="Shoes">鞋子</option>
+                <option value="Cape">披風,腰帶,肩膀,機器心臟,胸章</option>
+                <option value="Glove">手套</option>
+                <option value="Weapon">武器,輔助武器(包含力量之盾, 靈魂之環)</option>
+                <option value="Emblem">徽章</option>
+                <option value="Accessory">墜飾,戒指,臉部裝飾,眼睛裝飾,耳環</option>
+            </select>
+        </div>
+        
+        <div class="control-group">
+            <span class="control-label">[2] 目標偏好 (計算模式)</span>
+            <select id="modeSelect" onchange="updateLockOptions()">
+            </select>
+        </div>
+
+        <div class="control-group">
+            <span class="control-label">[3] 裝備等級</span>
+            <select id="equipLevel" onchange="updateUI()">
+                <option value="160" selected>160等以上 (含)</option>
+                <option value="150">150等以下 (含)</option>
+            </select>
+        </div>
+
+        <div class="control-group">
+            <span class="control-label">[4] 計算類型 (方塊種類)</span>
+            <select id="calcType" onchange="updateUI()">
+                <option value="violet">閃炫方塊 (6選3)</option>
+                <option value="mystic">神秘+恢復 (鎖1排 隨機2排)</option>
+            </select>
+        </div>
+
+        <div class="control-group" id="lockGroup" style="visibility: hidden;"> 
+            <span class="control-label">[5] 鎖定設定 (僅限神秘恢復)</span>
+            <select id="lockSelect" onchange="renderRankRates()">
+            </select>
+        </div>
+
+        <div class="control-group">
+            <span class="control-label">模擬次數</span>
+            <select id="iterSelect">
+                <option value="1000000" selected>100萬次 (快速)</option>
+                <option value="10000000">1000萬次 (精確)</option>
+                <option value="100000000">1億次 (極限)</option>
+            </select>
+        </div>
+
+        <div class="control-group btn-group" style="grid-column: 1 / -1; justify-content: center; margin-top: 10px;">
+            <button id="btnRun" style="max-width: 300px;" onclick="startProcess()">開始計算</button>
+        </div>
+    </div>
+
+    <div id="statusText" style="text-align:center; height:20px; color:#666; font-weight:bold;"></div>
+    
+    <div class="progress-container" id="progressContainer">
+        <div class="progress-bar" id="progressBar"></div>
+        <div class="progress-text" id="progressText">0%</div>
+    </div>
+
+    <div class="result-container" id="resultArea">
+        <div class="card" style="width:100%">
+            <div class="card-header">
+                統計結果
+                <div class="legend-box">
+                    顯示格式：<span class="sim-val">模擬實測</span> <span class="math-group">(<span class="math-val">數學理論</span>)</span>
+                </div>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width:40%">目標條件 (含以上)</th>
+                        <th style="width:30%">成功期望顆數</th>
+                        <th style="width:30%">單次成功機率</th>
+                    </tr>
+                </thead>
+                <tbody><tr><td colspan="3" style="padding:30px; color:#999; text-align:center;">請點擊「開始計算」</td></tr></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="info-section">
+        <div class="rank-box">
+            <h4>各排階級機率設定 (System Rates)</h4>
+            <div id="rankContent"></div>
+        </div>
+
+        <div class="rules-box">
+            <h4>排他規則</h4>
+            <div id="ruleContent">...</div>
+        </div>
+        <div class="weight-box">
+            <h4>機率權重參考表 (分子/分母)</h4>
+            <div id="weightContent">...</div>
+        </div>
+    </div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
+
+

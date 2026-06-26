@@ -1,0 +1,1242 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="專為《新楓之谷》玩家打造的噴出岩輪迴星火(石板星火)計算機！支援自訂屬性權重與機率調整，幫您精準預估洗出目標數值的機率與平均消耗顆數。">
+    <title>新楓之谷 噴出岩輪迴星火(石板星火)計算機 BETA</title>
+    <style>
+        :root {
+            --bg-color: #f4f7f6;
+            --panel-bg: #ffffff;
+            --text-main: #2d3436;
+            --text-accent: #d63031;
+            --border-color: #dfe6e9;
+            --btn-color: #0984e3;
+            --btn-hover: #74b9ff;
+            --highlight-color: #0056b3;
+            --success-color: #27ae60;
+            --success-hover: #2ecc71;
+        }
+        body {
+            font-family: 'Microsoft JhengHei', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            background-color: var(--panel-bg);
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 1050px;
+            border: 1px solid var(--border-color);
+            margin: 0 auto;
+        }
+        h1 {
+            text-align: center;
+            color: var(--text-main);
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 10px;
+            margin-bottom: 10px;
+        }
+        .disclaimer {
+            font-size: 14px;
+            color: #636e72;
+            text-align: center;
+            margin-bottom: 20px;
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            border-left: 4px solid var(--text-accent);
+        }
+        .form-group { margin-bottom: 20px; }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: var(--text-main);
+        }
+        select, input[type="number"] {
+            width: 100%;
+            padding: 10px;
+            background-color: var(--panel-bg);
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        
+        .weight-section {
+            background-color: #fafafa;
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            padding: 20px;
+            margin-bottom: 25px;
+        }
+        .weight-title {
+            font-weight: bold;
+            font-size: 18px;
+            margin-bottom: 15px;
+            padding-bottom: 8px;
+            border-bottom: 1px dashed var(--border-color);
+            color: var(--highlight-color);
+        }
+        .weight-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        .weight-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .weight-item label { margin-bottom: 0; min-width: 80px; }
+        
+        button {
+            width: 100%;
+            padding: 15px;
+            background-color: var(--btn-color);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            margin-bottom: 20px;
+        }
+        button:hover { background-color: var(--btn-hover); }
+        button:disabled { background-color: #b2bec3; cursor: not-allowed; }
+
+        .btn-success { background-color: var(--success-color); }
+        .btn-success:hover { background-color: var(--success-hover); }
+
+        .result-box {
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-left: 5px solid var(--text-accent);
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .result-box.success-theme {
+            border-left-color: var(--success-color);
+            background-color: #f0fdf4;
+        }
+        .result-title {
+            font-size: 20px;
+            font-weight: bold;
+            color: var(--text-accent);
+            margin-bottom: 10px;
+        }
+        .result-title.success-theme { color: var(--success-color); }
+        
+        .highlight { color: var(--highlight-color); font-weight: bold; }
+        .highlight-success { color: var(--success-color); font-weight: bold; }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+        th, td {
+            border: 1px solid var(--border-color);
+            padding: 8px 12px;
+            text-align: center;
+        }
+        th { background-color: #1b4b5a; color: white; position: sticky; top: 0; z-index: 10;}
+        td:first-child { background-color: #f8f9fa; font-weight: bold; }
+        
+        .table-container {
+            max-height: 600px;
+            overflow-y: auto;
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+        }
+        .combo-stats { font-size: 12px; color: #555; margin-top: 4px; }
+        
+        .info-panel {
+            margin-top: 30px;
+            padding: 15px;
+            background-color: #fff;
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        .info-panel h3 { margin-top: 0; color: var(--highlight-color); border-bottom: 1px solid #eee; padding-bottom: 5px; }
+        ul { margin-top: 5px; padding-left: 20px; }
+
+        .ref-panel {
+            background-color: #fff;
+            padding: 15px;
+            border-radius: 5px;
+            border: 1px solid var(--border-color);
+            margin-bottom: 20px;
+        }
+
+        .tier-badge {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 4px;
+            color: #fff;
+            font-size: 12px;
+            font-weight: bold;
+            margin-right: 4px;
+            vertical-align: text-bottom;
+        }
+        .tier-1 { background-color: #95a5a6; } /* T1 */
+        .tier-2 { background-color: #27ae60; } /* T2 */
+        .tier-3 { background-color: #2980b9; } /* T3 */
+        .tier-4 { background-color: #8e44ad; } /* T4 */
+        .tier-5 { background-color: #f39c12; } /* T5 */
+
+        .exp-text {
+            font-size: 12px;
+            color: #666;
+            margin-top: 4px;
+        }
+        .cum-text {
+            color: var(--text-accent);
+            font-weight: bold;
+        }
+
+        /* Modal 彈出視窗樣式 */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            display: none; /* 預設隱藏 */
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background-color: #fff;
+            padding: 25px 30px;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 650px;
+            max-height: 85vh;
+            overflow-y: auto;
+            position: relative;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            line-height: 1.6;
+        }
+        .close-btn {
+            position: absolute;
+            top: 15px; right: 20px;
+            font-size: 28px;
+            font-weight: bold;
+            color: #b2bec3;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+        .close-btn:hover { color: #2d3436; }
+        .modal-content h4 { color: var(--highlight-color); margin-bottom: 5px; margin-top: 20px;}
+        .modal-content p { margin-top: 5px; font-size: 15px; color: #444; }
+    </style>
+</head>
+<body>
+<div id="global-nav"></div>
+<script>window.TOOL_ID = 23;</script>
+<script src="../shared-nav.js"></script>
+<script src="../shared-subtitle.js"></script>
+
+<div class="container">
+    <h1>新楓之谷 噴出岩輪迴星火(石板星火)計算機 BETA</h1>
+    <div id="tool-subtitle"></div>
+
+    <div class="weight-section" style="background-color: #eef2f3; border-color: #b2bec3;">
+        <div class="weight-title">
+            石板星火階級機率設定 
+            <button onclick="resetProbs()" style="width: auto; padding: 4px 12px; font-size: 13px; float: right; margin: 0; background-color: #b2bec3; color: #2d3436; border: 1px solid #dfe6e9;">恢復預設機率</button>
+        </div>
+        <div style="font-size: 13px; color: #636e72; margin-bottom: 15px;">* 單位為 %。計算時系統會自動將總和轉換為 100% 進行合理分配，關閉網頁也不會遺失紀錄。</div>
+        <div class="weight-grid">
+            <div class="weight-item"><label style="min-width: 60px;">T1 (%):</label><input type="number" id="prob_t1" value="55.80" step="0.01"></div>
+            <div class="weight-item"><label style="min-width: 60px;">T2 (%):</label><input type="number" id="prob_t2" value="32.50" step="0.01"></div>
+            <div class="weight-item"><label style="min-width: 60px;">T3 (%):</label><input type="number" id="prob_t3" value="6.50" step="0.01"></div>
+            <div class="weight-item"><label style="min-width: 60px;">T4 (%):</label><input type="number" id="prob_t4" value="3.20" step="0.01"></div>
+            <div class="weight-item"><label style="min-width: 60px;">T5 (%):</label><input type="number" id="prob_t5" value="2.00" step="0.01"></div>
+        </div>
+    </div>
+
+    <div class="ref-panel">
+        <label style="margin-bottom: 10px; color: var(--highlight-color); display: block;">噴出岩星火 數值表(參考網路社群提供的數據)</label>
+        <table>
+            <thead>
+                <tr>
+                    <th width="20%">噴出岩<br>星火</th>
+                    <th width="16%">Lv1</th>
+                    <th width="16%">Lv2</th>
+                    <th width="16%">Lv3</th>
+                    <th width="16%">Lv4</th>
+                    <th width="16%">Lv5</th>
+                </tr>
+            </thead>
+            <tbody id="refTableBody"></tbody>
+        </table>
+    </div>
+
+    <div class="weight-section">
+        <div class="weight-title">
+            全域權重設定 (這將作為下方兩個功能的計分標準)
+            <button onclick="openModal()" style="width: auto; padding: 4px 12px; font-size: 13px; float: right; margin: 0; background-color: #0984e3; color: white; border: none; border-radius: 4px;">❓ 如何設定</button>
+        </div>
+        <div class="weight-grid">
+            <div class="weight-item"><label>STR:</label><input type="number" id="w_str" value="1" step="0.1"></div>
+            <div class="weight-item"><label>DEX:</label><input type="number" id="w_dex" value="0" step="0.1"></div>
+            <div class="weight-item"><label>INT:</label><input type="number" id="w_int" value="0" step="0.1"></div>
+            <div class="weight-item"><label>LUK:</label><input type="number" id="w_luk" value="0" step="0.1"></div>
+            <div class="weight-item"><label>最大HP:</label><input type="number" id="w_hp" value="0" step="0.001"></div>
+            <div class="weight-item"><label>攻擊力:</label><input type="number" id="w_att" value="2.24" step="0.01"></div>
+            <div class="weight-item"><label>魔力:</label><input type="number" id="w_matt" value="0" step="0.01"></div>
+            <div class="weight-item"><label>全屬性%:</label><input type="number" id="w_all" value="11.66" step="0.01"></div>
+        </div>
+    </div>
+
+    <div class="weight-section" style="border-left: 5px solid var(--text-accent);">
+        <div class="weight-title" style="color: var(--text-accent);">功能一：指定目標分數期望值計算</div>
+        
+        <div class="weight-grid" style="margin-bottom: 15px;">
+            <div class="weight-item" style="grid-column: span 1;">
+                <label style="color: var(--text-accent);">設定目標總分數 (大於等於):</label>
+                <input type="number" id="target_score" value="34.98" step="0.01">
+            </div>
+            <div class="weight-item" style="grid-column: span 1;">
+                <label style="color: var(--text-accent);">列表顯示筆數:</label>
+                <select id="displayLimit">
+                    <option value="150">150 筆</option>
+                    <option value="500">500 筆</option>
+                    <option value="1000" selected>1000 筆 (推薦)</option>
+                    <option value="2000">2000 筆</option>
+                    <option value="5000">5000 筆 (可能微卡)</option>
+                </select>
+            </div>
+            <div class="weight-item" style="grid-column: span 2;">
+                <label style="color: var(--text-accent);">組合顯示模式:</label>
+                <select id="displayMode">
+                    <option value="minimal" selected>精簡模式 (推薦：顯示最低達標底線，合併所有超標機率)</option>
+                    <option value="exact">詳細模式 (真實列出抽到的所有有效屬性與原始階級，不合併)</option>
+                </select>
+            </div>
+        </div>
+
+        <details style="margin-bottom: 20px; background-color: #f8f9fa; border: 1px solid #dfe6e9; border-radius: 5px;">
+            <summary style="padding: 12px 15px; cursor: pointer; font-size: 14px; font-weight: bold; color: var(--highlight-color); user-select: none; outline: none;">
+                💡 不懂顯示模式的差異？點擊查看運作原理與舉例
+            </summary>
+            <div style="padding: 0 15px 15px 15px; font-size: 13.5px; color: #444; line-height: 1.6;">
+                <div style="margin-bottom: 8px;">
+                    <b>1. 自動隱藏無關屬性：</b>無論選擇哪種模式，只要您在上方將該屬性的<span style="color: var(--text-accent); font-weight: bold;">權重設定為 0，且未設定必須出現條件</span>，系統就會自動將其過濾不顯示，保持版面乾淨。
+                </div>
+                <div style="margin-bottom: 8px;">
+                    <b>2. 精簡模式 (自動合併機率)：</b>系統會自動幫您找出「剛好過關的最低底線」。若洗出比底線更高的階級或多出其他副屬性，系統會將其視為「已涵蓋在此底線條件內」，向下對齊並將機率合併。
+                </div>
+                <div style="color: #2d3436; border-top: 1px dashed #b2bec3; padding-top: 8px;">
+                    <b>精簡模式舉例：</b>假設您的達標底線是 <span style="background:#dfe6e9; padding:2px 6px; border-radius:4px; font-weight:bold;">T3 主屬</span>。<br>
+                    當您幸運洗出超標的 <span style="background:#dfe6e9; padding:2px 6px; border-radius:4px; font-weight:bold;">T5 主屬 + T2 副屬</span> 時，系統會自動忽略溢出的數值，直接將這組發生機率加總進 <span style="background:#dfe6e9; padding:2px 6px; border-radius:4px; font-weight:bold;">T3 主屬</span> 的列表中，讓你更清楚判別達標組合！
+                </div>
+            </div>
+        </details>
+        
+        <details style="margin-bottom: 20px; background-color: #f8f9fa; border: 1px solid #dfe6e9; border-radius: 5px;">
+            <summary style="padding: 12px 15px; cursor: pointer; font-size: 14px; font-weight: bold; color: var(--highlight-color); user-select: none; outline: none;">
+                必須出現條件（選填）
+            </summary>
+            <div style="padding: 10px 15px 15px 15px;">
+                <div style="font-size: 13px; color: #555; margin-bottom: 12px; line-height: 1.6;">
+                    除了設定目標分數外，您也可以指定某個屬性「最少需達到 T 幾」，進行雙重篩選。只有同時符合兩項條件的組合才會被計入機率。<br>
+                    <b>也可以不填權重，只填必須出現條件</b>，此時目標分數設 0 即可，系統會直接計算符合條件的機率。
+                </div>
+                <div class="weight-grid">
+                    <div class="weight-item"><label>STR:</label><select id="req_str"><option value="0">不限</option><option value="1">至少 T1</option><option value="2">至少 T2</option><option value="3">至少 T3</option><option value="4">至少 T4</option><option value="5">至少 T5</option></select></div>
+                    <div class="weight-item"><label>DEX:</label><select id="req_dex"><option value="0">不限</option><option value="1">至少 T1</option><option value="2">至少 T2</option><option value="3">至少 T3</option><option value="4">至少 T4</option><option value="5">至少 T5</option></select></div>
+                    <div class="weight-item"><label>INT:</label><select id="req_int"><option value="0">不限</option><option value="1">至少 T1</option><option value="2">至少 T2</option><option value="3">至少 T3</option><option value="4">至少 T4</option><option value="5">至少 T5</option></select></div>
+                    <div class="weight-item"><label>LUK:</label><select id="req_luk"><option value="0">不限</option><option value="1">至少 T1</option><option value="2">至少 T2</option><option value="3">至少 T3</option><option value="4">至少 T4</option><option value="5">至少 T5</option></select></div>
+                    <div class="weight-item"><label>最大HP:</label><select id="req_hp"><option value="0">不限</option><option value="1">至少 T1</option><option value="2">至少 T2</option><option value="3">至少 T3</option><option value="4">至少 T4</option><option value="5">至少 T5</option></select></div>
+                    <div class="weight-item"><label>攻擊力:</label><select id="req_att"><option value="0">不限</option><option value="1">至少 T1</option><option value="2">至少 T2</option><option value="3">至少 T3</option><option value="4">至少 T4</option><option value="5">至少 T5</option></select></div>
+                    <div class="weight-item"><label>魔力:</label><select id="req_matt"><option value="0">不限</option><option value="1">至少 T1</option><option value="2">至少 T2</option><option value="3">至少 T3</option><option value="4">至少 T4</option><option value="5">至少 T5</option></select></div>
+                    <div class="weight-item"><label>全屬性%:</label><select id="req_all"><option value="0">不限</option><option value="1">至少 T1</option><option value="2">至少 T2</option><option value="3">至少 T3</option><option value="4">至少 T4</option><option value="5">至少 T5</option></select></div>
+                </div>
+            </div>
+        </details>
+
+        <button id="calcBtn" onclick="calculate()">計算機率與期望值</button>
+
+        <div id="resultArea" class="result-box" style="display:none; margin-bottom: 0;"></div>
+        <div id="tableArea" class="form-group" style="display:none; margin-top: 20px;">
+            <label id="tableTitleLabel" style="border-top: 2px dashed #dfe6e9; padding-top: 20px;">達標組合列表</label>
+            <div class="table-container">
+                <table id="resultTable">
+                    <thead>
+                        <tr>
+                            <th width="6%" onclick="sortTable('score')" style="cursor: pointer; user-select: none;" title="點擊切換排序">
+                                排名 <span id="sortIcon_score" style="color: #fff;">⬇️</span>
+                            </th>
+                            <th width="10%">總分數</th>
+                            <th width="18%" onclick="sortTable('prob')" style="cursor: pointer; user-select: none;" title="點擊切換排序">
+                                發生機率 / 期望次數<br><span style="font-size:11px; font-weight:normal; color:#e0e0e0;">(單一組合)</span> 
+                                <span id="sortIcon_prob" style="color: #8fa8b0;">↕️</span>
+                            </th>
+                            <th width="18%">累積機率 / 期望次數<br><span style="font-size:11px; font-weight:normal; color:#e0e0e0;">(≧ 該總分數)</span></th>
+                            <th style="text-align: left;">組合詳細內容</th>
+                        </tr>
+                    </thead>
+                    <tbody id="resultTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="weight-section" style="border-left: 5px solid var(--success-color);">
+        <div class="weight-title" style="color: var(--success-color);">功能二：現有裝備星火排名查詢</div>
+        <div style="margin-bottom: 15px; font-size: 14px; color: #555;">請輸入裝備上目前透過星火獲得的「綠字」數值，系統將分析該成績的百分比區間。</div>
+        <div class="weight-grid">
+            <div class="weight-item"><label>現有 STR:</label><input type="number" id="cur_str" value="0" step="1"></div>
+            <div class="weight-item"><label>現有 DEX:</label><input type="number" id="cur_dex" value="0" step="1"></div>
+            <div class="weight-item"><label>現有 INT:</label><input type="number" id="cur_int" value="0" step="1"></div>
+            <div class="weight-item"><label>現有 LUK:</label><input type="number" id="cur_luk" value="0" step="1"></div>
+            <div class="weight-item"><label>現有 最大HP:</label><input type="number" id="cur_hp" value="0" step="10"></div>
+            <div class="weight-item"><label>現有 攻擊力:</label><input type="number" id="cur_att" value="0" step="1"></div>
+            <div class="weight-item"><label>現有 魔力:</label><input type="number" id="cur_matt" value="0" step="1"></div>
+            <div class="weight-item"><label>現有 全屬性%:</label><input type="number" id="cur_all" value="0" step="1"></div>
+        </div>
+        <div style="margin-top: 15px; padding: 15px; background-color: #eef2f3; border-radius: 5px; border: 1px solid #b2bec3;">
+            <div style="font-weight: bold; margin-bottom: 10px; color: var(--highlight-color);">重洗決策建議 (選填)</div>
+            <div class="grid-2">
+                <div class="weight-item"><label style="min-width: 120px;">剩餘可用星火(顆):</label><input type="number" id="remain_sparks" value="0" step="1" min="0"></div>
+                <div class="weight-item"><label style="min-width: 120px;">要求的把握度(%):</label><input type="number" id="target_conf" value="95" step="1" min="1" max="99"></div>
+            </div>
+            <div style="font-size: 13px; color: #636e72; margin-top: 8px;">* 輸入剩餘顆數與您要求的把握度，系統將精算您「洗出更高分」的機率與安全落點。</div>
+        </div>
+        <button id="calcPercentileBtn" class="btn-success" onclick="calculatePercentile()" style="margin-top: 20px;">查詢排名與百分比</button>
+
+        <div id="percentileResultArea" class="result-box success-theme" style="display:none; margin-bottom: 0;"></div>
+    </div>
+
+    <div class="info-panel" id="infoPanel"></div>
+</div>
+
+<div id="weightGuideModal" class="modal-overlay">
+    <div class="modal-content">
+        <span class="close-btn" onclick="closeModal()">&times;</span>
+        <h3 style="margin-top:0; color:var(--highlight-color); border-bottom: 2px solid #eee; padding-bottom: 10px;">如何精確設定屬性權重？</h3>
+        <p style="margin-bottom: 20px;">權重設定的目的是將不同屬性轉換為統一的「等價分數」，藉此來精確評估星火好壞與計算排名百分比。以下是設定建議：</p>
+        
+        <h4>1. 確立基準點（通常以主屬性為 1）</h4>
+        <p>首先，將您的職業「主屬性」（例如 STR）權重設定為 <b>1</b>。這代表我們接下來要把所有其他屬性，都換算成「等價的主屬」來計分。<br>
+        如果您認為副屬性（例如 DEX）對傷害有微小貢獻，通常會設定在 <b>0.1</b> 左右；如果不打算計較這點微小差距，直接設為 <b>0</b> 也可以。</p>
+        
+        <h4>2. 攻擊力 / 魔力的換算</h4>
+        <p>您需要了解自己機體目前「1 攻擊力（或魔力）」大約等於多少主屬性。<br>
+        隨著機體階段不同，這個數值通常會落在 1 攻 = 2 到 4 主屬之間。假設您算出自己的機體是 1 攻 = 2.24 主屬，那「攻擊力」的權重就填入 <b>2.24</b>。</p>
+        
+        <h4>3. 全屬性% 的換算</h4>
+        <p>同樣地，確認您的機體「1% 全屬性」大約等於多少主屬性。<br>
+        一般中後期玩家，1% 全屬性大約等於 9 到 12 主屬。假設您評估後是 1% = 11.66 主屬，「全屬性%」的權重就填入 <b>11.66</b>。</p>
+        
+        <div style="background-color:#eef2f3; padding:15px; border-radius:5px; margin-top:20px; font-size:14px; border: 1px solid #b2bec3;">
+            <b style="color: #2d3436;">如何取得自己的精確換算值？</b><br>
+            強烈建議您搭配社群玩家製作的「等效屬性計算機」或「傷害計算機」。將您的面板與裝備數值輸入後，通常會直接告訴您當前機體的「1攻 = ?主屬」以及「1%全屬 = ?主屬」。拿到這些數字後對應填入即可。
+        </div>
+        
+        <div style="background-color:#f0fdf4; padding:15px; border-radius:5px; margin-top:15px; font-size:14px; border-left: 4px solid var(--success-color);">
+            <b style="color: var(--success-color);">總分數代表的意義：</b><br>
+            程式會根據您設定的權重去分析。如果您看到總分數是 55 分，那就代表這組數值對您而言，等同於增加了 <b>55 主屬</b>。<br>
+            當然，您也可以改變基準點，例如以「攻擊力為 1」去做設定，這時如果看到總分數 33，就代表增加了 <b>33 攻擊力</b>。
+        </div>
+    </div>
+</div>
+
+<script>
+// --- Modal 控制邏輯 ---
+function openModal() {
+    document.getElementById('weightGuideModal').style.display = 'flex';
+}
+
+function closeModal() {
+    document.getElementById('weightGuideModal').style.display = 'none';
+}
+
+// 點擊視窗外部區域也可關閉 Modal
+window.onclick = function(event) {
+    const modal = document.getElementById('weightGuideModal');
+    if (event.target == modal) {
+        modal.style.display = "none";
+    }
+}
+
+// --- 資料庫 ---
+const statsDB = [
+    { name: "STR", eff: {str:1}, val: [11, 22, 33, 44, 55] },
+    { name: "DEX", eff: {dex:1}, val: [11, 22, 33, 44, 55] },
+    { name: "INT", eff: {int:1}, val: [11, 22, 33, 44, 55] },
+    { name: "LUK", eff: {luk:1}, val: [11, 22, 33, 44, 55] },
+    { name: "STR+DEX", eff: {str:1, dex:1}, val: [6, 12, 18, 24, 30] },
+    { name: "STR+INT", eff: {str:1, int:1}, val: [6, 12, 18, 24, 30] },
+    { name: "STR+LUK", eff: {str:1, luk:1}, val: [6, 12, 18, 24, 30] },
+    { name: "DEX+INT", eff: {dex:1, int:1}, val: [6, 12, 18, 24, 30] },
+    { name: "DEX+LUK", eff: {dex:1, luk:1}, val: [6, 12, 18, 24, 30] },
+    { name: "INT+LUK", eff: {int:1, luk:1}, val: [6, 12, 18, 24, 30] },
+    { name: "最大HP", eff: {hp:1}, val: [600, 1200, 1800, 2400, 3000] },
+    { name: "最大MP", eff: {}, val: [600, 1200, 1800, 2400, 3000] },
+    { name: "防禦力", eff: {}, val: [11, 22, 33, 44, 55] },
+    { name: "攻擊力", eff: {att:1}, val: [1, 2, 3, 4, 5] },
+    { name: "魔力", eff: {matt:1}, val: [1, 2, 3, 4, 5] },
+    { name: "移動速度", eff: {}, val: [1, 2, 3, 4, 5] },
+    { name: "跳躍力", eff: {}, val: [1, 2, 3, 4, 5] },
+    { name: "全屬性%", eff: {all:1}, val: [1, 2, 3, 4, 5] },
+    { name: "穿戴等級減少", eff: {}, val: [0, 0, 0, 0, 0] } 
+];
+
+const EQUIP_PROBS = {
+    boss:   { label: "BOSS 裝備", lines: { 4: 1.0 }, linesLabel: "固定出現 4 條屬性 (100%)" }
+};
+
+function getCombinations(n, k) {
+    let result = [];
+    function backtrack(start, path) {
+        if (path.length === k) { result.push([...path]); return; }
+        for (let i = start; i < n; i++) backtrack(i + 1, [...path, i]);
+    }
+    backtrack(0, []);
+    return result;
+}
+
+function getTierPermutations(k) {
+    let result = [];
+    function backtrack(path) {
+        if (path.length === k) { result.push([...path]); return; }
+        for (let i = 0; i < 5; i++) backtrack([...path, i]);
+    }
+    backtrack([]);
+    return result;
+}
+
+const ALL_STAT_COMBS = { 4: getCombinations(19, 4) };
+const ALL_TIER_COMBS = { 4: getTierPermutations(4) };
+
+const STORAGE_KEYS = [
+    'prob_t1', 'prob_t2', 'prob_t3', 'prob_t4', 'prob_t5',
+    'displayLimit', 'displayMode',
+    'w_str', 'w_dex', 'w_int', 'w_luk', 'w_hp', 'w_att', 'w_matt', 'w_all', 'target_score',
+    'cur_str', 'cur_dex', 'cur_int', 'cur_luk', 'cur_hp', 'cur_att', 'cur_matt', 'cur_all',
+    'remain_sparks', 'target_conf',
+    'req_str', 'req_dex', 'req_int', 'req_luk', 'req_hp', 'req_att', 'req_matt', 'req_all'
+];
+
+function saveSettings() {
+    STORAGE_KEYS.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) localStorage.setItem('ms_slate_calc_' + id, el.value);
+    });
+}
+
+function loadSettings() {
+    STORAGE_KEYS.forEach(id => {
+        const saved = localStorage.getItem('ms_slate_calc_' + id);
+        if (saved !== null) {
+            const el = document.getElementById(id);
+            if (el) el.value = saved;
+        }
+    });
+}
+
+function initAutoSaveListeners() {
+    STORAGE_KEYS.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('change', saveSettings);
+            if (el.tagName === 'INPUT') {
+                el.addEventListener('input', saveSettings);
+            }
+        }
+    });
+}
+
+function resetProbs() {
+    document.getElementById("prob_t1").value = 55.80;
+    document.getElementById("prob_t2").value = 32.50;
+    document.getElementById("prob_t3").value = 6.50;
+    document.getElementById("prob_t4").value = 3.20;
+    document.getElementById("prob_t5").value = 2.00;
+    saveSettings();
+}
+
+function updateReferenceTable() {
+    const tbody = document.getElementById("refTableBody");
+
+    const single = statsDB[0].val; 
+    const dual = statsDB[4].val;   
+    const hp = statsDB[10].val; 
+    const att = statsDB[13].val;   
+    const all = statsDB[17].val;   
+
+    tbody.innerHTML = `
+        <tr><td>單屬性</td><td>${single[0]}</td><td>${single[1]}</td><td>${single[2]}</td><td>${single[3]}</td><td>${single[4]}</td></tr>
+        <tr><td>雙屬性</td><td>${dual[0]}</td><td>${dual[1]}</td><td>${dual[2]}</td><td>${dual[3]}</td><td>${dual[4]}</td></tr>
+        <tr><td>攻擊力 / 魔力</td><td>${att[0]}</td><td>${att[1]}</td><td>${att[2]}</td><td>${att[3]}</td><td>${att[4]}</td></tr>
+        <tr><td>HP</td><td>${hp[0]}</td><td>${hp[1]}</td><td>${hp[2]}</td><td>${hp[3]}</td><td>${hp[4]}</td></tr>
+        <tr><td>全屬%</td><td>${all[0]}%</td><td>${all[1]}%</td><td>${all[2]}%</td><td>${all[3]}%</td><td>${all[4]}%</td></tr>
+    `;
+}
+
+function updateInfoPanel() {
+    const pnl = document.getElementById("infoPanel");
+    let eInfo = EQUIP_PROBS["boss"];
+
+    pnl.innerHTML = `
+        <h3>當前基礎設定參數</h3>
+        <b>裝備設定 (${eInfo.label}):</b>
+        <ul>
+            <li>屬性條數機率: ${eInfo.linesLabel}</li>
+            <li>可能出現的屬性庫: 19種獨立屬性 (單一裝備上不會重複出現相同屬性)</li>
+        </ul>
+        <div style="font-size:12px; color:#777; margin-top:10px;">* 星火各階層機率請於上方「石板星火階級機率設定」面板中確認與調整。</div>
+    `;
+}
+
+const dualStatNameMap = { str: "STR", dex: "DEX", int: "INT", luk: "LUK" };
+function getEffectiveName(statDef, weights) {
+    let eff = statDef.eff;
+    let keys = Object.keys(eff);
+    
+    if (keys.length === 2 && dualStatNameMap[keys[0]] && dualStatNameMap[keys[1]]) {
+        let activeCount = 0;
+        let activeKey = "";
+        
+        if (weights[keys[0]] !== 0) { activeCount++; activeKey = keys[0]; }
+        if (weights[keys[1]] !== 0) { activeCount++; activeKey = keys[1]; }
+        
+        if (activeCount === 2) {
+            return statDef.name;
+        }
+        
+        if (activeCount === 1) {
+            return dualStatNameMap[activeKey] + "+無用屬性";
+        }
+    }
+    return statDef.name;
+}
+
+function getWeights() {
+    return {
+        str: parseFloat(document.getElementById("w_str").value) || 0,
+        dex: parseFloat(document.getElementById("w_dex").value) || 0,
+        int: parseFloat(document.getElementById("w_int").value) || 0,
+        luk: parseFloat(document.getElementById("w_luk").value) || 0,
+        hp:  parseFloat(document.getElementById("w_hp").value) || 0,
+        att: parseFloat(document.getElementById("w_att").value) || 0,
+        matt:parseFloat(document.getElementById("w_matt").value) || 0,
+        all: parseFloat(document.getElementById("w_all").value) || 0
+    };
+}
+
+function getRequiredStats() {
+    return {
+        str:  parseInt(document.getElementById("req_str").value)  || 0,
+        dex:  parseInt(document.getElementById("req_dex").value)  || 0,
+        int:  parseInt(document.getElementById("req_int").value)  || 0,
+        luk:  parseInt(document.getElementById("req_luk").value)  || 0,
+        hp:   parseInt(document.getElementById("req_hp").value)   || 0,
+        att:  parseInt(document.getElementById("req_att").value)  || 0,
+        matt: parseInt(document.getElementById("req_matt").value) || 0,
+        all:  parseInt(document.getElementById("req_all").value)  || 0
+    };
+}
+
+// === 核心引擎 (包含智能剔除子集演算法) ===
+function runCoreEngine(weights, targetScoreFilter = 0, isPercentile = false) {
+    const eType = "boss";
+    const displayMode = document.getElementById("displayMode") ? document.getElementById("displayMode").value : "minimal";
+
+    const reqs = isPercentile ? { str:0, dex:0, int:0, luk:0, hp:0, att:0, matt:0, all:0 } : getRequiredStats();
+    const hasReqs = Object.values(reqs).some(v => v > 0);
+    const useMinimal = !isPercentile && (displayMode === "minimal") && (targetScoreFilter > 0.000001 || hasReqs);
+    
+    let pt1 = (parseFloat(document.getElementById("prob_t1").value) || 0);
+    let pt2 = (parseFloat(document.getElementById("prob_t2").value) || 0);
+    let pt3 = (parseFloat(document.getElementById("prob_t3").value) || 0);
+    let pt4 = (parseFloat(document.getElementById("prob_t4").value) || 0);
+    let pt5 = (parseFloat(document.getElementById("prob_t5").value) || 0);
+    let totalP = pt1 + pt2 + pt3 + pt4 + pt5;
+    if (totalP === 0) totalP = 100;
+    let tierProbs = [pt1/totalP, pt2/totalP, pt3/totalP, pt4/totalP, pt5/totalP];
+
+    let lineConfig = EQUIP_PROBS[eType].lines;
+
+    // 建立精確名稱對應表
+    const statNameMap = { "STR":"str", "DEX":"dex", "INT":"int", "LUK":"luk", "最大HP":"hp", "攻擊力":"att", "魔力":"matt", "全屬性%":"all" };
+
+    const isActiveStat = statsDB.map(stat => {
+        let eff = stat.eff;
+        let givesScore = (eff.str && weights.str !== 0) ||
+                         (eff.dex && weights.dex !== 0) ||
+                         (eff.int && weights.int !== 0) ||
+                         (eff.luk && weights.luk !== 0) ||
+                         (eff.hp  && weights.hp  !== 0) ||
+                         (eff.att && weights.att !== 0) ||
+                         (eff.matt&& weights.matt!== 0) ||
+                         (eff.all && weights.all !== 0);
+        let reqKey = statNameMap[stat.name];
+        let isRequired = reqKey && reqs[reqKey] > 0;
+        return givesScore || isRequired;
+    });
+
+    let groupedResults = {};
+
+    for (let k in lineConfig) {
+        let linesProb = lineConfig[k];
+        if (linesProb === 0) continue;
+        
+        let statCombs = ALL_STAT_COMBS[k];
+        let tierCombs = ALL_TIER_COMBS[k];
+        let comboBaseProb = linesProb * (1 / statCombs.length);
+
+        for (let i = 0; i < statCombs.length; i++) {
+            let sComb = statCombs[i];
+            let statCache = sComb.map(idx => statsDB[idx]);
+
+            for (let j = 0; j < tierCombs.length; j++) {
+                let tComb = tierCombs[j];
+                let outcomeProb = comboBaseProb;
+                
+                let accVals = { str:0, dex:0, int:0, luk:0, hp:0, att:0, matt:0, all:0 };
+                let exactTier = { str:-1, dex:-1, int:-1, luk:-1, hp:-1, att:-1, matt:-1, all:-1 };
+                let activeParts = [];
+
+                for (let x = 0; x < sComb.length; x++) {
+                    let statDef = statCache[x];
+                    let tIdx = tComb[x];
+                    outcomeProb *= tierProbs[tIdx];
+                    
+                    let val = statDef.val[tIdx];
+                    let eff = statDef.eff;
+                    
+                    if(eff.str) accVals.str += val;
+                    if(eff.dex) accVals.dex += val;
+                    if(eff.int) accVals.int += val;
+                    if(eff.luk) accVals.luk += val;
+                    if(eff.hp)  accVals.hp  += val;
+                    if(eff.att) accVals.att += val;
+                    if(eff.matt)accVals.matt+= val;
+                    if(eff.all) accVals.all += val;
+
+                    // 紀錄該屬性名稱真正的獨立階級
+                    let reqKey = statNameMap[statDef.name];
+                    if (reqKey) exactTier[reqKey] = Math.max(exactTier[reqKey], tIdx);
+
+                    if (isActiveStat[sComb[x]]) {
+                        let effName = getEffectiveName(statDef, weights);
+                        activeParts.push({ 
+                            id: sComb[x], 
+                            effName: effName,
+                            tier: tIdx, 
+                            val: val, 
+                            name: statDef.name 
+                        });
+                    }
+                }
+
+                if (outcomeProb === 0) continue;
+
+                // 修正1：嚴格判斷「單屬性」是否達標
+                if (hasReqs) {
+                    let reqOK = true;
+                    for (const k in reqs) {
+                        if (reqs[k] > 0 && exactTier[k] < reqs[k] - 1) { reqOK = false; break; }
+                    }
+                    if (!reqOK) continue;
+                }
+
+                let score = (accVals.str * weights.str) + 
+                            (accVals.dex * weights.dex) + 
+                            (accVals.int * weights.int) + 
+                            (accVals.luk * weights.luk) + 
+                            (accVals.hp * weights.hp) + 
+                            (accVals.att * weights.att) + 
+                            (accVals.matt * weights.matt) + 
+                            (accVals.all * weights.all);
+
+                if (score >= targetScoreFilter - 0.000001) {
+                    let partsToUse = activeParts;
+                    let finalScore = score;
+
+                    if (useMinimal && activeParts.length > 0) {
+                        let partsWithScore = activeParts.map(p => {
+                            let s = 0; let eff = statsDB[p.id].eff;
+                            if(eff.str) s += p.val * weights.str; if(eff.dex) s += p.val * weights.dex;
+                            if(eff.int) s += p.val * weights.int; if(eff.luk) s += p.val * weights.luk;
+                            if(eff.hp)  s += p.val * weights.hp;  if(eff.att) s += p.val * weights.att;
+                            if(eff.matt)s += p.val * weights.matt;if(eff.all) s += p.val * weights.all;
+                            return { ...p, singleScore: s };
+                        });
+
+                        let validSubsets = [];
+                        let n = partsWithScore.length;
+                        
+                        for (let bit = 1; bit < (1 << n); bit++) {
+                            let subset = [];
+                            let sum = 0;
+                            for (let idx = 0; idx < n; idx++) {
+                                if (bit & (1 << idx)) {
+                                    subset.push(partsWithScore[idx]);
+                                    sum += partsWithScore[idx].singleScore;
+                                }
+                            }
+                            if (sum >= targetScoreFilter - 0.000001) {
+                                let reqOK = true;
+                                if (hasReqs) {
+                                    for (const k in reqs) {
+                                        // 修正2：萃取子集時也要用嚴格名稱判斷
+                                        if (reqs[k] > 0 && !subset.some(p => statNameMap[statsDB[p.id].name] === k && p.tier >= reqs[k] - 1)) {
+                                            reqOK = false; break;
+                                        }
+                                    }
+                                }
+                                if (reqOK) validSubsets.push({ subset, sum });
+                            }
+                        }
+
+                        if (validSubsets.length > 0) {
+                            validSubsets.sort((a, b) => {
+                                if (a.subset.length !== b.subset.length) return a.subset.length - b.subset.length;
+                                return a.sum - b.sum; 
+                            });
+                            
+                            let bestSubset = validSubsets[0].subset;
+                            let nStats = bestSubset.length;
+                            let possibleFloors = [];
+
+                            function findFloors(statIdx, currentCombo) {
+                                if (statIdx === nStats) {
+                                    let sum = 0;
+                                    for(let i=0; i<nStats; i++) {
+                                        let statId = bestSubset[i].id;
+                                        let tIdx = currentCombo[i];
+                                        let val = statsDB[statId].val[tIdx];
+                                        let eff = statsDB[statId].eff;
+                                        let s = 0;
+                                        if(eff.str) s += val * weights.str; if(eff.dex) s += val * weights.dex;
+                                        if(eff.int) s += val * weights.int; if(eff.luk) s += val * weights.luk;
+                                        if(eff.hp)  s += val * weights.hp;  if(eff.att) s += val * weights.att;
+                                        if(eff.matt)s += val * weights.matt;if(eff.all) s += val * weights.all;
+                                        sum += s;
+                                    }
+                                    if (sum >= targetScoreFilter - 0.000001) {
+                                        possibleFloors.push({ combo: [...currentCombo], score: sum });
+                                    }
+                                    return;
+                                }
+
+                                let maxTier = bestSubset[statIdx].tier;
+                                let minTier = 0;
+                                if (hasReqs) {
+                                    const reqKey = statNameMap[statsDB[bestSubset[statIdx].id].name];
+                                    if (reqKey && reqs[reqKey] > 0) {
+                                        const reqMin = reqs[reqKey] - 1;
+                                        if (reqMin > minTier) minTier = reqMin;
+                                    }
+                                }
+                                for (let t = minTier; t <= maxTier; t++) {
+                                    currentCombo.push(t);
+                                    findFloors(statIdx + 1, currentCombo);
+                                    currentCombo.pop();
+                                }
+                            }
+
+                            findFloors(0, []);
+
+                            if (possibleFloors.length > 0) {
+                                possibleFloors.sort((a, b) => {
+                                    if (Math.abs(a.score - b.score) > 0.000001) return a.score - b.score;
+                                    let sumA = a.combo.reduce((acc, val) => acc + val, 0);
+                                    let sumB = b.combo.reduce((acc, val) => acc + val, 0);
+                                    if (sumA !== sumB) return sumA - sumB;
+                                    for(let i=0; i<a.combo.length; i++) {
+                                        if (a.combo[i] !== b.combo[i]) return a.combo[i] - b.combo[i];
+                                    }
+                                    return 0;
+                                });
+
+                                let bestFloor = possibleFloors[0];
+                                
+                                partsToUse = bestSubset.map((p, idx) => {
+                                    let newTier = bestFloor.combo[idx];
+                                    let newVal = statsDB[p.id].val[newTier];
+                                    return { ...p, tier: newTier, val: newVal };
+                                });
+                                finalScore = bestFloor.score;
+                            } else {
+                                partsToUse = bestSubset;
+                                finalScore = validSubsets[0].sum; 
+                            }
+                        }
+                    }
+
+                    partsToUse.sort((a, b) => {
+                        if (a.effName === b.effName) return b.tier - a.tier;
+                        return a.effName.localeCompare(b.effName);
+                    });
+                    
+                    let sig = partsToUse.map(p => p.effName + ":" + p.tier).join("|");
+                    if (sig === "") sig = "EMPTY_JUNK";
+                    
+                    if (groupedResults[sig]) {
+                        groupedResults[sig].prob += outcomeProb;
+                    } else {
+                        let cleanAccVals = { str:0, dex:0, int:0, luk:0, hp:0, att:0, matt:0, all:0 };
+                        partsToUse.forEach(p => {
+                            let eff = statsDB[p.id].eff;
+                            if(eff.str && (weights.str !== 0 || reqs.str > 0)) cleanAccVals.str += p.val;
+                            if(eff.dex && (weights.dex !== 0 || reqs.dex > 0)) cleanAccVals.dex += p.val;
+                            if(eff.int && (weights.int !== 0 || reqs.int > 0)) cleanAccVals.int += p.val;
+                            if(eff.luk && (weights.luk !== 0 || reqs.luk > 0)) cleanAccVals.luk += p.val;
+                            if(eff.hp  && (weights.hp  !== 0 || reqs.hp  > 0)) cleanAccVals.hp += p.val;
+                            if(eff.att && (weights.att !== 0 || reqs.att > 0)) cleanAccVals.att += p.val;
+                            if(eff.matt&& (weights.matt!== 0 || reqs.matt> 0)) cleanAccVals.matt += p.val;
+                            if(eff.all && (weights.all !== 0 || reqs.all > 0)) cleanAccVals.all += p.val;
+                        });
+
+                        groupedResults[sig] = {
+                            score: finalScore,
+                            prob: outcomeProb,
+                            activeParts: partsToUse,
+                            accVals: cleanAccVals
+                        };
+                    }
+                }
+            }
+        }
+    }
+    return Object.values(groupedResults);
+}
+
+// --- 排序與渲染功能 ---
+let globalFinalResults = [];
+let globalScoreToCumProb = {};
+let globalLimit = 1000;
+let currentSortCol = 'score'; 
+let currentSortDesc = true;   
+
+function sortTable(col) {
+    if (!globalFinalResults || globalFinalResults.length === 0) return;
+    
+    if (currentSortCol === col) {
+        currentSortDesc = !currentSortDesc;
+    } else {
+        currentSortCol = col;
+        currentSortDesc = true;
+    }
+    renderResultTable();
+}
+
+function renderResultTable() {
+    const tbody = document.getElementById("resultTableBody");
+    
+    globalFinalResults.sort((a, b) => {
+        if (currentSortCol === 'score') {
+            return currentSortDesc ? (b.score - a.score || b.prob - a.prob) : (a.score - b.score || a.prob - b.prob);
+        } else if (currentSortCol === 'prob') {
+            return currentSortDesc ? (b.prob - a.prob || b.score - a.score) : (a.prob - b.prob || a.score - b.score);
+        }
+        return 0;
+    });
+
+    document.getElementById("tableTitleLabel").innerHTML = `達標組合列表 (${currentSortCol === 'score' ? '依總分數' : '依發生機率'}排序，僅顯示前 ${globalLimit} 筆)`;
+    
+    document.getElementById("sortIcon_score").innerText = currentSortCol === 'score' ? (currentSortDesc ? '⬇️' : '⬆️') : '↕️';
+    document.getElementById("sortIcon_score").style.color = currentSortCol === 'score' ? '#fff' : '#8fa8b0';
+    
+    document.getElementById("sortIcon_prob").innerText = currentSortCol === 'prob' ? (currentSortDesc ? '⬇️' : '⬆️') : '↕️';
+    document.getElementById("sortIcon_prob").style.color = currentSortCol === 'prob' ? '#fff' : '#8fa8b0';
+
+    let displayList = globalFinalResults.slice(0, globalLimit);
+    let htmlStr = "";
+
+    displayList.forEach((res) => {
+        let textParts = [];
+        if (res.activeParts.length === 0) {
+            textParts.push(`<span style="color:#aaa;">無任何有效屬性</span>`);
+        } else {
+            res.activeParts.forEach(p => {
+                let suffix = p.effName === '全屬性%' ? '%' : '';
+                textParts.push(`<span class="tier-badge tier-${p.tier+1}">T${p.tier+1}</span> <b>${p.effName}</b> (${p.val}${suffix})`);
+            });
+        }
+        
+        let comboStr = textParts.join(" + ");
+        let detailParts = [];
+        if(res.accVals.str) detailParts.push(`STR+${res.accVals.str}`);
+        if(res.accVals.dex) detailParts.push(`DEX+${res.accVals.dex}`);
+        if(res.accVals.int) detailParts.push(`INT+${res.accVals.int}`);
+        if(res.accVals.luk) detailParts.push(`LUK+${res.accVals.luk}`);
+        if(res.accVals.hp)  detailParts.push(`HP+${res.accVals.hp}`);
+        if(res.accVals.att) detailParts.push(`攻擊力+${res.accVals.att}`);
+        if(res.accVals.matt)detailParts.push(`魔力+${res.accVals.matt}`);
+        if(res.accVals.all) detailParts.push(`全屬性+${res.accVals.all}%`);
+        let detailStr = detailParts.join(", ");
+
+        let sKey = res.score.toFixed(6);
+        let cumProb = globalScoreToCumProb[sKey];
+        let cumExpected = cumProb > 0 ? (1 / cumProb) : Infinity;
+
+        htmlStr += `<tr>
+            <td style="text-align:center;">#${res.originalRank}</td>
+            <td style="font-weight:bold; color:var(--text-accent); font-size:16px; text-align:center;">${res.score.toFixed(2).replace(/\.?0+$/, '')}</td>
+            <td style="text-align:center;">
+                <div>${(res.prob * 100).toFixed(6)}%</div>
+                <div class="exp-text">(約 ${Math.ceil(1/res.prob).toLocaleString()} 顆)</div>
+            </td>
+            <td style="text-align:center;">
+                <div class="cum-text">${(cumProb * 100).toFixed(4)}%</div>
+                <div class="exp-text cum-text">(約 ${Math.ceil(cumExpected).toLocaleString()} 顆)</div>
+            </td>
+            <td style="text-align:left;">
+                <div style="line-height: 1.8;">${comboStr}</div>
+                <div class="combo-stats">↳ 此組合有效數值: [ ${detailStr} ]</div>
+            </td>
+        </tr>`;
+    });
+    tbody.innerHTML = htmlStr;
+}
+
+function calculate() {
+    const targetScore = parseFloat(document.getElementById("target_score").value) || 0;
+    const reqs = getRequiredStats();
+    const hasAnyReq = Object.values(reqs).some(v => v > 0);
+    if (targetScore <= 0 && !hasAnyReq) {
+        alert("請設定大於 0 的目標總分數，或至少指定一項必須出現條件！");
+        return;
+    }
+
+    const btn = document.getElementById("calcBtn");
+    btn.innerText = "計算中...請稍候";
+    btn.disabled = true;
+
+    setTimeout(() => {
+        try {
+            let weights = getWeights();
+            let finalResults = runCoreEngine(weights, targetScore, false);
+
+            let totalSuccessProb = 0;
+            finalResults.forEach(r => totalSuccessProb += r.prob);
+
+            const resBox = document.getElementById("resultArea");
+            const tableArea = document.getElementById("tableArea");
+            
+            resBox.style.display = "block";
+            let pct = (totalSuccessProb * 100).toFixed(4);
+            let expected = totalSuccessProb > 0 ? (1 / totalSuccessProb) : Infinity;
+
+            const REQ_LABEL = { str:'STR', dex:'DEX', int:'INT', luk:'LUK', hp:'最大HP', att:'攻擊力', matt:'魔力', all:'全屬性%' };
+            const reqSummaryParts = Object.entries(reqs)
+                .filter(([, v]) => v > 0)
+                .map(([k, v]) => `${REQ_LABEL[k]} 至少 T${v}`);
+            const conditionLines = [];
+            if (targetScore > 0) conditionLines.push(`目標總分數：<b>${targetScore} 分</b> 以上`);
+            if (reqSummaryParts.length > 0) conditionLines.push(`必須出現條件：<b>${reqSummaryParts.join('、')}</b>`);
+            const conditionHTML = conditionLines.length > 0
+                ? `<div style="font-size: 13px; color: #aaa; margin-bottom: 8px;">${conditionLines.join(' ')}</div>`
+                : '';
+
+            resBox.innerHTML = `
+                <div class="result-title">功能一分析結果</div>
+                ${conditionHTML}
+                <div style="font-size: 18px; margin-bottom: 5px;">
+                    達成目標的綜合機率: <span class="highlight">${pct}%</span>
+                </div>
+                <div style="font-size: 20px;">
+                    達成目標平均期望消耗星火數: <span class="highlight">${expected === Infinity ? "不可能達成" : Math.ceil(expected).toLocaleString() + " 顆"}</span>
+                    ${expected !== Infinity ? `<span style="font-size: 14px; color: #888;">(未進位精確值: ${expected.toFixed(2)})</span>` : ''}
+                </div>
+            `;
+
+            if (finalResults.length === 0) {
+                tableArea.style.display = "none";
+                return;
+            }
+
+            tableArea.style.display = "block";
+            const limit = parseInt(document.getElementById("displayLimit").value) || 1000;
+
+            let groupedByScore = {};
+            finalResults.forEach(r => {
+                let key = r.score.toFixed(6);
+                if(!groupedByScore[key]) groupedByScore[key] = 0;
+                groupedByScore[key] += r.prob;
+            });
+
+            let uniqueScoreKeys = Object.keys(groupedByScore).sort((a, b) => parseFloat(b) - parseFloat(a));
+            let scoreToCumProb = {};
+            let currentCumProb = 0;
+            uniqueScoreKeys.forEach(key => {
+                currentCumProb += groupedByScore[key];
+                scoreToCumProb[key] = currentCumProb;
+            });
+
+            finalResults.sort((a, b) => b.score - a.score || b.prob - a.prob);
+            finalResults.forEach((r, idx) => r.originalRank = idx + 1);
+
+            globalFinalResults = finalResults;
+            globalScoreToCumProb = scoreToCumProb;
+            globalLimit = limit;
+            currentSortCol = 'score';
+            currentSortDesc = true;
+            
+            renderResultTable();
+
+        } catch (e) {
+            console.error(e);
+            alert("計算發生錯誤。");
+        } finally {
+            btn.innerText = "計算機率與期望值";
+            btn.disabled = false;
+        }
+    }, 50);
+}
+
+function calculatePercentile() {
+    const btn = document.getElementById("calcPercentileBtn");
+    btn.innerText = "查詢中...請稍候";
+    btn.disabled = true;
+
+    setTimeout(() => {
+        try {
+            let weights = getWeights();
+            
+            let cur_str = parseFloat(document.getElementById("cur_str").value) || 0;
+            let cur_dex = parseFloat(document.getElementById("cur_dex").value) || 0;
+            let cur_int = parseFloat(document.getElementById("cur_int").value) || 0;
+            let cur_luk = parseFloat(document.getElementById("cur_luk").value) || 0;
+            let cur_hp  = parseFloat(document.getElementById("cur_hp").value) || 0;
+            let cur_att = parseFloat(document.getElementById("cur_att").value) || 0;
+            let cur_matt= parseFloat(document.getElementById("cur_matt").value) || 0;
+            let cur_all = parseFloat(document.getElementById("cur_all").value) || 0;
+
+            let current_score = (cur_str * weights.str) + (cur_dex * weights.dex) + 
+                                (cur_int * weights.int) + (cur_luk * weights.luk) + 
+                                (cur_hp * weights.hp) + (cur_att * weights.att) + 
+                                (cur_matt * weights.matt) + (cur_all * weights.all);
+
+            let allResults = runCoreEngine(weights, 0, true);
+            
+            let groupedByScore = {};
+            allResults.forEach(r => {
+                let key = r.score.toFixed(6);
+                if(!groupedByScore[key]) groupedByScore[key] = 0;
+                groupedByScore[key] += r.prob;
+            });
+
+            let sortedKeys = Object.keys(groupedByScore).sort((a, b) => parseFloat(b) - parseFloat(a));
+            
+            let strictlyGreaterProb = 0;
+            let exactProb = 0;
+
+            for(let key of sortedKeys) {
+                let s = parseFloat(key);
+                if (s > current_score + 0.000001) {
+                    strictlyGreaterProb += groupedByScore[key];
+                } else if (Math.abs(s - current_score) <= 0.000001) {
+                    exactProb = groupedByScore[key];
+                }
+            }
+
+            let topStart = strictlyGreaterProb * 100;
+            let topEnd = (strictlyGreaterProb + exactProb) * 100;
+
+            const resBox = document.getElementById("percentileResultArea");
+            resBox.style.display = "block";
+
+            let htmlStr = `
+                <div class="result-title success-theme">現有裝備數值排名分析</div>
+                <div style="font-size: 18px; margin-bottom: 5px;">
+                    您輸入的裝備等效總分數: <span class="highlight-success">${current_score.toFixed(2).replace('.00','')} 分</span>
+                </div>
+            `;
+
+            if (exactProb > 0) {
+                htmlStr += `
+                    <div style="font-size: 20px;">
+                        本地排名區間: 落於 <span class="highlight-success">前 ${topStart.toFixed(4)}% ~ ${topEnd.toFixed(4)}%</span>
+                    </div>
+                    <div style="font-size: 14px; color: #555; margin-top: 5px;">
+                        (與您同分的可能組合機率佔比: ${(exactProb * 100).toFixed(4)}%)<br>
+                        (您的分數超越了約 ${((1 - (topEnd / 100)) * 100).toFixed(4)}% 的可能星火組合)
+                    </div>
+                `;
+            } else {
+                htmlStr += `
+                    <div style="font-size: 20px;">
+                        累積排名: 約為 <span class="highlight-success">前 ${topStart.toFixed(4)}%</span>
+                    </div>
+                    <div style="font-size: 14px; color: #e17055; margin-top: 5px;">
+                        * 提示：您的分數無法在單次星火中完美重現 (可能輸入有誤或混到了裝備原始白值)。<br>
+                        * 若以此分數標準計算，您的裝備贏過了 ${(100 - topStart).toFixed(4)}% 的可能星火組合。
+                    </div>
+                `;
+            }
+
+            let remain_sparks = parseInt(document.getElementById("remain_sparks").value) || 0;
+            let target_conf = parseFloat(document.getElementById("target_conf").value) || 95;
+
+            if (remain_sparks > 0) {
+                let p_better = strictlyGreaterProb;
+                let prob_success_in_n = 1 - Math.pow(1 - p_better, remain_sparks);
+                let prob_success_pct = prob_success_in_n * 100;
+
+                let required_single_prob = 1 - Math.pow(1 - (target_conf / 100), 1 / remain_sparks);
+                let safe_score = 0;
+                let cumulative = 0;
+                
+                for (let key of sortedKeys) {
+                    cumulative += groupedByScore[key];
+                    if (cumulative >= required_single_prob) {
+                        safe_score = parseFloat(key);
+                        break;
+                    }
+                }
+
+                htmlStr += `<div style="border-top: 2px dashed #a2d9ce; margin: 15px 0;"></div>`;
+                htmlStr += `<div style="font-size: 18px; font-weight: bold; color: var(--success-hover); margin-bottom: 8px;">${remain_sparks} 顆星火重洗建議</div>`;
+                
+                if (prob_success_pct >= target_conf) {
+                    htmlStr += `<div style="font-size: 16px; color: #27ae60;"><b>可以考慮重洗！</b><br>您有 <b style="font-size:18px;">${prob_success_pct.toFixed(2)}%</b> 的機率能在這 ${remain_sparks} 顆內洗出比目前更高的分數。</div>`;
+                } else {
+                    htmlStr += `<div style="font-size: 16px; color: #d63031;"><b>強烈建議見好就收。</b><br>您僅有 <b style="font-size:18px;">${prob_success_pct.toFixed(2)}%</b> 的機率能洗出更高分，未達您設定的 ${target_conf}% 把握度目標。</div>`;
+                }
+                
+                htmlStr += `<div style="font-size: 14px; color: #555; margin-top: 10px; background-color: #fff; padding: 10px; border-radius: 5px; border: 1px solid #dfe6e9;">
+                    根據您要求的 <b>${target_conf}%</b> 把握度，這 ${remain_sparks} 顆的「安全預期落點」約為：<b style="color:var(--highlight-color); font-size:16px;">${safe_score.toFixed(1).replace('.0','')} 分</b>。
+                    ${safe_score <= current_score ? `<br><span style="color: #d63031; font-weight:bold;">(警告：您的安全落點比現有分數還低，若執意重洗，極高機率會導致裝備數值跳水降級)</span>` : `<br><span style="color: #27ae60; font-weight:bold;">(太棒了！您的安全落點甚至高於現狀，放心洗吧！)</span>`}
+                </div>`;
+            }
+
+            resBox.innerHTML = htmlStr;
+
+        } catch (e) {
+            console.error(e);
+            alert("計算發生錯誤。");
+        } finally {
+            btn.innerText = "查詢排名與百分比";
+            btn.disabled = false;
+        }
+    }, 50);
+}
+
+loadSettings();
+initAutoSaveListeners();
+updateReferenceTable();
+updateInfoPanel();
+</script>
+</body>
+</html>
+

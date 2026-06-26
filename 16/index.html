@@ -1,0 +1,701 @@
+﻿<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>新楓之谷 寶玉研磨分析</title>
+    <meta name="description" content="專為《新楓之谷》打造的寶玉研磨分析計算機。結合十萬次大數據模擬與嚴謹的機率分佈理論值，雙重驗算您當前屬性值的 PR 競爭力。內建一般職業、惡魔復仇者及傑諾的數值自動換算，協助您快速評估是否需要重新研磨。">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/12.0.0/math.min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-2.25.2.min.js"></script>
+    <style>
+        body { font-family: 'Microsoft JhengHei', Arial, sans-serif; }
+        #result, #targetResult { white-space: pre-wrap; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: center; font-size: 0.875rem; }
+        th { background-color: #f4f4f4; }
+        /* 分布圖樣式 */
+        #chart { width: 100%; height: 500px; margin-top: 1.5rem; }
+    </style>
+</head>
+<body>
+    <div id="global-nav"></div>
+    <script>window.TOOL_ID = 16;</script>
+    <script src="../shared-nav.js"></script>
+    <script src="../shared-subtitle.js"></script>
+    <div class="bg-white p-6 rounded-lg shadow-lg w-full max-w-2xl mx-auto">
+        <h1 class="text-3xl font-bold mb-3 text-center text-blue-800">新楓之谷 寶玉研磨分析</h1>
+        <div id="tool-subtitle"></div>
+
+        <div class="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-md">
+            <label for="modeSelect" class="block text-sm font-bold text-gray-800 mb-2">選擇計算模式:</label>
+            <select id="modeSelect" class="block w-full p-2 border border-gray-300 rounded-md" onchange="handleModeChange()">
+                <option value="10">10等</option>
+                <option value="15">15等</option>
+            </select>
+        </div>
+
+        <div class="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-md">
+            <label for="jobSelect" class="block text-sm font-bold text-gray-800 mb-2">選擇職業 (自動調整所有數值):</label>
+            <select id="jobSelect" class="block w-full p-2 border border-gray-300 rounded-md" onchange="handleJobChange()">
+                <option value="normal">一般職業 (預設)</option>
+                <option value="avenger">惡魔復仇者 (數值 ÷ 21 計算)</option>
+                <option value="xenon">傑諾 (數值 ÷ 0.48 計算)</option>
+            </select>
+            <p class="text-xs text-gray-500 mt-1">※ 切換後，下拉選單與輸入框請直接使用該職業的面板數值。</p>
+        </div>
+
+        <hr class="mb-6 border-gray-300">
+
+        <div class="mb-8">
+            <h2 class="text-xl font-bold mb-2 text-gray-800 border-l-4 border-blue-500 pl-3">
+                功能一：計算該加工等級研磨後的 PR 值
+            </h2>
+            <p class="text-sm text-gray-600 mb-4">
+                輸入「加工等級」模擬 10 萬次同加工等級下不同研磨的結果。可選填「總屬性值」以直接計算 PR，或模擬完成後再輸入比對。
+            </p>
+
+            <div class="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                    <label for="processLevel" class="block text-sm font-medium text-gray-700">加工等級 (0-10):</label>
+                    <input type="number" id="processLevel" min="0" max="10" value="4" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <div>
+                    <label for="currentValue" class="block text-sm font-medium text-gray-700">研磨後的總屬性值 <span class="text-gray-400 font-normal">(選填)</span>:</label>
+                    <input type="number" id="currentValue" min="0" step="any" placeholder="可不填，模擬後再輸入" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                </div>
+            </div>
+
+            <button id="calculateBtn" onclick="runSimulation()" class="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-md hover:bg-blue-700 transition disabled:bg-gray-400 mb-4">
+                開始模擬計算 (100,000次)
+            </button>
+            
+            <div id="result" class="hidden mt-4 p-4 bg-gray-50 border border-gray-200 rounded-md text-sm leading-relaxed"></div>
+        </div>
+
+        <hr class="mb-6 border-gray-300">
+
+        <div class="mb-6">
+            <h2 class="text-xl font-bold mb-2 text-gray-800 border-l-4 border-green-500 pl-3">
+                功能二：輸入各等級研磨數值，推算全等級 PR
+            </h2>
+            <p class="text-sm text-gray-600 mb-4">
+                選擇每一級研磨到的數值，計算此組合在所有加工等級下的競爭力。
+            </p>
+
+            <div class="mb-4 bg-gray-50 p-3 rounded-md">
+                <label class="block text-sm font-medium text-gray-700 mb-2">選擇各等級屬性 (基礎值):</label>
+                <div id="levelInputs" class="space-y-3">
+                    <div id="levelInputsTop" class="grid grid-cols-5 gap-2"></div>
+                    <div id="levelInputsBottom" class="grid grid-cols-5 gap-2"></div>
+                    <div id="levelInputsExtra" class="grid grid-cols-5 gap-2 hidden"></div>
+                </div>
+            </div>
+
+            <button id="targetCalculateBtn" onclick="runTargetSimulation()" class="w-full bg-green-600 text-white font-bold py-2 px-4 rounded-md hover:bg-green-700 transition disabled:bg-gray-400">
+                計算所有加工等級對應 PR
+            </button>
+            <div id="targetResult" class="mt-4"></div>
+        </div>
+    </div>
+
+    <script>
+        // --- 全局狀態 ---
+        let currentMaxLevel = 10;
+        let _sim = null; // 儲存最後一次模擬的完整資料，供即時 PR 計算使用
+
+        // --- 核心資料 ---
+        const levelProbs = {
+            1: [0.65, 0.05, 0.10, 0.20],
+            2: [0.65, 0.05, 0.10, 0.20],
+            3: [0.65, 0.05, 0.10, 0.20],
+            4: [0.70, 0.06, 0.09, 0.15],
+            5: [0.70, 0.06, 0.09, 0.15],
+            6: [0.75, 0.07, 0.08, 0.10],
+            7: [0.75, 0.07, 0.08, 0.10],
+            8: [0.80, 0.08, 0.07, 0.05],
+            9: [0.80, 0.08, 0.07, 0.05],
+            10: [0.85, 0.09, 0.04, 0.02],
+            11: [0.65, 0.15, 0.10, 0.10],
+            12: [0.70, 0.10, 0.10, 0.10],
+            13: [0.80, 0.10, 0.05, 0.05],
+            14: [0.85, 0.06, 0.05, 0.04],
+            15: [0.90, 0.05, 0.03, 0.02]
+        };
+
+        const baseLevelAttrValues = {
+            1: [25, 50, 75, 100], 2: [25, 50, 75, 100], 3: [25, 50, 75, 100], 4: [25, 50, 75, 100], 5: [25, 50, 75, 100],
+            6: [50, 100, 150, 200], 7: [50, 100, 150, 200], 8: [50, 100, 150, 200], 9: [50, 100, 150, 200], 10: [50, 100, 150, 200],
+            11: [75, 150, 225, 300], 12: [75, 150, 225, 300], 13: [75, 150, 225, 300], 14: [75, 150, 225, 300], 15: [75, 150, 225, 300]
+        };
+
+        const jobFactors = {
+            'normal': 1,
+            'avenger': 21,
+            'xenon': 0.48
+        };
+
+        // --- 初始化 UI ---
+        const levelInputsTop = document.getElementById('levelInputsTop');
+        const levelInputsBottom = document.getElementById('levelInputsBottom');
+        const levelInputsExtra = document.getElementById('levelInputsExtra');
+
+        function createSelectWrapper(i) {
+            return `
+                <div class="text-center">
+                    <label class="block text-xs text-gray-500 mb-1">Lv.${i}</label>
+                    <select id="levelAttr${i}" class="block w-full p-1 border border-gray-300 rounded text-sm bg-white">
+                        </select>
+                </div>`;
+        }
+
+        for (let i = 1; i <= 5; i++) levelInputsTop.innerHTML += createSelectWrapper(i);
+        for (let i = 6; i <= 10; i++) levelInputsBottom.innerHTML += createSelectWrapper(i);
+        for (let i = 11; i <= 15; i++) levelInputsExtra.innerHTML += createSelectWrapper(i);
+
+        // --- 狀態儲存機制 (localStorage) ---
+        function saveState() {
+            const state = {
+                mode: document.getElementById('modeSelect').value,
+                job: document.getElementById('jobSelect').value,
+                processLevel: document.getElementById('processLevel').value,
+                currentValue: document.getElementById('currentValue').value,
+                levels: {}
+            };
+            for (let i = 1; i <= 15; i++) {
+                const el = document.getElementById(`levelAttr${i}`);
+                if (el) state.levels[i] = el.value;
+            }
+            localStorage.setItem('maple_gem_state', JSON.stringify(state));
+        }
+
+        function loadState() {
+            const saved = localStorage.getItem('maple_gem_state');
+            if (!saved) {
+                updateDropdownOptions(); // 初次無儲存紀錄，預設初始化
+                return;
+            }
+            try {
+                const state = JSON.parse(saved);
+                
+                if (state.mode) {
+                    document.getElementById('modeSelect').value = state.mode;
+                    currentMaxLevel = parseInt(state.mode);
+                    const processLevelInput = document.getElementById('processLevel');
+                    processLevelInput.max = currentMaxLevel;
+                    processLevelInput.previousElementSibling.textContent = `加工等級 (0-${currentMaxLevel}):`;
+                    if (currentMaxLevel === 15) {
+                        levelInputsExtra.classList.remove('hidden');
+                    } else {
+                        levelInputsExtra.classList.add('hidden');
+                    }
+                }
+                if (state.job) {
+                    document.getElementById('jobSelect').value = state.job;
+                }
+
+                // 先更新選項才能賦值
+                updateDropdownOptions(); 
+
+                if (state.processLevel) document.getElementById('processLevel').value = state.processLevel;
+                if (state.currentValue) document.getElementById('currentValue').value = state.currentValue;
+
+                if (state.levels) {
+                    for (let i = 1; i <= 15; i++) {
+                        const el = document.getElementById(`levelAttr${i}`);
+                        if (el && state.levels[i]) {
+                            el.value = state.levels[i];
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error('還原狀態失敗', e);
+                updateDropdownOptions(); // 發生錯誤則回退到預設初始化
+            }
+        }
+
+        // --- 綁定儲存事件 ---
+        document.getElementById('processLevel').addEventListener('input', saveState);
+        document.getElementById('currentValue').addEventListener('input', saveState);
+        for (let i = 1; i <= 15; i++) {
+            document.getElementById(`levelAttr${i}`).addEventListener('change', saveState);
+        }
+
+        // 處理模式切換
+        function handleModeChange() {
+            const mode = document.getElementById('modeSelect').value;
+            currentMaxLevel = parseInt(mode);
+            
+            const processLevelInput = document.getElementById('processLevel');
+            processLevelInput.max = currentMaxLevel;
+            processLevelInput.previousElementSibling.textContent = `加工等級 (0-${currentMaxLevel}):`;
+            
+            if (parseInt(processLevelInput.value) > currentMaxLevel) {
+                processLevelInput.value = currentMaxLevel;
+            }
+
+            if (currentMaxLevel === 15) {
+                levelInputsExtra.classList.remove('hidden');
+            } else {
+                levelInputsExtra.classList.add('hidden');
+            }
+
+            resetResults();
+            updateDropdownOptions();
+            saveState(); // 觸發儲存
+        }
+
+        // 處理職業切換
+        function handleJobChange() {
+            resetResults();
+            updateDropdownOptions();
+            saveState(); // 觸發儲存
+        }
+
+        function resetResults() {
+            _sim = null;
+            document.getElementById('result').innerHTML = '';
+            document.getElementById('result').classList.add('hidden');
+            const chart = document.getElementById('chart');
+            if(chart) chart.remove();
+            document.getElementById('targetResult').innerHTML = '';
+        }
+
+        // 根據職業更新下拉選單數值
+        function updateDropdownOptions() {
+            const factor = getJobFactor();
+            
+            for (let i = 1; i <= 15; i++) {
+                const selectEl = document.getElementById(`levelAttr${i}`);
+                const currentIdx = selectEl.selectedIndex >= 0 ? selectEl.selectedIndex : 0; 
+                
+                selectEl.innerHTML = ''; 
+                
+                baseLevelAttrValues[i].forEach(baseVal => {
+                    let displayVal = Math.floor(baseVal * factor); 
+                    
+                    const option = document.createElement('option');
+                    option.value = displayVal; 
+                    option.text = displayVal;
+                    selectEl.appendChild(option);
+                });
+
+                if (currentIdx < selectEl.options.length) {
+                    selectEl.selectedIndex = currentIdx;
+                } else {
+                    selectEl.selectedIndex = selectEl.options.length - 1;
+                }
+            }
+        }
+
+        // --- 核心模擬邏輯 ---
+        function randomChoice(items, probs) {
+            const rand = Math.random();
+            let sum = 0;
+            for (let i = 0; i < probs.length; i++) {
+                sum += probs[i];
+                if (rand < sum) return items[i];
+            }
+            return items[items.length - 1];
+        }
+
+        function simulateEnhancement(multipliers) {
+            let totalAttr = 0;
+            for (let level = 1; level <= currentMaxLevel; level++) {
+                const probs = levelProbs[level];
+                const attrs = baseLevelAttrValues[level]; 
+                const attrValue = randomChoice(attrs, probs);
+                totalAttr += attrValue * multipliers[level];
+            }
+            return totalAttr;
+        }
+
+        function simulateEnhancementWithStandardAttrs(multipliers, standardAttrs) {
+            let totalAttr = 0;
+            for (let level = 1; level <= currentMaxLevel; level++) {
+                totalAttr += standardAttrs[level] * multipliers[level];
+            }
+            return totalAttr;
+        }
+
+        function getJobFactor() {
+            const job = document.getElementById('jobSelect').value;
+            return jobFactors[job] || 1;
+        }
+
+        // --- 數學理論卷積計算 ---
+        function getTheoreticalStats(multipliers) {
+            let pmf = new Map();
+            pmf.set(0, 1n);
+
+            for (let level = 1; level <= currentMaxLevel; level++) {
+                let nextPmf = new Map();
+                const probs = levelProbs[level];
+                const attrs = baseLevelAttrValues[level];
+                const mult = multipliers[level];
+
+                const weights = probs.map(p => BigInt(Math.round(p * 100)));
+
+                for (let [val, ways] of pmf.entries()) {
+                    for (let i = 0; i < 4; i++) {
+                        const newVal = val + attrs[i] * mult;
+                        const newWays = ways * weights[i];
+                        nextPmf.set(newVal, (nextPmf.get(newVal) || 0n) + newWays);
+                    }
+                }
+                pmf = nextPmf;
+            }
+
+            const totalWays = 100n ** BigInt(currentMaxLevel);
+            const totalWaysNum = Number(totalWays);
+            let pmfArray = [];
+            let theoMean = 0;
+
+            for (let [val, ways] of pmf.entries()) {
+                const prob = Number(ways) / totalWaysNum;
+                pmfArray.push({ val, ways, prob });
+                theoMean += val * prob;
+            }
+
+            pmfArray.sort((a, b) => a.val - b.val);
+
+            let theoVariance = 0;
+            for (let item of pmfArray) {
+                theoVariance += Math.pow(item.val - theoMean, 2) * item.prob;
+            }
+            const theoStd = Math.sqrt(theoVariance);
+            const theoMin = pmfArray[0].val;
+            const theoMax = pmfArray[pmfArray.length - 1].val;
+
+            return { pmfArray, totalWays, theoMean, theoStd, theoMin, theoMax };
+        }
+
+        function getTheoreticalPR(pmfArray, totalWays, targetValue) {
+            let winsWays = 0n;
+            let tieWays = 0n;
+            
+            for (let i = 0; i < pmfArray.length; i++) {
+                if (pmfArray[i].val < targetValue - 1e-9) {
+                    winsWays += pmfArray[i].ways;
+                } else if (Math.abs(pmfArray[i].val - targetValue) <= 1e-9) {
+                    tieWays += pmfArray[i].ways;
+                } else {
+                    break;
+                }
+            }
+            
+            const winRatio = Number(winsWays) / Number(totalWays);
+            const tieRatio = Number(tieWays) / Number(totalWays);
+            return Math.floor((winRatio + 0.5 * tieRatio) * 100);
+        }
+
+        function getTheoreticalPercentile(pmfArray, p) {
+            const targetProb = p / 100;
+            let cumulativeProb = 0;
+            for (let item of pmfArray) {
+                cumulativeProb += item.prob;
+                if (cumulativeProb >= targetProb) {
+                    return item.val;
+                }
+            }
+            return pmfArray[pmfArray.length - 1].val;
+        }
+
+        // --- 功能一: 主模擬 ---
+        function runSimulation() {
+            const processLevelInput = document.getElementById('processLevel');
+            const currentValueInput = document.getElementById('currentValue');
+            const resultDiv = document.getElementById('result');
+            const calculateBtn = document.getElementById('calculateBtn');
+            const jobFactor = getJobFactor();
+
+            const processLevel = parseInt(processLevelInput.value);
+            const rawInput = currentValueInput.value.trim();
+            const hasValue = rawInput !== '' && !isNaN(parseFloat(rawInput)) && parseFloat(rawInput) >= 0;
+            const userInputValue = hasValue ? parseFloat(rawInput) : null;
+
+            if (isNaN(processLevel) || processLevel < 0 || processLevel > currentMaxLevel) {
+                alert(`請輸入有效的加工等級 (0-${currentMaxLevel})`);
+                return;
+            }
+
+            calculateBtn.disabled = true;
+            resultDiv.classList.remove('hidden');
+            resultDiv.innerHTML = '<p class="text-blue-600 font-bold animate-pulse">正在進行運算中...</p>';
+
+            const multipliers = {};
+            for (let i = 1; i <= currentMaxLevel; i++) {
+                if (processLevel === 0) multipliers[i] = 1;
+                else if (i <= Math.min(processLevel, 5)) multipliers[i] = 3;
+                else if (i <= Math.min(processLevel, 10)) multipliers[i] = 4;
+                else if (i <= processLevel) multipliers[i] = 5;
+                else multipliers[i] = 1;
+            }
+
+            setTimeout(() => {
+                const nSimulations = 100000;
+                const results = [];
+                for (let i = 0; i < nSimulations; i++) {
+                    results.push(simulateEnhancement(multipliers));
+                }
+                results.sort((a, b) => a - b);
+
+                const percentiles = [1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 99];
+                const percentileValues = percentiles.map(p => math.quantileSeq(results, p / 100));
+                const mean = math.mean(results);
+                const std = math.std(results);
+                const minValue = results[0];
+                const maxValue = results[results.length - 1];
+                const theoStats = getTheoreticalStats(multipliers);
+                const theoPercentileValues = percentiles.map(p => getTheoreticalPercentile(theoStats.pmfArray, p));
+
+                _sim = { results, percentiles, percentileValues, theoPercentileValues, mean, std, minValue, maxValue, theoStats, processLevel, jobFactor, nSimulations };
+
+                _renderSimResults(userInputValue);
+                calculateBtn.disabled = false;
+            }, 50);
+        }
+
+        // 根據儲存的 _sim 資料渲染結果（可帶入使用者數值，或不帶入僅顯示分佈）
+        function _renderSimResults(userInputValue) {
+            if (!_sim) return;
+            const { results, percentiles, percentileValues, theoPercentileValues, mean, std, minValue, maxValue, theoStats, processLevel, jobFactor, nSimulations } = _sim;
+            const resultDiv = document.getElementById('result');
+
+            const normalizedValue = (userInputValue !== null) ? userInputValue / jobFactor : null;
+            let prValue = null, theoPrValue = null, wins = null, ties = null;
+            if (normalizedValue !== null) {
+                wins = results.filter(val => val < normalizedValue - 1e-9).length;
+                ties = results.filter(val => Math.abs(val - normalizedValue) <= 1e-9).length;
+                prValue = Math.floor(((wins + 0.5 * ties) / nSimulations) * 100);
+                theoPrValue = getTheoreticalPR(theoStats.pmfArray, theoStats.totalWays, normalizedValue);
+            }
+
+            const fmt = (val) => Math.floor(val * jobFactor).toLocaleString();
+            const fmtFloat = (val) => (val * jobFactor).toFixed(2);
+
+            let output = `<div class="font-mono text-gray-800">`;
+            output += `<div class="font-bold text-lg mb-2 border-b pb-2 text-center text-blue-900">模擬 100,000 次同加工等級<br>不同研磨(重新研磨)結果<br><span class="text-sm font-normal text-gray-600">(加工等級 ${processLevel})</span></div>`;
+
+            output += `<div class="overflow-x-auto mb-4">`;
+            output += `<table class="w-full text-sm">`;
+            output += `<thead><tr class="bg-gray-100 text-gray-600 text-xs uppercase">
+                <th class="px-3 py-2 text-left">百分位</th>
+                <th class="px-3 py-2 text-right">模擬值</th>
+                <th class="px-3 py-2 text-right">理論值</th>
+            </tr></thead><tbody>`;
+            percentiles.forEach((p, i) => {
+                const isHighlight = prValue !== null && Math.abs(prValue - p) < 5;
+                const rowStyle = isHighlight ? 'bg-blue-50 font-bold text-blue-700' : 'bg-white text-gray-800';
+                output += `<tr class="${rowStyle} border-b">
+                    <td class="px-3 py-1.5">P${p}</td>
+                    <td class="px-3 py-1.5 text-right">${fmt(percentileValues[i])}</td>
+                    <td class="px-3 py-1.5 text-right">${fmt(theoPercentileValues[i])}</td>
+                </tr>`;
+            });
+            output += `</tbody></table></div>`;
+
+            output += `<div class="border-t pt-2 mb-4">`;
+            output += `<table class="w-full text-sm">`;
+            output += `<thead><tr class="bg-gray-100 text-gray-600 text-xs uppercase">
+                <th class="px-3 py-2 text-left">統計項目</th>
+                <th class="px-3 py-2 text-right">模擬值</th>
+                <th class="px-3 py-2 text-right">理論值</th>
+            </tr></thead><tbody>`;
+            output += `<tr class="bg-white border-b text-gray-800"><td class="px-3 py-1.5 font-medium">平均屬性值</td><td class="px-3 py-1.5 text-right">${fmtFloat(mean)}</td><td class="px-3 py-1.5 text-right">${fmtFloat(theoStats.theoMean)}</td></tr>`;
+            output += `<tr class="bg-gray-50 border-b text-gray-800"><td class="px-3 py-1.5 font-medium">標準差</td><td class="px-3 py-1.5 text-right">${fmtFloat(std)}</td><td class="px-3 py-1.5 text-right">${fmtFloat(theoStats.theoStd)}</td></tr>`;
+            output += `<tr class="bg-white border-b text-gray-800"><td class="px-3 py-1.5 font-medium">最小值</td><td class="px-3 py-1.5 text-right">${fmt(minValue)}</td><td class="px-3 py-1.5 text-right">${fmt(theoStats.theoMin)}</td></tr>`;
+            output += `<tr class="bg-gray-50 text-gray-800"><td class="px-3 py-1.5 font-medium">最大值</td><td class="px-3 py-1.5 text-right">${fmt(maxValue)}</td><td class="px-3 py-1.5 text-right">${fmt(theoStats.theoMax)}</td></tr>`;
+            output += `</tbody></table></div>`;
+
+            if (prValue !== null) {
+                output += `<div class="mt-2 p-3 bg-blue-50 rounded border border-blue-100">`;
+                output += `<div class="font-bold text-blue-800 mb-1">您的數值: ${userInputValue.toLocaleString()}</div>`;
+                output += `<div class="text-sm text-gray-700 mb-2">在 10 萬次模擬中贏過 ${wins.toLocaleString()} 次，同分 ${ties.toLocaleString()} 次</div>`;
+                output += `<table class="w-full text-sm mb-1"><thead><tr class="text-xs text-gray-500 uppercase">
+                    <th class="text-left pb-1">PR 來源</th>
+                    <th class="text-right pb-1">PR 值</th>
+                </tr></thead><tbody>
+                    <tr><td class="font-medium text-gray-700">模擬 PR</td><td class="text-right text-2xl font-bold text-red-600">${prValue}</td></tr>
+                    <tr><td class="font-medium text-gray-700">理論 PR</td><td class="text-right text-2xl font-bold text-orange-500">${theoPrValue}</td></tr>
+                </tbody></table>`;
+                output += `<div class="text-xs text-gray-500 mt-1">計算方式：(勝過比例 + 0.5 × 同分比例) × 100，無條件捨去</div>`;
+                output += `<div class="mt-3 pt-3 border-t border-blue-200">
+                    <div class="text-xs text-gray-500 mb-1">比對其他數值（不重新模擬）</div>
+                    <div class="flex gap-2">
+                        <input type="number" id="prCompareInput" min="0" step="any" placeholder="輸入屬性值"
+                            class="flex-1 p-1.5 border border-gray-300 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500"
+                            onkeydown="if(event.key==='Enter') calculatePRInstant()">
+                        <button onclick="calculatePRInstant()" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-1.5 px-3 rounded-md text-sm transition whitespace-nowrap">
+                            重新比對
+                        </button>
+                    </div>
+                    <div id="prCompareError" class="mt-1 text-red-500 text-xs hidden">請輸入有效的屬性值</div>
+                </div>`;
+                output += `</div>`;
+            } else {
+                output += `<div class="mt-2 p-3 bg-yellow-50 rounded border border-yellow-200">`;
+                output += `<div class="font-bold text-yellow-800 mb-1">想知道您的 PR 值？</div>`;
+                output += `<div class="text-sm text-gray-600 mb-3">輸入您研磨後的總屬性值，即時與本次模擬比對，無需重新計算。</div>`;
+                output += `<div class="flex gap-2">
+                    <input type="number" id="prCompareInput" min="0" step="any" placeholder="輸入屬性值"
+                        class="flex-1 p-2 border border-gray-300 rounded-md text-sm focus:ring-yellow-500 focus:border-yellow-500"
+                        onkeydown="if(event.key==='Enter') calculatePRInstant()">
+                    <button onclick="calculatePRInstant()" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded-md text-sm transition whitespace-nowrap">
+                        計算 PR
+                    </button>
+                </div>`;
+                output += `<div id="prCompareError" class="mt-1 text-red-500 text-xs hidden">請輸入有效的屬性值</div>`;
+                output += `</div>`;
+            }
+            output += `</div>`;
+
+            resultDiv.innerHTML = output;
+            drawChart(results, processLevel, normalizedValue, jobFactor, minValue, maxValue);
+        }
+
+        // 使用既有模擬資料即時計算 PR，不重新跑模擬
+        function calculatePRInstant() {
+            if (!_sim) return;
+            const input = document.getElementById('prCompareInput');
+            const userInputValue = parseFloat(input.value);
+            const errorEl = document.getElementById('prCompareError');
+            if (isNaN(userInputValue) || userInputValue < 0) {
+                if (errorEl) errorEl.classList.remove('hidden');
+                return;
+            }
+            document.getElementById('currentValue').value = userInputValue;
+            saveState();
+            _renderSimResults(userInputValue);
+        }
+
+        // --- 繪製分佈圖 ---
+        function drawChart(sortedResults, processLevel, userVal, jobFactor, min, max) {
+            const oldChart = document.getElementById('chart');
+            if (oldChart) oldChart.remove();
+
+            const chartDiv = document.createElement('div');
+            chartDiv.id = 'chart';
+            document.getElementById('result').parentNode.insertBefore(chartDiv, document.getElementById('result').nextSibling);
+
+            const sampleRate = 100;
+            const sampledData = sortedResults.filter((_, i) => i % sampleRate === 0).map((val, i) => ({
+                x: (i * sampleRate / sortedResults.length) * 100,
+                y: val * jobFactor,
+                text: `屬性: ${Math.floor(val * jobFactor)}<br>PR約: ${((i * sampleRate / sortedResults.length)*100).toFixed(1)}`
+            }));
+
+            const createMarker = (x, rawY, name, color) => ({
+                x: [x], y: [rawY * jobFactor],
+                mode: 'markers', name: name,
+                marker: { size: 10, color: color },
+                text: [`${name}: ${Math.floor(rawY * jobFactor)}`],
+                hoverinfo: 'text'
+            });
+
+            const markers = [];
+            markers.push(createMarker(0, min, '最小值', 'red'));
+            markers.push(createMarker(100, max, '最大值', 'green'));
+
+            if (userVal !== null) {
+                let userRank = sortedResults.findIndex(v => v >= userVal);
+                if (userRank === -1) userRank = sortedResults.length;
+                const userPr = (userRank / sortedResults.length) * 100;
+                markers.push(createMarker(userPr, userVal, '您的位置', '#ff00ff'));
+            }
+
+            const traceLine = {
+                x: sampledData.map(d => d.x),
+                y: sampledData.map(d => d.y),
+                mode: 'lines',
+                name: '分佈曲線',
+                line: { color: '#1f77b4' },
+                hoverinfo: 'y'
+            };
+
+            const layout = {
+                title: `屬性值分佈圖 (加工等級 ${processLevel})`,
+                xaxis: { title: 'PR 值 (累積百分比 %)' },
+                yaxis: { title: '屬性數值' },
+                hovermode: 'closest',
+                showlegend: true
+            };
+
+            Plotly.newPlot('chart', [traceLine, ...markers], layout, { responsive: true });
+        }
+
+        // --- 功能二: 全等級模擬 ---
+        function runTargetSimulation() {
+            const targetResultDiv = document.getElementById('targetResult');
+            const btn = document.getElementById('targetCalculateBtn');
+            const jobFactor = getJobFactor();
+
+            const customStandardAttrs = {};
+            for (let i = 1; i <= currentMaxLevel; i++) {
+                let val = parseFloat(document.getElementById(`levelAttr${i}`).value);
+                customStandardAttrs[i] = val / jobFactor; 
+            }
+
+            btn.disabled = true;
+            targetResultDiv.innerHTML = '<p class="text-gray-500">計算中...</p>';
+
+            setTimeout(() => {
+                let output = '<div class="overflow-x-auto"><table class="w-full text-sm text-left text-gray-500">';
+                output += '<thead class="text-xs text-gray-700 uppercase bg-gray-50"><tr><th class="px-4 py-2">加工等級</th><th class="px-4 py-2">總屬性值 (預估)</th><th class="px-4 py-2 text-center">模擬 PR</th><th class="px-4 py-2 text-center">理論 PR</th></tr></thead><tbody>';
+                
+                const nSimulations = 50000;
+
+                for (let targetLevel = 0; targetLevel <= currentMaxLevel; targetLevel++) {
+                    const multipliers = {};
+                    for (let i = 1; i <= currentMaxLevel; i++) {
+                        if (targetLevel === 0) multipliers[i] = 1;
+                        else if (i <= Math.min(targetLevel, 5)) multipliers[i] = 3;
+                        else if (i <= Math.min(targetLevel, 10)) multipliers[i] = 4;
+                        else if (i <= targetLevel) multipliers[i] = 5;
+                        else multipliers[i] = 1;
+                    }
+
+                    const results = [];
+                    for (let k = 0; k < nSimulations; k++) {
+                        results.push(simulateEnhancement(multipliers));
+                    }
+
+                    const userTotalStandard = simulateEnhancementWithStandardAttrs(multipliers, customStandardAttrs);
+                    
+                    const wins = results.filter(val => val < userTotalStandard - 1e-9).length;
+                    const ties = results.filter(val => Math.abs(val - userTotalStandard) <= 1e-9).length;
+                    const prValue = Math.floor(((wins + 0.5 * ties) / nSimulations) * 100);
+
+                    const theoStats = getTheoreticalStats(multipliers);
+                    const theoPrValue = getTheoreticalPR(theoStats.pmfArray, theoStats.totalWays, userTotalStandard);
+
+                    const displayVal = Math.floor(userTotalStandard * jobFactor);
+                    
+                    let prColor = 'text-gray-900';
+                    if(prValue >= 90) prColor = 'text-red-600 font-bold';
+                    else if(prValue >= 70) prColor = 'text-blue-600 font-bold';
+
+                    let theoPrColor = 'text-gray-900';
+                    if(theoPrValue >= 90) theoPrColor = 'text-red-600 font-bold';
+                    else if(theoPrValue >= 70) theoPrColor = 'text-blue-600 font-bold';
+
+                    output += `<tr class="bg-white border-b hover:bg-gray-50">
+                        <td class="px-4 py-2 font-medium text-gray-900">${targetLevel}</td>
+                        <td class="px-4 py-2">${displayVal.toLocaleString()}</td>
+                        <td class="px-4 py-2 text-center ${prColor}">${prValue}</td>
+                        <td class="px-4 py-2 text-center ${theoPrColor}">${theoPrValue}</td>
+                    </tr>`;
+                }
+                output += '</tbody></table></div>';
+                targetResultDiv.innerHTML = output;
+                btn.disabled = false;
+            }, 50);
+        }
+
+        // --- 執行初始載入狀態 ---
+        loadState();
+    </script>
+</body>
+</html>
+
+

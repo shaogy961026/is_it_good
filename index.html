@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>首頁</title>
+    <script src="shared-nav.js"></script>
+    <style>
+        body {
+            font-family: 'Microsoft JhengHei', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f6f9;
+        }
+
+        /* ── 歡迎區塊 ─────────────────── */
+        .welcome-container {
+            max-width: 860px;
+            margin: 50px auto 0 auto;
+            text-align: center;
+            background: #fff;
+            padding: 40px 30px 30px;
+            border-radius: 14px;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.06);
+        }
+        .welcome-container h1 { color: #2c3e50; margin-bottom: 14px; font-size: 1.7rem; }
+        .welcome-container p  { color: #666; line-height: 1.8; font-size: 15px; margin: 0; }
+
+        /* ── 工具列表區 ───────────────── */
+        #tool-list-section {
+            max-width: 860px;
+            margin: 30px auto 60px auto;
+        }
+
+        .category-block {
+            margin-bottom: 28px;
+        }
+        .category-title {
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: #888;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            border-bottom: 1px solid #e0e4ea;
+            padding-bottom: 8px;
+            margin-bottom: 14px;
+        }
+
+        .tool-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 14px;
+        }
+
+        .tool-card {
+            display: block;
+            background: #fff;
+            border: 1px solid #e4e8ef;
+            border-radius: 10px;
+            padding: 18px 20px;
+            text-decoration: none;
+            color: inherit;
+            transition: box-shadow 0.18s, border-color 0.18s, transform 0.15s;
+            cursor: pointer;
+        }
+        .tool-card:hover {
+            box-shadow: 0 6px 20px rgba(41,128,185,0.13);
+            border-color: #2980b9;
+            transform: translateY(-2px);
+        }
+
+        .tool-card-title {
+            font-size: 0.97rem;
+            font-weight: 700;
+            color: #2c3e50;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .tool-card-title::after {
+            content: "→";
+            font-size: 0.85rem;
+            color: #2980b9;
+            margin-left: auto;
+            opacity: 0;
+            transition: opacity 0.18s;
+        }
+        .tool-card:hover .tool-card-title::after {
+            opacity: 1;
+        }
+
+        .tool-card-bullets {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .tool-card-bullets li {
+            font-size: 0.82rem;
+            color: #666;
+            padding: 2px 0;
+            padding-left: 12px;
+            position: relative;
+            line-height: 1.5;
+        }
+        .tool-card-bullets li::before {
+            content: "•";
+            position: absolute;
+            left: 0;
+            color: #2980b9;
+            font-weight: bold;
+        }
+
+        @media (max-width: 600px) {
+            .welcome-container { margin: 20px 14px 0; padding: 28px 18px; }
+            #tool-list-section  { margin: 20px 14px 40px; }
+            .tool-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div id="global-nav"></div>
+
+    <div class="welcome-container">
+        <h1>歡迎來到 數位楓水研究室</h1>
+        <p>提供新楓之谷數據分析與機率計算。<br>從下方選擇工具，或使用<strong>上方選單</strong>前往。</p>
+    </div>
+
+    <div id="tool-list-section"></div>
+
+    <script src="shared-subtitle.js"></script>
+    <script>
+        (function () {
+            var section = document.getElementById('tool-list-section');
+            if (!section || typeof TOOL_CATEGORIES === 'undefined') return;
+
+            TOOL_CATEGORIES.forEach(function (cat) {
+                var block = document.createElement('div');
+                block.className = 'category-block';
+
+                var catTitle = document.createElement('div');
+                catTitle.className = 'category-title';
+                catTitle.textContent = cat.name;
+                block.appendChild(catTitle);
+
+                var grid = document.createElement('div');
+                grid.className = 'tool-grid';
+
+                cat.ids.forEach(function (id) {
+                    var info = TOOL_INFO[id];
+                    if (!info) return;
+
+                    var card = document.createElement('a');
+                    card.className = 'tool-card';
+                    card.href = './' + id + '/';
+
+                    var titleEl = document.createElement('div');
+                    titleEl.className = 'tool-card-title';
+                    titleEl.textContent = info.title;
+                    card.appendChild(titleEl);
+
+                    var ul = document.createElement('ul');
+                    ul.className = 'tool-card-bullets';
+                    info.bullets.forEach(function (text) {
+                        var li = document.createElement('li');
+                        li.textContent = text;
+                        ul.appendChild(li);
+                    });
+                    card.appendChild(ul);
+
+                    grid.appendChild(card);
+                });
+
+                block.appendChild(grid);
+                section.appendChild(block);
+            });
+        })();
+    </script>
+</body>
+</html>

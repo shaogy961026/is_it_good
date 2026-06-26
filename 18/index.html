@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>新楓之谷 機率型卷軸複合動態策略 BETA</title>
+    <meta name="description" content="根據目標攻擊力與卷軸價格，計算《新楓之谷》最佳衝卷策略。透過動態策略導航器，即時引導玩家在每一階段做出成本最低的決策。">
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; padding: 20px; color: #333; }
+        .container { max-width: 1000px; margin: 0 auto; background: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: #2c3e50; font-size: 1.5rem; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+        
+        .box { background: #f8f9fa; padding: 20px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 20px; }
+        .price-grid { display: flex; flex-wrap: wrap; gap: 20px; }
+        .price-col { flex: 1; min-width: 200px; }
+        
+        .input-row { margin-bottom: 8px; }
+        .input-row label { display: inline-block; width: 85px; font-weight: bold; font-size: 0.9rem; }
+        input[type="number"] { padding: 5px; width: 110px; text-align: right; border: 1px solid #ccc; border-radius: 4px; font-family: monospace; font-size: 1rem; }
+        select { padding: 6px; border-radius: 4px; border: 1px solid #ccc; font-family: 'Segoe UI', sans-serif; font-size: 1rem; cursor: pointer; }
+        .currency-preview { font-size: 0.85rem; color: #2980b9; font-weight: bold; text-align: right; margin-top: 2px; height: 1.2em; margin-bottom: 5px; }
+        
+        .btn { display: block; width: 100%; padding: 12px; background: #2980b9; color: white; border: none; border-radius: 6px; font-size: 1.1rem; cursor: pointer; margin: 20px 0; font-weight: bold; }
+        .btn:hover { background: #1a5276; }
+        .btn:disabled { background: #95a5a6; cursor: not-allowed; }
+        .result-box { background: #e8f4f8; border-left: 5px solid #3498db; padding: 15px; margin-top: 15px; }
+        
+        .yi-highlight { color: #e67e22; font-weight: bold; font-size: 1.1em; margin: 0 2px; }
+        
+        /* 導航器專用樣式 */
+        .navigator-box { background: #fff8e1; border: 2px solid #f1c40f; padding: 20px; border-radius: 8px; margin-top: 20px; }
+        .nav-result { padding: 15px; background: #fff; border-radius: 6px; font-size: 1.2rem; font-weight: bold; text-align: center; border: 2px dashed #e67e22; margin-top: 15px; color: #d35400; }
+        .preview-table { width: 100%; margin-top: 15px; border-collapse: collapse; font-size: 0.95rem; background: #fff; }
+        .preview-table th { background: #f39c12; color: #fff; padding: 8px; border: 1px solid #e67e22; }
+        .preview-table td { padding: 8px; border: 1px solid #ddd; text-align: center; }
+        
+        /* 互動按鈕樣式 */
+        .outcome-btn { margin: 5px; padding: 10px 18px; background: #3498db; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 1.1rem; font-weight: bold; transition: 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .outcome-btn:hover { background: #2980b9; transform: translateY(-2px); }
+        .fail-btn { background: #95a5a6; }
+        .fail-btn:hover { background: #7f8c8d; }
+        .ctrl-btn { margin: 5px 0 5px 10px; padding: 8px 15px; background: #e67e22; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.95rem; font-weight: bold; }
+        .ctrl-btn:hover { background: #d35400; }
+        
+        .stat-input-row { display: flex; justify-content: center; align-items: center; gap: 10px; margin-bottom: 10px; }
+        .stat-input-row label { width: auto; font-size: 1rem; color: #2c3e50; font-weight: normal; }
+        .stat-input-row input { width: 80px; text-align: center; }
+    </style>
+</head>
+<body>
+    <div id="global-nav"></div>
+    <script>window.TOOL_ID = 18;</script>
+    <script src="../shared-nav.js"></script>
+    <script src="../shared-subtitle.js"></script>
+<div class="container">
+    <h1>新楓之谷 機率型卷軸複合動態策略 BETA</h1>
+        <div id="tool-subtitle"></div>
+    <div class="box">
+        <h3 style="margin-top: 0;">卷軸單價與設定 <span style="font-size: 0.85rem; color: #7f8c8d; font-weight: normal;">(不填寫留空的卷軸代表不納入計算)</span></h3>
+        <div class="price-grid">
+            <div class="price-col">
+                <div style="color: #2980b9; font-weight: bold; margin-bottom: 10px; border-bottom: 1px solid #ccc; padding-bottom: 5px;">武器專用</div>
+                <div class="input-row"><label>星彩</label><input type="number" id="p_star_wep" oninput="saveAndPreview(this)"><div class="currency-preview"></div></div>
+                <div class="input-row"><label>救世</label><input type="number" id="p_save_wep" oninput="saveAndPreview(this)"><div class="currency-preview"></div></div>
+                <div class="input-row"><label>命運</label><input type="number" id="p_fate_wep" oninput="saveAndPreview(this)"><div class="currency-preview"></div></div>
+                <div class="input-row"><label>究極黑暗</label><input type="number" id="p_dark_wep" oninput="saveAndPreview(this)"><div class="currency-preview"></div></div>
+            </div>
+
+            <div class="price-col">
+                <div style="color: #27ae60; font-weight: bold; margin-bottom: 10px; border-bottom: 1px solid #ccc; padding-bottom: 5px;">防具卷軸</div>
+                <div class="input-row"><label>星彩</label><input type="number" id="p_star_arm" oninput="saveAndPreview(this)"><div class="currency-preview"></div></div>
+                <div class="input-row"><label>救世</label><input type="number" id="p_save_arm" oninput="saveAndPreview(this)"><div class="currency-preview"></div></div>
+                <div class="input-row"><label>命運</label><input type="number" id="p_fate_arm" oninput="saveAndPreview(this)"><div class="currency-preview"></div></div>
+                <div class="input-row" title="含2全屬"><label>究極黑暗</label><input type="number" id="p_dark_arm" oninput="saveAndPreview(this)"><div class="currency-preview"></div></div>
+            </div>
+
+            <div class="price-col">
+                <div style="color: #f39c12; font-weight: bold; margin-bottom: 10px; border-bottom: 1px solid #ccc; padding-bottom: 5px;">飾品卷軸</div>
+                <div class="input-row"><label>星彩</label><input type="number" id="p_star_acc" oninput="saveAndPreview(this)"><div class="currency-preview"></div></div>
+                <div class="input-row"><label>救世</label><input type="number" id="p_save_acc" oninput="saveAndPreview(this)"><div class="currency-preview"></div></div>
+                <div class="input-row"><label>命運</label><input type="number" id="p_fate_acc" oninput="saveAndPreview(this)"><div class="currency-preview"></div></div>
+                <div class="input-row"><label>究極黑暗</label><input type="number" id="p_dark_acc" oninput="saveAndPreview(this)"><div class="currency-preview"></div></div>
+            </div>
+            
+            <div class="price-col">
+                <div style="color: #d35400; font-weight: bold; margin-bottom: 10px; border-bottom: 1px solid #ccc; padding-bottom: 5px;">寵物卷軸</div>
+                <div class="input-row"><label>星彩</label><input type="number" id="p_star_pet" oninput="saveAndPreview(this)"><div class="currency-preview"></div></div>
+                <div class="input-row"><label>救世</label><input type="number" id="p_save_pet" oninput="saveAndPreview(this)"><div class="currency-preview"></div></div>
+                <div class="input-row"><label>命運</label><input type="number" id="p_fate_pet" oninput="saveAndPreview(this)"><div class="currency-preview"></div></div>
+                <div class="input-row"><label>究極黑暗</label><input type="number" id="p_dark_pet" oninput="saveAndPreview(this)"><div class="currency-preview"></div></div>
+            </div>
+
+            <div class="price-col" style="min-width: 250px;">
+                <div style="color: #8e44ad; font-weight: bold; margin-bottom: 10px; border-bottom: 1px solid #ccc; padding-bottom: 5px;">通用耗材與屬性</div>
+                <div class="input-row"><label>恢復卡</label><input type="number" id="p_card" oninput="saveAndPreview(this)"><div class="currency-preview"></div></div>
+                <div class="input-row"><label>亞克回真</label><input type="number" id="p_ark" oninput="saveAndPreview(this)"><div class="currency-preview"></div></div>
+                
+                <div style="margin-top: 15px; background: #fdfefe; border-radius: 6px; padding: 15px; border: 1px dashed #ccc;">
+                    <div class="input-row" style="margin-bottom: 10px;"><label style="color:#2980b9; width: 70px;">主屬換算</label><input type="number" id="r_main" placeholder="不填不計" style="width: 100px;" oninput="saveData(this)"></div>
+                    <div class="input-row" style="margin-bottom: 0;"><label style="color:#2980b9; width: 70px;">副屬換算</label><input type="number" id="r_vice" placeholder="不填不計" style="width: 100px;" oninput="saveData(this)"></div>
+                    <div style="font-size: 0.8rem; color: #7f8c8d; text-align: left; margin-top: 8px;">
+                        *例：主屬填 4 代表 <b>4主屬 = 1攻</b>。
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="box" style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start;">
+        <div>
+            <div style="font-weight:bold; margin-bottom:5px; color:#2c3e50;">裝備部位</div>
+            <select id="v_eq_type" style="width: 160px; font-weight: bold;" onchange="saveData(this)">
+                <option value="weapon">武器</option>
+                <option value="armor">防具</option>
+                <option value="accessory">飾品</option>
+                <option value="pet">寵物</option>
+            </select>
+        </div>
+        <div>
+            <div style="font-weight:bold; margin-bottom:5px;">總次數 (Slots)</div>
+            <input type="number" id="v_slots" value="10" style="text-align: center; width: 100px;" oninput="saveData(this)">
+        </div>
+        <div>
+            <div style="font-weight:bold; margin-bottom:5px; color:#c0392b;">目標等效總攻擊</div>
+            <input type="number" id="v_target" value="170" style="text-align: center; width: 100px;" oninput="saveData(this)">
+        </div>
+        <div>
+            <div style="font-weight:bold; margin-bottom:5px;">模擬測試次數</div>
+            <input type="number" id="v_sims" value="100000" style="text-align: center; width: 100px;" oninput="saveData(this)">
+        </div>
+        <div style="font-size: 0.85rem; color: #7f8c8d; width: 100%; border-top: 1px dashed #ccc; padding-top: 10px; margin-top: -5px;">
+            *注意：系統會嚴格依據您選擇的「裝備部位」，自動過濾並找出最適用的卷軸。
+        </div>
+    </div>
+
+    <button class="btn" id="runBtn" onclick="runAnalysis()">開始計算最佳策略</button>
+
+    <div id="result" class="result-box" style="display: none;">
+        <h3>結果比對</h3>
+        <p><b>數學預期總成本 (DP)：</b> <span id="res_dp_cost" style="font-size: 1.2rem;"></span></p>
+        <p><b><span id="display_sim_count"></span> 次模擬平均成本：</b> <span id="res_sim_cost" style="font-size: 1.2rem;"></span></p>
+        <p><b>平均最終等效攻擊：</b> <span id="res_sim_atk" style="color: #27ae60; font-weight: bold; font-size: 1.1rem;"></span></p>
+    </div>
+
+    <div id="navigator" class="navigator-box" style="display: none;">
+        <h3 style="margin-top: 0; color: #d35400;">實戰策略導航器</h3>
+        
+        <div style="display: flex; justify-content: space-between; align-items: stretch; background: #fff; padding: 15px; border-radius: 6px; border: 1px solid #f1c40f; flex-wrap: wrap; gap: 15px;">
+            <div style="flex: 1; min-width: 200px; border-right: 1px dashed #ccc; padding-right: 15px;">
+                <div style="font-size: 1.1rem; margin-bottom: 5px;">
+                    剩餘次數: <strong id="nav_display_slots" style="color:#2980b9; font-size: 1.3em;"></strong> / <span id="nav_display_max_slots" style="color:#888;"></span>
+                </div>
+                <div style="font-size: 1.1rem;">
+                    累積等效攻: <strong id="nav_display_atk" style="color:#27ae60; font-size: 1.3em;"></strong> / <span id="nav_display_target" style="color:#888;"></span>
+                </div>
+            </div>
+            <div style="flex: 1; min-width: 250px; font-size: 0.95rem; color: #555;">
+                <div style="margin-bottom: 5px;">累積花費: <strong id="nav_cum_cost" style="color:#c0392b; font-size: 1.15rem;">0</strong></div>
+                <div style="margin-bottom: 3px;">卷軸明細: <span id="nav_cum_scrolls" style="line-height: 1.4;">0 張</span></div>
+                <div>恢復卡明細: <strong id="nav_cum_cards" style="color:#2c3e50;">0</strong> 張</div>
+            </div>
+            <div style="display: flex; flex-direction: column; justify-content: center; gap: 8px;">
+                <button class="ctrl-btn" onclick="undoNav()">↩️ 我點錯了 (回到上一步)</button>
+                <button class="ctrl-btn" style="background:#c0392b;" onclick="resetNav(true)">🔄 全部歸零</button>
+            </div>
+        </div>
+
+        <div id="nav_action" class="nav-result">請等待運算完成...</div>
+        
+        <div id="nav_outcome_area" style="text-align: center; margin-top: 25px; padding: 20px; background: #fff; border-radius: 8px; border: 1px solid #ddd; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
+            <div id="nav_outcome_buttons" style="display: flex; flex-direction: column; align-items: center; gap: 15px;"></div>
+        </div>
+        
+        <div id="nav_preview"></div>
+    </div>
+</div>
+
+<script>
+// =====================================
+// LocalStorage 記憶體功能
+// =====================================
+// 版本號更新至 v5，確保資料不衝突
+const STORAGE_PREFIX = "dp_sim_v5_";
+
+// 預設值清單
+const DEFAULT_VALUES = {
+    'p_card': 900000000,
+    'p_ark': 110000000,
+    'p_star_wep': 41888888888,
+    'p_save_wep': 13700000000,
+    'p_fate_wep': 1700000000,
+    'p_dark_wep': 544444444,
+    'p_star_arm': 73999999999,
+    'p_save_arm': 16150000000,
+    'p_fate_arm': 2988888888,
+    'p_dark_arm': 6325000000,
+    'p_star_acc': 111111111111,
+    'p_save_acc': 27000000000,
+    'p_fate_acc': 3750000000,
+    'p_dark_acc': 1800000000,
+    'p_star_pet': 46888888888,
+    'p_save_pet': 11299999999,
+    'p_fate_pet': 3299999999,
+    'p_dark_pet': 1095999998
+};
+
+function formatMoney(rawVal, isPreview = false) {
+    if (!rawVal || rawVal < 0) return isPreview ? "" : "-";
+    let val = Math.floor(parseFloat(rawVal));
+    const YI = 100000000; const WAN = 10000;
+    let yi = Math.floor(val / YI);
+    let remainderYi = val % YI;
+    let wan = Math.floor(remainderYi / WAN);
+    let unit = remainderYi % WAN;
+    let output = "";
+    if (yi > 0) output += `<span class="yi-highlight">${yi}</span>億 `;
+    if (wan > 0) output += `<span class="yi-highlight">${wan}</span>萬 `;
+    else if (yi > 0 && unit > 0) output += `<span class="yi-highlight">0</span>萬 `;
+    if (unit > 0) output += `<span class="yi-highlight">${unit}</span>`;
+    else if (val === 0) return "0";
+    return output;
+}
+
+function updateMoneyPreview(inputEl) {
+    let previewEl = inputEl.nextElementSibling;
+    if(previewEl && previewEl.classList.contains('currency-preview')) {
+        previewEl.innerHTML = formatMoney(inputEl.value, true);
+    }
+}
+
+function saveData(el) {
+    localStorage.setItem(STORAGE_PREFIX + el.id, el.value);
+}
+
+function saveAndPreview(el) {
+    saveData(el);
+    updateMoneyPreview(el);
+}
+
+// 網頁載入時自動讀取記憶，並檢查舊版資料清空
+window.addEventListener('DOMContentLoaded', () => {
+    // 檢查是否有舊版本資料 (dp_sim_v4)
+    let hasOldData = false;
+    let keysToRemove = [];
+    for (let i = 0; i < localStorage.length; i++) {
+        let key = localStorage.key(i);
+        if (key && key.startsWith("dp_sim_v4_")) {
+            hasOldData = true;
+            keysToRemove.push(key);
+        }
+    }
+
+    if (hasOldData) {
+        alert("對不起! 先前的資料由於欄位拆分已清除");
+        keysToRemove.forEach(k => localStorage.removeItem(k));
+    }
+
+    const inputIds = [
+        'p_star_wep', 'p_save_wep', 'p_fate_wep', 'p_dark_wep',
+        'p_star_arm', 'p_save_arm', 'p_fate_arm', 'p_dark_arm',
+        'p_star_acc', 'p_save_acc', 'p_fate_acc', 'p_dark_acc',
+        'p_star_pet', 'p_save_pet', 'p_fate_pet', 'p_dark_pet',
+        'p_card', 'p_ark', 'r_main', 'r_vice', 'v_slots', 'v_target', 'v_sims', 'v_eq_type'
+    ];
+    
+    inputIds.forEach(id => {
+        let el = document.getElementById(id);
+        if (el) {
+            let savedVal = localStorage.getItem(STORAGE_PREFIX + id);
+            if (savedVal !== null) {
+                el.value = savedVal; // 使用玩家歷史資料
+            } else if (DEFAULT_VALUES[id] !== undefined) {
+                el.value = DEFAULT_VALUES[id]; // 使用預設資料
+                localStorage.setItem(STORAGE_PREFIX + id, el.value); // 同步寫入儲存
+            }
+            if (id.startsWith('p_')) {
+                updateMoneyPreview(el);
+            }
+        }
+    });
+});
+
+// =====================================
+// 核心計算邏輯與導航器
+// =====================================
+const SCROLLS = [
+    // 武器
+    { id: 'star_wep', name: '星彩(武)', vals: [16,17,18,19,20,21], probs: [0.1, 0.22, 0.28, 0.18, 0.12, 0.1], isWeapon: true },
+    { id: 'save_wep', name: '救世(武)', vals: [15,16,17,18,19,20], probs: [0.35, 0.3, 0.15, 0.08, 0.07, 0.05], isWeapon: true },
+    { id: 'fate_wep', name: '命運(武)', vals: [12,13,14,15,16,17,18,19,20], probs: [0.04, 0.06, 0.31, 0.3, 0.14, 0.07, 0.05, 0.02, 0.01], isWeapon: true },
+    { id: 'dark_wep', name: '究極黑暗(武)', vals: [14], probs: [1.0], isWeapon: true },
+    
+    // 防具
+    { id: 'star_arm', name: '星彩(防)', vals: [11,12,13,14,15,16], probs: [0.1, 0.22, 0.28, 0.18, 0.12, 0.1], isWeapon: false },
+    { id: 'save_arm', name: '救世(防)', vals: [10,11,12,13,14,15], probs: [0.35, 0.3, 0.15, 0.08, 0.07, 0.05], isWeapon: false },
+    { id: 'fate_arm', name: '命運(防)', vals: [7,8,9,10,11,12,13,14,15], probs: [0.04, 0.06, 0.31, 0.3, 0.14, 0.07, 0.05, 0.02, 0.01], isWeapon: false },
+    { id: 'dark_arm', name: '究極黑暗(防)', vals: [9], probs: [1.0], isWeapon: false, fixedStats: 2 }, 
+    
+    // 飾品
+    { id: 'star_acc', name: '星彩(飾)', vals: [11,12,13,14,15,16], probs: [0.1, 0.22, 0.28, 0.18, 0.12, 0.1], isWeapon: false },
+    { id: 'save_acc', name: '救世(飾)', vals: [10,11,12,13,14,15], probs: [0.35, 0.3, 0.15, 0.08, 0.07, 0.05], isWeapon: false },
+    { id: 'fate_acc', name: '命運(飾)', vals: [7,8,9,10,11,12,13,14,15], probs: [0.04, 0.06, 0.31, 0.3, 0.14, 0.07, 0.05, 0.02, 0.01], isWeapon: false },
+    { id: 'dark_acc', name: '究極黑暗(飾)', vals: [9], probs: [1.0], isWeapon: false, fixedStats: 0 },
+
+    // 寵物 (加入禁止使用恢復卡屬性 allowCard: false)
+    { id: 'star_pet', name: '星彩(寵)', vals: [11,12,13,14,15,16], probs: [0.1, 0.22, 0.28, 0.18, 0.12, 0.1], isWeapon: false, allowCard: false },
+    { id: 'save_pet', name: '救世(寵)', vals: [10,11,12,13,14,15], probs: [0.35, 0.3, 0.15, 0.08, 0.07, 0.05], isWeapon: false, allowCard: false },
+    { id: 'fate_pet', name: '命運(寵)', vals: [7,8,9,10,11,12,13,14,15], probs: [0.04, 0.06, 0.31, 0.3, 0.14, 0.07, 0.05, 0.02, 0.01], isWeapon: false, allowCard: false },
+    { id: 'dark_pet', name: '究極黑暗(寵)', vals: [9], probs: [1.0], isWeapon: false, fixedStats: 0, allowCard: false }
+];
+
+// 定義不同部位允許使用的卷軸清單
+const EQ_SCROLL_MAP = {
+    'weapon': ['star_wep', 'save_wep', 'fate_wep', 'dark_wep'],
+    'armor': ['star_arm', 'save_arm', 'fate_arm', 'dark_arm'],
+    'accessory': ['star_acc', 'save_acc', 'fate_acc', 'dark_acc'],
+    'pet': ['star_pet', 'save_pet', 'fate_pet', 'dark_pet']
+};
+
+let globalPolicy = null;
+let globalV = null; 
+let globalMaxSlots = 0;
+let globalTargetAtk = 0;
+let globalActiveScrolls = [];
+let hasStatsEnabled = false;
+let ratioM = 0;
+let ratioV = 0;
+
+let navHistory = [];
+let currentNavState = { slots: 0, atk: 0, cost: 0, scrolls: {}, cards: 0 };
+
+async function runAnalysis() {
+    const btn = document.getElementById('runBtn');
+    btn.innerText = "運算中，請稍候...";
+    btn.disabled = true;
+    document.getElementById('result').style.display = 'none';
+    document.getElementById('navigator').style.display = 'none';
+    
+    await new Promise(resolve => setTimeout(resolve, 50));
+    try { execute(); } catch (e) { alert("運算發生錯誤: " + e.message); }
+    
+    btn.innerText = "開始精算最佳策略";
+    btn.disabled = false;
+}
+
+function getCombinedDist(scroll, rM, rV) {
+    let dist = {};
+    if (!scroll.isWeapon) {
+        let fixedStat = scroll.fixedStats || 0;
+        let eqM = rM > 0 ? fixedStat / rM : 0;
+        let eqV = rV > 0 ? fixedStat / rV : 0;
+        for(let i=0; i<scroll.vals.length; i++) {
+            let total = scroll.vals[i] + eqM + eqV;
+            let key = Math.round(total * 100) / 100;
+            dist[key] = (dist[key] || 0) + scroll.probs[i];
+        }
+        return dist;
+    }
+    for(let i=0; i<scroll.vals.length; i++) {
+        for(let j=0; j<scroll.vals.length; j++) {
+            for(let k=0; k<scroll.vals.length; k++) {
+                let atk = scroll.vals[i];
+                let eqM = rM > 0 ? scroll.vals[j] / rM : 0;
+                let eqV = rV > 0 ? scroll.vals[k] / rV : 0;
+                let total = atk + eqM + eqV;
+                let key = Math.round(total * 100) / 100;
+                let p = scroll.probs[i] * scroll.probs[j] * scroll.probs[k];
+                dist[key] = (dist[key] || 0) + p;
+            }
+        }
+    }
+    return dist;
+}
+
+function execute() {
+    ratioM = parseFloat(document.getElementById('r_main').value) || 0;
+    ratioV = parseFloat(document.getElementById('r_vice').value) || 0;
+    hasStatsEnabled = (ratioM > 0 || ratioV > 0);
+
+    const prices = {};
+    SCROLLS.forEach(s => {
+        prices[s.id] = parseFloat(document.getElementById('p_' + s.id).value) || 0;
+    });
+    
+    const cardPrice = parseFloat(document.getElementById('p_card').value) || 0;
+    const arkPrice = parseFloat(document.getElementById('p_ark').value) || 0;
+    const maxSlots = parseInt(document.getElementById('v_slots').value);
+    const targetAtk = parseInt(document.getElementById('v_target').value);
+    const simCount = parseInt(document.getElementById('v_sims').value);
+    
+    const eqType = document.getElementById('v_eq_type').value;
+    const allowedScrollIds = EQ_SCROLL_MAP[eqType];
+
+    globalActiveScrolls = [];
+    for(let scroll of SCROLLS) {
+        if (!allowedScrollIds.includes(scroll.id)) continue; 
+        if (prices[scroll.id] <= 0) continue;
+        let dist = getCombinedDist(scroll, ratioM, ratioV);
+        let vals = Object.keys(dist).map(Number).sort((a,b)=>a-b);
+        let probs = vals.map(v => dist[v]);
+        let scaledVals = vals.map(v => Math.round(v * 100)); 
+        globalActiveScrolls.push({ ...scroll, price: prices[scroll.id], dist, vals, probs, scaledVals });
+    }
+
+    if(globalActiveScrolls.length === 0) throw new Error("您沒有填寫任何適用於該部位的卷軸價格！\n(請檢查卷軸設定與下拉選單部位是否匹配)");
+
+    let SCALE = 100;
+    let T = Math.round(targetAtk * SCALE);
+    let C0 = 1000000000000000; 
+    
+    let V = Array.from({length: maxSlots + 1}, () => new Float64Array(T + 1).fill(0));
+    let Policy = Array.from({length: maxSlots + 1}, () => Array(T + 1).fill(null));
+
+    for(let iter = 0; iter < 100; iter++) {
+        let prevC0 = C0;
+        
+        for(let d = 1; d <= T; d++) V[0][d] = C0; 
+        V[0][0] = 0; 
+        
+        for(let i = 1; i <= maxSlots; i++) {
+            for(let d = 1; d <= T; d++) {
+                let bestCost = Infinity; 
+                let bestAction = null;
+
+                for(let scroll of globalActiveScrolls) {
+                    let p = scroll.price;
+                    
+                    let costA = p;
+                    for(let k = 0; k < scroll.vals.length; k++) {
+                        let rem = Math.max(0, d - scroll.scaledVals[k]);
+                        costA += scroll.probs[k] * V[i-1][rem];
+                    }
+                    if(costA < bestCost) {
+                        bestCost = costA;
+                        bestAction = { type: 'no_card', id: scroll.id };
+                    }
+
+                    // 檢查部位是否允許使用恢復卡 (寵物不允許)
+                    if (cardPrice > 0 && scroll.allowCard !== false) {
+                        let sumP = 0, sumC = 0;
+                        for(let t = scroll.vals.length - 1; t >= 0; t--) {
+                            let k = t; 
+                            sumP += scroll.probs[k];
+                            sumC += scroll.probs[k] * V[i-1][Math.max(0, d - scroll.scaledVals[k])];
+                            
+                            if (sumP > 0) {
+                                let costB = (p + cardPrice + sumC) / sumP;
+                                if (costB < bestCost) {
+                                    bestCost = costB;
+                                    bestAction = { type: 'card', id: scroll.id, threshold: scroll.vals[t] };
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                let resetCost = prevC0 + arkPrice;
+                if (resetCost < bestCost - 1e-6) {
+                    bestCost = resetCost;
+                    bestAction = { type: 'reset' };
+                }
+
+                V[i][d] = bestCost;
+                Policy[i][d] = bestAction;
+            }
+        }
+        C0 = V[maxSlots][T]; 
+        if(Math.abs(C0 - prevC0) < 1e-6) break;
+    }
+
+    if (Policy[maxSlots][T].type === 'reset' || C0 >= 100000000000000) {
+        throw new Error("目標設定過高，即使耗盡資源也難以達成，請降低目標！");
+    }
+
+    globalPolicy = Policy;
+    globalV = V; 
+    globalMaxSlots = maxSlots;
+    globalTargetAtk = targetAtk;
+    
+    document.getElementById('nav_display_max_slots').innerText = maxSlots;
+    document.getElementById('nav_display_target').innerText = targetAtk;
+    
+    initNav();
+    
+    let totalSimCost = 0;
+    let totalSimAtk = 0;
+    function rollScrollScale(probs, scaledVals) {
+        let r = Math.random();
+        let cum = 0;
+        for(let i = 0; i < probs.length; i++) {
+            cum += probs[i];
+            if(r <= cum) return scaledVals[i];
+        }
+        return scaledVals[scaledVals.length - 1];
+    }
+    for(let sim = 0; sim < simCount; sim++) {
+        let slots = maxSlots; let needed = T; let currentRunCost = 0; let currentRunAtk = 0;
+        let safetyCounter = 0; 
+        while(needed > 0) {
+            safetyCounter++;
+            if(safetyCounter > 100000) throw new Error("模擬陷入深淵...");
+            if(slots === 0 && needed > 0) { slots = maxSlots; needed = T; currentRunAtk = 0; currentRunCost += arkPrice; continue; }
+            let action = Policy[slots][needed];
+            if(action.type === 'reset') { slots = maxSlots; needed = T; currentRunAtk = 0; currentRunCost += arkPrice; continue; }
+            let scroll = globalActiveScrolls.find(s => s.id === action.id);
+            let rollScaled = rollScrollScale(scroll.probs, scroll.scaledVals);
+            let actualRollRaw = rollScaled / 100;
+            
+            if(action.type === 'no_card') { 
+                currentRunCost += scroll.price; needed -= rollScaled; currentRunAtk += rollScaled; slots -= 1; 
+            } else if(action.type === 'card') { 
+                currentRunCost += scroll.price + cardPrice; 
+                if(actualRollRaw >= action.threshold - 1e-6) { needed -= rollScaled; currentRunAtk += rollScaled; slots -= 1; } 
+            }
+        }
+        totalSimCost += currentRunCost; totalSimAtk += (currentRunAtk / 100);
+    }
+
+    document.getElementById('res_dp_cost').innerHTML = formatMoney(C0);
+    document.getElementById('res_sim_cost').innerHTML = formatMoney(totalSimCost / simCount);
+    document.getElementById('res_sim_atk').innerText = (totalSimAtk / simCount).toFixed(2);
+    document.getElementById('display_sim_count').innerText = simCount.toLocaleString();
+    
+    document.getElementById('result').style.display = 'block';
+    document.getElementById('navigator').style.display = 'block';
+}
+
+function cloneNavState(state) {
+    return {
+        slots: state.slots,
+        atk: state.atk,
+        cost: state.cost,
+        cards: state.cards,
+        scrolls: { ...state.scrolls }
+    };
+}
+
+function advanceState(equivVal, consumesSlot, actionConfig) {
+    navHistory.push(cloneNavState(currentNavState));
+    
+    let usedScroll = globalActiveScrolls.find(s => s.id === actionConfig.id);
+    let cardPrice = parseFloat(document.getElementById('p_card').value) || 0;
+    
+    currentNavState.cost += usedScroll.price;
+    
+    let sName = usedScroll.name;
+    currentNavState.scrolls[sName] = (currentNavState.scrolls[sName] || 0) + 1;
+    
+    if (actionConfig.type === 'card') {
+        currentNavState.cost += cardPrice;
+        currentNavState.cards += 1;
+    }
+
+    if (consumesSlot) {
+        currentNavState.slots -= 1;
+        currentNavState.atk += equivVal;
+        currentNavState.atk = Math.round(currentNavState.atk * 100) / 100;
+    }
+    
+    updateNavigatorUI();
+}
+
+function submitStatInput(actionConfig) {
+    let atk = parseFloat(document.getElementById('inp_atk').value) || 0;
+    let main = parseFloat(document.getElementById('inp_main').value) || 0;
+    let vice = parseFloat(document.getElementById('inp_vice').value) || 0;
+    
+    if (atk <= 0) { alert("請至少輸入獲得的攻擊力！"); return; }
+
+    let eqM = ratioM > 0 ? main / ratioM : 0;
+    let eqV = ratioV > 0 ? vice / ratioV : 0;
+    let equiv = atk + eqM + eqV;
+    equiv = Math.round(equiv * 100) / 100; 
+
+    if (actionConfig.type === 'card' && equiv < actionConfig.threshold) {
+        alert(`【系統判定：未達標】\n\n您輸入的數值換算為 ${equiv} 等效攻擊力。\n未達到門檻要求 (>= ${actionConfig.threshold})。\n\n系統已自動為您扣除恢復卡成本，並維持目前狀態！`);
+        advanceState(equiv, false, actionConfig);
+    } else if (actionConfig.type === 'card') {
+        alert(`【系統判定：達標】\n\n您輸入的數值換算為 ${equiv} 等效攻擊力，順利通關！\n已為您扣除次數並更新狀態。`);
+        advanceState(equiv, true, actionConfig);
+    } else {
+        advanceState(equiv, true, actionConfig);
+    }
+}
+
+function undoNav() {
+    if (navHistory.length > 0) {
+        currentNavState = navHistory.pop();
+        updateNavigatorUI();
+    }
+}
+
+function initNav() {
+    navHistory = [];
+    currentNavState = { slots: globalMaxSlots, atk: 0, cost: 0, scrolls: {}, cards: 0 };
+    updateNavigatorUI();
+}
+
+function resetNav(isHardReset = false) {
+    if (isHardReset) {
+        if(!confirm("確定要將累積花費與進度全部歸零嗎？")) return;
+        navHistory = [];
+        currentNavState = { slots: globalMaxSlots, atk: 0, cost: 0, scrolls: {}, cards: 0 };
+    } else {
+        navHistory.push(cloneNavState(currentNavState));
+        let arkCost = parseFloat(document.getElementById('p_ark').value) || 0;
+        currentNavState.cost += arkCost; 
+        currentNavState.slots = globalMaxSlots;
+        currentNavState.atk = 0;
+    }
+    updateNavigatorUI();
+}
+
+function updateNavigatorUI() {
+    if (!globalPolicy || !globalV) return;
+    
+    let s = currentNavState.slots;
+    let currentAtk = currentNavState.atk;
+    
+    let targetScaled = Math.round(globalTargetAtk * 100);
+    let currentScaled = Math.round(currentAtk * 100);
+    let neededScaled = Math.max(0, targetScaled - currentScaled);
+    
+    // 計算目前的強化階段 (第幾次)
+    let currentStep = globalMaxSlots - s + 1;
+    
+    document.getElementById('nav_display_slots').innerText = s;
+    document.getElementById('nav_display_atk').innerText = currentAtk.toFixed(2).replace(/\.00$/, '');
+    
+    document.getElementById('nav_cum_cost').innerHTML = formatMoney(currentNavState.cost);
+    document.getElementById('nav_cum_cards').innerText = currentNavState.cards;
+    
+    let scrollsArr = Object.entries(currentNavState.scrolls);
+    if (scrollsArr.length === 0) {
+        document.getElementById('nav_cum_scrolls').innerHTML = '<strong style="color:#2c3e50;">0 張</strong>';
+    } else {
+        let text = scrollsArr.map(([name, count]) => `${name} <strong style="color:#2c3e50;">${count}</strong>張`).join(', ');
+        document.getElementById('nav_cum_scrolls').innerHTML = text;
+    }
+    
+    let resultBox = document.getElementById('nav_action');
+    let outcomeArea = document.getElementById('nav_outcome_area');
+    let btnArea = document.getElementById('nav_outcome_buttons');
+    let previewBox = document.getElementById('nav_preview');
+
+    btnArea.innerHTML = "";
+    previewBox.innerHTML = "";
+    outcomeArea.style.display = "block";
+
+    if (currentScaled >= targetScaled) {
+        resultBox.innerHTML = "<span style='color:#27ae60;'>已達標！裝備完美收工！</span>";
+        outcomeArea.style.display = "none";
+        return;
+    }
+    if (s <= 0 && neededScaled > 0) {
+        resultBox.innerHTML = `<span style='color:#c0392b;'>次數用盡，未達目標。</span>`;
+        btnArea.innerHTML = `<button class="outcome-btn fail-btn" style="background:#c0392b; width:100%; max-width: 350px;" onclick="resetNav(false)">確認放棄，使用亞克回真卷軸 (保留累積花費)</button>`;
+        return;
+    }
+
+    let action = globalPolicy[s][neededScaled];
+    if (!action) { resultBox.innerHTML = "無法判斷當前狀態。"; return; }
+
+    if (action.type === 'reset') {
+        resultBox.innerHTML = `<div style='font-size:0.9em; color:#7f8c8d; margin-bottom:5px;'>【當前任務：第 ${currentStep} 次強化】</div>系統建議：<span style='color:#c0392b;'>直接整把重洗 (使用亞克回真卷軸)</span><br><span style='font-size:0.85em; font-weight:normal; color:#7f8c8d;'>(因繼續硬衝的期望花費，已大於洗掉重買卷的成本)</span>`;
+        btnArea.innerHTML = `<button class="outcome-btn fail-btn" style="background:#c0392b; width:100%; max-width: 350px;" onclick="resetNav(false)">確認使用亞克回真 (保留累積花費，進度歸零)</button>`;
+        return; 
+    } 
+
+    let scroll = globalActiveScrolls.find(x => x.id === action.id);
+    let safeActionStr = JSON.stringify(action).replace(/"/g, '&quot;'); 
+
+    if (action.type === 'no_card') {
+        // 判斷如果該卷軸本身就禁止使用恢復卡 (例如寵物)，就換一個說法
+        let cardText = scroll.allowCard === false 
+            ? "<span style='color:#c0392b;'>直接點擊 (此部位不可使用恢復卡)</span>" 
+            : "<span style='color:#c0392b;'>直接點擊【不放恢復卡】</span>";
+            
+        resultBox.innerHTML = `<div style='font-size:0.9em; color:#7f8c8d; margin-bottom:5px;'>【當前任務：第 ${currentStep} 次強化】</div>請使用 <strong style='color:#2980b9; font-size:1.2em;'>${scroll.name}</strong> 卷軸<br>輔助道具：${cardText}`;
+    } else if (action.type === 'card') {
+        resultBox.innerHTML = `<div style='font-size:0.9em; color:#7f8c8d; margin-bottom:5px;'>【當前任務：第 ${currentStep} 次強化】</div>請使用 <strong style='color:#2980b9; font-size:1.2em;'>${scroll.name}</strong> 卷軸<br>輔助道具：<span style='color:#27ae60;'>【務必放入】恢復卡 (目標等效需 >= ${action.threshold})</span>`;
+    }
+
+    if (hasStatsEnabled) {
+        let titleHtml = action.type === 'card' 
+            ? `<div style="color:#2980b9; font-weight:bold; margin-bottom:8px; text-align:center;">做法 A：輸入「第 ${currentStep} 次強化」獲得的數值</div>`
+            : `<div style="color:#2980b9; font-weight:bold; margin-bottom:8px; text-align:center;">請輸入「第 ${currentStep} 次強化」獲得的數值</div>`;
+            
+        let descHtml = action.type === 'card'
+            ? '填入遊戲顯示的數值，系統會幫你換算<br><b>如果沒達標，會自動幫你扣除卡片成本並還原狀態</b>'
+            : '此階段不搭配恢復卡。<br>請輸入實際獲得的數值，系統會評估下一步該繼續衝，還是洗掉重來。';
+
+        let inputHtml = `
+            <div style="background: #fdfefe; padding: 15px; border-radius: 6px; border: 1px dashed #b2babb; width: 100%; max-width: 350px; text-align: left; margin-bottom: 10px;">
+                ${titleHtml}
+                <div style="font-size:0.85rem; color:#7f8c8d; margin-bottom:12px; text-align:center;">
+                    ${descHtml}
+                </div>
+                <div class="stat-input-row"><label>攻擊加了:</label><input type="number" id="inp_atk" placeholder="必填"></div>
+                <div class="stat-input-row"><label>主屬加了:</label><input type="number" id="inp_main" placeholder="可留空"></div>
+                <div class="stat-input-row"><label>副屬加了:</label><input type="number" id="inp_vice" placeholder="可留空"></div>
+                <div style="text-align: center; margin-top: 15px;">
+                    <button class="outcome-btn" style="background:#27ae60; width: 100%;" onclick="submitStatInput(${safeActionStr})">確認數值，交給系統結算</button>
+                </div>
+            </div>
+        `;
+        btnArea.innerHTML = inputHtml;
+        
+        if (action.type === 'card') {
+            btnArea.innerHTML += `
+            <div style="background: #fdfefe; padding: 15px; border-radius: 6px; border: 1px dashed #b2babb; width: 100%; max-width: 350px; text-align: center;">
+                <div style="color:#c0392b; font-weight:bold; margin-bottom:5px;">做法 B：手動判定未達標</div>
+                <div style="font-size:0.85rem; color:#7f8c8d; margin-bottom:10px;">如果你一看就知道這張爛透了，不想打字：</div>
+                <button class="outcome-btn fail-btn" style="width: 100%;" onclick="advanceState(0, false, ${safeActionStr})">直接點此：失敗未達標 (卡片防爆，維持現狀)</button>
+            </div>`;
+        }
+    } else {
+        if (action.type === 'no_card') {
+            let rowHtml = `<div style="display:flex; flex-wrap:wrap; justify-content:center; gap:5px;">`;
+            scroll.vals.forEach(v => {
+                rowHtml += `<button class="outcome-btn" onclick="advanceState(${v}, true, ${safeActionStr})">強化結果：+${v}</button>`;
+            });
+            rowHtml += `</div>`;
+            btnArea.innerHTML = rowHtml;
+        } else if (action.type === 'card') {
+            let rowHtml = `<div style="display:flex; flex-wrap:wrap; justify-content:center; gap:5px; margin-bottom:10px;">`;
+            scroll.vals.forEach(v => {
+                if (v >= action.threshold) {
+                    rowHtml += `<button class="outcome-btn" onclick="advanceState(${v}, true, ${safeActionStr})">成功通過 (+${v})</button>`;
+                }
+            });
+            rowHtml += `</div>`;
+            rowHtml += `<button class="outcome-btn fail-btn" style="width: 100%; max-width: 350px;" onclick="advanceState(0, false, ${safeActionStr})">失敗未達標 (卡片防爆，維持現狀)</button>`;
+            btnArea.innerHTML = rowHtml;
+        }
+    }
+
+    let previewHTML = `
+        <h4 style="margin: 25px 0 10px 0; color: #2980b9; text-align: center;">第 ${currentStep} 次強化結果預覽與下一步建議：</h4>
+        <table class="preview-table">
+            <tr>
+                <th>若本次 (第 ${currentStep} 次) 結果為</th>
+                <th>下一步 (第 ${currentStep + 1} 次) 系統建議</th>
+            </tr>
+    `;
+
+    let validVals = scroll.vals;
+    if (action.type === 'card') validVals = scroll.vals.filter(v => v >= action.threshold);
+
+    const fmt = num => {
+        if(num === null || num === undefined) return '';
+        let s = (Math.round(num * 100) / 100).toFixed(2);
+        if (s.endsWith('.00')) return s.slice(0, -3);
+        if (s.endsWith('0')) return s.slice(0, -1);
+        return s;
+    };
+
+    let runs = [];
+    let currentRun = null;
+
+    for (let v of validVals) {
+        let nextS = s - 1;
+        let nextT = Math.max(0, neededScaled - Math.round(v * 100)); 
+        let nextAct = globalPolicy[nextS][nextT];
+
+        let actType = "";
+        let actScroll = "";
+        let actThresh = null;
+
+        if (nextT === 0) {
+            actType = "done";
+        } else if (!nextAct || nextAct.type === 'reset') {
+            actType = "reset";
+        } else {
+            actType = nextAct.type;
+            let scrollObj = globalActiveScrolls.find(x => x.id === nextAct.id);
+            actScroll = scrollObj ? scrollObj.name : "未知";
+            if (actType === 'card') actThresh = nextAct.threshold;
+        }
+
+        let groupKey = actType + "_" + actScroll;
+
+        if (!currentRun) {
+            currentRun = { key: groupKey, type: actType, scroll: actScroll, minV: v, maxV: v, minT: actThresh, maxT: actThresh };
+            runs.push(currentRun);
+        } else if (currentRun.key === groupKey) {
+            currentRun.maxV = v; 
+            if (actThresh !== null) {
+                if (actThresh < currentRun.minT) currentRun.minT = actThresh;
+                if (actThresh > currentRun.maxT) currentRun.maxT = actThresh;
+            }
+        } else {
+            currentRun = { key: groupKey, type: actType, scroll: actScroll, minV: v, maxV: v, minT: actThresh, maxT: actThresh };
+            runs.push(currentRun);
+        }
+    }
+
+    for (let run of runs) {
+        let actText = "";
+        let rowColor = "background: #fff;";
+
+        if (run.type === 'reset') {
+            actText = "建議整把重洗 (亞克回真)";
+            rowColor = "background: #fdedec; color: #c0392b;";
+        } else if (run.type === 'no_card') {
+            actText = `直接衝 ${run.scroll} (不放卡)`;
+        } else if (run.type === 'card') {
+            if (run.minT === run.maxT) {
+                actText = `搭配恢復卡 ${run.scroll} (>= ${fmt(run.minT)})`;
+            } else {
+                actText = `搭配恢復卡 ${run.scroll} (門檻約 ${fmt(run.minT)} ~ ${fmt(run.maxT)})`;
+            }
+        } else if (run.type === 'done') {
+            actText = "達標收工！";
+            rowColor = "background: #e8f8f5; font-weight: bold; color: #27ae60;";
+        }
+
+        let rangeText = "";
+        if (run.minV === run.maxV) {
+            rangeText = `等效 +${fmt(run.minV)}`;
+        } else {
+            rangeText = `等效 +${fmt(run.minV)} ~ +${fmt(run.maxV)}`;
+        }
+
+        previewHTML += `
+            <tr style="${rowColor}">
+                <td style="font-weight:bold; font-size:1.05em;">${rangeText}</td>
+                <td>${actText}</td>
+            </tr>
+        `;
+    }
+    
+    if (action.type === 'card') {
+        previewHTML += `
+            <tr style="background: #fdfefe; color: #7f8c8d;">
+                <td style="font-size:0.95em;">未達門檻 (因防爆而未消耗次數)</td>
+                <td>維持「第 ${currentStep} 次強化」的當前策略</td>
+            </tr>
+        `;
+    }
+
+    previewHTML += `</table>`;
+    if (hasStatsEnabled) {
+        previewHTML += `<div style="font-size:0.85rem; color:#7f8c8d; margin-top:8px; text-align:center;">
+        *等效結果 = 攻擊力 + (主屬/${ratioM || '不計'}) + (副屬/${ratioV || '不計'})<br>
+        </div>`;
+    }
+    
+    previewBox.innerHTML = previewHTML;
+}
+</script>
+</body>
+</html>
+
+

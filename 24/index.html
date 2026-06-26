@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>新楓之谷 咒文的痕跡動態規劃策略器 BETA</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; padding: 20px; color: #333; }
+        .container { max-width: 900px; margin: 0 auto; background: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: #2c3e50; font-size: 1.6rem; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-top: 0; }
+        
+        .box { background: #f8f9fa; padding: 20px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 20px; }
+        .grid-layout { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; }
+        
+        .input-group { margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; }
+        .input-group label { font-weight: bold; color: #34495e; font-size: 0.95rem; }
+        .input-group input[type="number"] { padding: 6px; width: 100px; text-align: right; border: 1px solid #ccc; border-radius: 4px; font-size: 1rem; }
+        
+        .highlight-text { color: #e74c3c; font-weight: bold; }
+        
+        .checkbox-group { display: flex; align-items: center; gap: 8px; background: #fff3cd; border: 1px solid #ffeeba; padding: 10px 15px; border-radius: 6px; margin-bottom: 15px; color: #856404; font-weight: bold; cursor: pointer; }
+        .checkbox-group input[type="checkbox"] { transform: scale(1.3); cursor: pointer; }
+        
+        .btn { display: block; width: 100%; padding: 12px; background: #2980b9; color: white; border: none; border-radius: 6px; font-size: 1.1rem; cursor: pointer; margin: 20px 0; font-weight: bold; transition: 0.2s; }
+        .btn:hover { background: #1a5276; }
+        
+        .result-box { background: #e8f4f8; border-left: 5px solid #3498db; padding: 15px; margin-top: 15px; font-size: 1.1rem; }
+        
+        .navigator-box { background: #fff8e1; border: 2px solid #f1c40f; padding: 20px; border-radius: 8px; margin-top: 20px; }
+        .nav-header { display: flex; justify-content: space-between; background: #fff; padding: 15px; border-radius: 6px; border: 1px solid #f1c40f; flex-wrap: wrap; gap: 15px; }
+        .nav-stats { flex: 1; font-size: 1.1rem; min-width: 200px; line-height: 1.6; }
+        .nav-result { padding: 15px; background: #fff; border-radius: 6px; font-size: 1.2rem; font-weight: bold; text-align: center; border: 2px dashed #e67e22; margin-top: 15px; color: #d35400; }
+        
+        .action-btns { display: flex; justify-content: center; gap: 15px; margin-top: 20px; flex-wrap: wrap; }
+        .action-btn { padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-size: 1.1rem; font-weight: bold; transition: 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .btn-success { background: #27ae60; color: white; }
+        .btn-success:hover { background: #2ecc71; }
+        .btn-fail { background: #e74c3c; color: white; }
+        .btn-fail:hover { background: #c0392b; }
+        .btn-clean { background: #f39c12; color: white; }
+        .btn-clean:hover { background: #d35400; }
+        .btn-reset { background: #8e44ad; color: white; }
+        .btn-reset:hover { background: #732d91; }
+        
+        .restart-btn { background: #95a5a6; color: white; padding: 8px 15px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+        .restart-btn:hover { background: #7f8c8d; }
+    </style>
+</head>
+<body>
+<div id="global-nav"></div>
+<script>window.TOOL_ID = 24;</script>
+<script src="../shared-nav.js"></script>
+<script src="../shared-subtitle.js"></script>
+<div class="container">
+    <h1>新楓之谷 咒文的痕跡動態規劃策略器 BETA</h1>
+    <div id="tool-subtitle"></div>
+    
+    <div class="box">
+        <label class="checkbox-group">
+            <input type="checkbox" id="halfEvent" onchange="updateDiscountDisplay()"> 啟用【咒文的痕跡減半】活動 (所有消耗折半)
+        </label>
+        
+        <div class="grid-layout">
+            <div>
+                <h3 style="margin-top:0; color:#2c3e50;">裝備與機率設定</h3>
+                <div class="input-group">
+                    <label>總共需強化次數 (N)</label>
+                    <input type="number" id="inp_slots" value="10" min="1">
+                </div>
+                <div class="input-group">
+                    <label>卷軸成功機率 (%)<div style="font-size: 0.8rem; color: #7f8c8d; font-weight: normal; margin-top: 4px;">(手藝公會fevertime加成請加上後輸入)</div></label>
+                    <input type="number" id="inp_prob" value="15" min="1" max="100" oninput="updateFailRate()">
+                </div>
+                <div class="input-group">
+                    <label style="color:#7f8c8d;">卷軸失敗機率 (%)</label>
+                    <input type="number" id="inp_fail" value="85" disabled style="background:#f0f2f5;">
+                </div>
+            </div>
+            
+            <div>
+                <h3 style="margin-top:0; color:#2c3e50;">咒文消耗設定</h3>
+                <div class="input-group">
+                    <label>單次強化消耗咒文</label>
+                    <div style="text-align: right;">
+                        <input type="number" id="inp_cost_scroll" value="2080" min="0" oninput="updateDiscountDisplay()">
+                        <div id="disp_cost_scroll" style="font-size: 0.85rem; color: #e74c3c; font-weight: bold; display: none; margin-top: 4px;"></div>
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label title="100% 機率恢復一次失敗次數">純白卷軸消耗 (洗掉1次失敗)</label>
+                    <div style="text-align: right;">
+                        <input type="number" id="inp_cost_clean" value="20000" min="0" oninput="updateDiscountDisplay()">
+                        <div id="disp_cost_clean" style="font-size: 0.85rem; color: #e74c3c; font-weight: bold; display: none; margin-top: 4px;"></div>
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label title="100% 機率將裝備歸零">亞克回真消耗 (全部重來)</label>
+                    <div style="text-align: right;">
+                        <input type="number" id="inp_cost_reset" value="24000" min="0" oninput="updateDiscountDisplay()">
+                        <div id="disp_cost_reset" style="font-size: 0.85rem; color: #e74c3c; font-weight: bold; display: none; margin-top: 4px;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <button class="btn" onclick="runDP()">執行計算</button>
+
+    <div id="result" class="result-box" style="display: none;">
+        <b>達成全過的數學預期總咒文消耗：</b> <span id="res_expected_cost" class="highlight-text" style="font-size: 1.3rem;"></span> 個
+    </div>
+
+    <div id="navigator" class="navigator-box" style="display: none;">
+        <h3 style="margin-top: 0; color: #d35400;">實戰策略導航器</h3>
+        
+        <div class="nav-header">
+            <div class="nav-stats">
+                <div>目標進度：<strong style="color:#27ae60;" id="nav_success">0</strong> / <span id="nav_max_slots">10</span> 次成功</div>
+                <div>失敗次數：<strong style="color:#c0392b;" id="nav_fail">0</strong> 次</div>
+                <div>剩餘可衝：<strong style="color:#2980b9;" id="nav_remain">10</strong> 洞</div>
+            </div>
+            <div class="nav-stats" style="text-align: right; min-width: 150px;">
+                <div style="font-size: 0.95rem; color:#7f8c8d;">累積消耗咒文</div>
+                <div style="font-size: 1.4rem; color:#e67e22; font-weight:bold;" id="nav_cost">0</div>
+                <button class="restart-btn" onclick="initNavigator()">🔄 清空重置導航器</button>
+            </div>
+        </div>
+
+        <div id="nav_suggestion" class="nav-result">請等待運算...</div>
+        
+        <div id="nav_actions" class="action-btns"></div>
+    </div>
+</div>
+
+<script>
+// 全域變數儲存 DP 結果與當前狀態
+let V = [];
+let Policy = [];
+let N = 0;
+let currentState = { s: 0, f: 0, cost: 0 };
+let currentCosts = { scroll: 0, clean: 0, reset: 0 };
+
+function updateFailRate() {
+    let prob = parseFloat(document.getElementById('inp_prob').value) || 0;
+    if (prob > 100) prob = 100;
+    if (prob < 0) prob = 0;
+    document.getElementById('inp_fail').value = (100 - prob).toFixed(2).replace(/\.00$/, '');
+}
+
+function updateDiscountDisplay() {
+    let isHalf = document.getElementById('halfEvent').checked;
+    let ids = ['scroll', 'clean', 'reset'];
+    
+    ids.forEach(id => {
+        let rawValue = parseInt(document.getElementById('inp_cost_' + id).value) || 0;
+        let dispEl = document.getElementById('disp_cost_' + id);
+        
+        if (isHalf) {
+            // 與 DP 計算邏輯保持一致，使用向下取整
+            dispEl.innerText = `(減半後: ${Math.floor(rawValue / 2)})`;
+            dispEl.style.display = 'block';
+        } else {
+            dispEl.style.display = 'none';
+        }
+    });
+}
+
+function runDP() {
+    N = parseInt(document.getElementById('inp_slots').value) || 10;
+    let prob = (parseFloat(document.getElementById('inp_prob').value) || 15) / 100.0;
+    
+    let rawCostScroll = parseInt(document.getElementById('inp_cost_scroll').value) || 0;
+    let rawCostClean = parseInt(document.getElementById('inp_cost_clean').value) || 0;
+    let rawCostReset = parseInt(document.getElementById('inp_cost_reset').value) || 0;
+    
+    let isHalf = document.getElementById('halfEvent').checked;
+    
+    // 計算折扣後消耗 (向下取整)
+    let c_s = isHalf ? Math.floor(rawCostScroll / 2) : rawCostScroll;
+    let c_c = isHalf ? Math.floor(rawCostClean / 2) : rawCostClean;
+    let c_r = isHalf ? Math.floor(rawCostReset / 2) : rawCostReset;
+    
+    currentCosts = { scroll: c_s, clean: c_c, reset: c_r };
+
+    // 初始化 DP 表 V[s][f] 與策略表 Policy[s][f]
+    // s: 成功次數, f: 失敗次數
+    V = Array(N + 1).fill(0).map(() => Array(N + 1).fill(1e15));
+    Policy = Array(N + 1).fill(0).map(() => Array(N + 1).fill(""));
+    
+    // 目標：達到 N 次成功
+    V[N][0] = 0; 
+    
+    let changed = true;
+    let iterations = 0;
+    
+    // 值迭代 (Value Iteration)
+    while (changed && iterations < 1000) {
+        changed = false;
+        let prevV00 = V[0][0]; // 記錄 (0,0) 的花費，供亞克回真參考
+        
+        for (let s = N; s >= 0; s--) {
+            for (let f = N - s; f >= 0; f--) {
+                if (s === N) continue; // 已達標，不用操作
+                
+                let bestCost = 1e15;
+                let bestAct = "";
+                
+                // 動作 1：直接衝卷 (前提是還有剩餘洞數 s + f < N)
+                if (s + f < N) {
+                    let costScroll = c_s + prob * V[s + 1][f] + (1 - prob) * V[s][f + 1];
+                    if (costScroll < bestCost) {
+                        bestCost = costScroll;
+                        bestAct = "scroll";
+                    }
+                }
+                
+                // 動作 2：使用純白卷軸洗掉1次失敗 (前提是有失敗紀錄 f > 0)
+                if (f > 0) {
+                    let costClean = c_c + V[s][f - 1];
+                    if (costClean < bestCost) {
+                        bestCost = costClean;
+                        bestAct = "clean";
+                    }
+                }
+                
+                // 動作 3：使用亞克回真全部重來 (前提是裝備已被弄髒過)
+                if (s > 0 || f > 0) {
+                    let costReset = c_r + prevV00;
+                    if (costReset < bestCost) {
+                        bestCost = costReset;
+                        bestAct = "reset";
+                    }
+                }
+                
+                // 更新狀態
+                if (Math.abs(V[s][f] - bestCost) > 1e-6) {
+                    V[s][f] = bestCost;
+                    Policy[s][f] = bestAct;
+                    changed = true;
+                }
+            }
+        }
+        iterations++;
+    }
+
+    // 顯示運算結果
+    document.getElementById('res_expected_cost').innerText = Math.round(V[0][0]).toLocaleString();
+    document.getElementById('result').style.display = 'block';
+    
+    // 初始化導航器
+    document.getElementById('navigator').style.display = 'block';
+    document.getElementById('nav_max_slots').innerText = N;
+    initNavigator();
+}
+
+function initNavigator() {
+    currentState = { s: 0, f: 0, cost: 0 };
+    updateNavigatorUI();
+}
+
+function applyAction(actionType, outcome = null) {
+    if (actionType === 'scroll') {
+        currentState.cost += currentCosts.scroll;
+        if (outcome === 'success') currentState.s += 1;
+        else if (outcome === 'fail') currentState.f += 1;
+    } 
+    else if (actionType === 'clean') {
+        currentState.cost += currentCosts.clean;
+        currentState.f -= 1;
+    } 
+    else if (actionType === 'reset') {
+        currentState.cost += currentCosts.reset;
+        currentState.s = 0;
+        currentState.f = 0;
+    }
+    updateNavigatorUI();
+}
+
+// ==========================================
+// localStorage 儲存機制
+// ==========================================
+const _SK24 = 'tool24_settings';
+
+function _save24() {
+    localStorage.setItem(_SK24, JSON.stringify({
+        halfEvent:       document.getElementById('halfEvent').checked,
+        inp_slots:       document.getElementById('inp_slots').value,
+        inp_prob:        document.getElementById('inp_prob').value,
+        inp_cost_scroll: document.getElementById('inp_cost_scroll').value,
+        inp_cost_clean:  document.getElementById('inp_cost_clean').value,
+        inp_cost_reset:  document.getElementById('inp_cost_reset').value
+    }));
+}
+
+(function _load24() {
+    const raw = localStorage.getItem(_SK24);
+    if (!raw) return;
+    try {
+        const s = JSON.parse(raw);
+        const set = (id, val) => { if (val !== undefined) { const el = document.getElementById(id); if (el) el.value = val; } };
+        if (s.halfEvent !== undefined) document.getElementById('halfEvent').checked = s.halfEvent;
+        set('inp_slots',       s.inp_slots);
+        set('inp_prob',        s.inp_prob);
+        set('inp_cost_scroll', s.inp_cost_scroll);
+        set('inp_cost_clean',  s.inp_cost_clean);
+        set('inp_cost_reset',  s.inp_cost_reset);
+        if (s.inp_prob !== undefined) updateFailRate();
+        updateDiscountDisplay();
+    } catch(e) {}
+})();
+
+['halfEvent', 'inp_slots', 'inp_prob', 'inp_cost_scroll', 'inp_cost_clean', 'inp_cost_reset'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+        el.addEventListener('change', _save24);
+        el.addEventListener('input', _save24);
+    }
+});
+
+function updateNavigatorUI() {
+    let s = currentState.s;
+    let f = currentState.f;
+    let remain = N - (s + f);
+    
+    document.getElementById('nav_success').innerText = s;
+    document.getElementById('nav_fail').innerText = f;
+    document.getElementById('nav_remain').innerText = remain;
+    document.getElementById('nav_cost').innerText = currentState.cost.toLocaleString();
+    
+    let suggestionBox = document.getElementById('nav_suggestion');
+    let actionBox = document.getElementById('nav_actions');
+    actionBox.innerHTML = "";
+    
+    if (s === N) {
+        suggestionBox.innerHTML = "恭喜！裝備已完美衝好，目標達成！";
+        return;
+    }
+    
+    let act = Policy[s][f];
+    
+    if (act === "scroll") {
+        suggestionBox.innerHTML = "系統建議：<strong style='color:#2980b9;'>直接消耗咒文強化</strong>";
+        actionBox.innerHTML = `
+            <button class="action-btn btn-success" onclick="applyAction('scroll', 'success')">點擊紀錄：強化成功 (+1)</button>
+            <button class="action-btn btn-fail" onclick="applyAction('scroll', 'fail')">點擊紀錄：強化失敗 (+1)</button>
+        `;
+    } 
+    else if (act === "clean") {
+        suggestionBox.innerHTML = "系統建議：<strong style='color:#f39c12;'>使用 100% 純白卷軸，洗掉 1 次失敗</strong>";
+        actionBox.innerHTML = `
+            <button class="action-btn btn-clean" onclick="applyAction('clean')">點擊紀錄：已洗掉一次失敗</button>
+        `;
+    } 
+    else if (act === "reset") {
+        suggestionBox.innerHTML = "系統建議：<strong style='color:#8e44ad;'>救不回來了，使用亞克回真全部重洗</strong><br><span style='font-size:0.9rem; color:#7f8c8d; font-weight:normal;'>(因為繼續救的數學期望花費，已經比重洗更貴)</span>";
+        actionBox.innerHTML = `
+            <button class="action-btn btn-reset" onclick="applyAction('reset')">點擊紀錄：已使用回真歸零</button>
+        `;
+    } else {
+        suggestionBox.innerHTML = "發生異常，無法取得建議。";
+    }
+}
+</script>
+
+</body>
+</html>
+
+

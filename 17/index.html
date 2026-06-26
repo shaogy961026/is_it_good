@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>新楓之谷 內潛最佳策略分析</title>
+    <meta name="description" content="根據《新楓之谷》官方設定，計算達成目標內潛詞條的最佳鎖定策略與期望名聲消耗。協助玩家評估在不同活動折扣下的最佳操作路徑。">
+    <style>
+        body { font-family: "Segoe UI", "Microsoft JhengHei", sans-serif; background-color: #f0f4f8; color: #2c3e50; padding: 20px; }
+        .container { max-width: 1100px; margin: 0 auto; background: white; padding: 40px; border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,0.08); }
+        h1 { text-align: center; color: #2980b9; margin-bottom: 5px; font-weight: 800; }
+        .subtitle { text-align: center; color: #7f8c8d; margin-bottom: 30px; font-size: 1em; }
+        
+        /* Event Toggle Switch */
+        .event-section { background: #fff3e0; border: 1px solid #ffe0b2; padding: 15px; border-radius: 8px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; }
+        .event-label { font-weight: bold; color: #e67e22; font-size: 1.1em; display: flex; align-items: center; gap: 10px; }
+        
+        .switch { position: relative; display: inline-block; width: 60px; height: 34px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
+        .slider:before { position: absolute; content: ""; height: 26px; width: 26px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: #e67e22; }
+        input:checked + .slider:before { transform: translateX(26px); }
+
+        .grid-layout { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 10px; }
+        .input-group { background: #fff; border: 1px solid #e1e4e8; padding: 20px; border-radius: 12px; transition: 0.2s; }
+        .input-group:hover { border-color: #3498db; box-shadow: 0 4px 12px rgba(52, 152, 219, 0.1); }
+        .input-group h3 { margin: 0 0 10px 0; color: #2c3e50; font-size: 1.1em; font-weight: 700; border-bottom: 2px solid #f1f2f6; padding-bottom: 8px; }
+        
+        select { width: 100%; padding: 12px; border: 1px solid #ced4da; border-radius: 8px; font-size: 14px; background: #f8f9fa; outline: none; }
+        select optgroup { font-weight: bold; color: #2980b9; background: #fff; }
+        select option { color: #333; padding: 5px; }
+        
+        button.calc-btn { width: 100%; padding: 18px; background: linear-gradient(135deg, #27ae60, #219150); color: white; border: none; border-radius: 10px; font-size: 20px; font-weight: bold; cursor: pointer; transition: 0.2s; box-shadow: 0 4px 15px rgba(39, 174, 96, 0.3); margin-top: 20px; }
+        button.calc-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(39, 174, 96, 0.4); }
+        button.calc-btn:disabled { background: #bdc3c7; cursor: not-allowed; }
+
+        .result-section { display: none; margin-top: 40px; border-top: 2px dashed #dde1e6; padding-top: 30px; }
+        .summary-box { background: linear-gradient(to right, #e8f8f5, #d4efdf); border: 1px solid #a2d9ce; padding: 25px; border-radius: 12px; text-align: center; margin-bottom: 30px; }
+        .summary-title { font-size: 14px; color: #16a085; text-transform: uppercase; letter-spacing: 1px; font-weight: bold; }
+        .summary-value { font-size: 42px; font-weight: 900; color: #0e6251; margin: 10px 0; }
+        .summary-note { font-size: 13px; color: #50716b; }
+
+        .policy-table { width: 100%; border-collapse: separate; border-spacing: 0; margin-top: 20px; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 15px rgba(0,0,0,0.05); }
+        .policy-table th { background: #34495e; color: white; padding: 16px; text-align: left; font-weight: 600; }
+        .policy-table td { padding: 16px; border-bottom: 1px solid #eee; vertical-align: middle; background: white; }
+        .policy-table tr:hover td { background-color: #f8f9fa; }
+        
+        .state-badges { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+        .badge { padding: 5px 10px; border-radius: 6px; font-size: 13px; font-weight: 700; color: white; display: inline-block; }
+        .badge-have { background-color: #27ae60; }
+        .badge-miss { background-color: #bdc3c7; color: #666; opacity: 0.7; }
+        
+        .action-text { font-weight: 600; display: block; margin-bottom: 4px; }
+        .action-cost { font-size: 0.85em; color: #7f8c8d; }
+        .action-lock { color: #e74c3c; }
+        .action-free { color: #2980b9; }
+        .warning-text { color: #d35400; font-size: 12px; display: block; margin-top: 6px; background: #fff3cd; padding: 6px 10px; border-radius: 6px; }
+
+        .footer-info { margin-top: 50px; padding-top: 20px; border-top: 2px solid #eee; }
+        .rules-box { background: #f8f9fa; padding: 20px; border-radius: 8px; font-size: 0.9em; color: #34495e; margin-bottom: 30px; border-left: 4px solid #3498db; }
+        .rules-box ul { margin: 10px 0; padding-left: 20px; }
+        .rules-box li { margin-bottom: 8px; }
+        .data-table { width: 100%; font-size: 12px; border-collapse: collapse; margin-top: 10px; }
+        .data-table th, .data-table td { border: 1px solid #ddd; padding: 8px; text-align: center; }
+        .data-table th { background-color: #f1f2f6; color: #2c3e50; }
+        .rank-prob-info { display: flex; justify-content: space-around; background: #ecf0f1; padding: 15px; border-radius: 8px; margin-bottom: 20px; font-weight: bold; color: #2c3e50; }
+
+        .loading { display: none; text-align: center; font-size: 1.2em; color: #2980b9; padding: 30px; font-weight: 600; }
+    </style>
+</head>
+<body>
+<div id="global-nav"></div>
+<script>window.TOOL_ID = 17;</script>
+<script src="../shared-nav.js"></script>
+<script src="../shared-subtitle.js"></script>
+<div class="container">
+    <h1>新楓之谷 內潛最佳策略分析</h1>
+    <div id="tool-subtitle"></div>
+
+    <div class="event-section">
+        <div class="event-label">
+            <span>減半活動：能力重設費用 50% 折扣</span>
+        </div>
+        <label class="switch">
+            <input type="checkbox" id="eventToggle" onchange="runSolver()">
+            <span class="slider"></span>
+        </label>
+    </div>
+
+    <div class="grid-layout">
+        <div class="input-group">
+            <h3>第一排</h3>
+            <select id="sel1"></select>
+        </div>
+        <div class="input-group">
+            <h3>第二/三排 (目標 A)</h3>
+            <select id="sel2"></select>
+        </div>
+        <div class="input-group">
+            <h3>第二/三排 (目標 B)</h3>
+            <select id="sel3"></select>
+        </div>
+    </div>
+
+    <button class="calc-btn" onclick="runSolver()">計算最佳策略</button>
+
+    <div id="loading" class="loading">正在運算最佳路徑與條件機率...</div>
+
+    <div id="result" class="result-section">
+        <div class="summary-box">
+            <div class="summary-title">達成目標的理論最低期望消耗</div>
+            <div class="summary-value" id="expectedCost">-</div>
+            <div class="summary-note" id="costNote">此數值已根據活動折扣進行優化</div>
+        </div>
+
+        <h3>最佳操作策略 (依據當前成本)</h3>
+        <table class="policy-table">
+            <thead>
+                <tr>
+                    <th width="35%">當前持有狀態</th>
+                    <th width="40%">最佳操作 (Action)</th>
+                    <th width="25%">預期剩餘消耗</th>
+                </tr>
+            </thead>
+            <tbody id="policyBody"></tbody>
+        </table>
+    </div>
+
+    <div class="footer-info">
+        <h3>計算依據官方設定</h3>
+        
+        <div class="rules-box">
+            <ul>
+                <li>重設能力屬性種類時，不會重複出現。</li>
+                <li>第一個屬性重設完成之後，當重設第二個屬性時，會以排除掉第一個屬性的屬性列表來進行重設，第二個屬性重設完成之後，當重設第三個屬性時，會以排除掉第一個、第二個屬性的屬性列表來進行重設。</li>
+                <li>各屬性重設機率採 <code>[標示機率 / (100% - 排除的屬性標示機率總和)]</code> 來計算。</li>
+            </ul>
+        </div>
+
+        <h4>階級出現機率設定</h4>
+        <div class="rank-prob-info">
+            <span>第一排：傳說 100%</span>
+            <span>第二排：罕見 15% / 稀有 85%</span>
+            <span>第三排：罕見 15% / 稀有 85%</span>
+        </div>
+
+        <h4>全詞條權重與基礎機率表 (顯示階級池內機率)</h4>
+        <div style="overflow-x: auto;">
+            <table class="data-table" id="dataTable">
+                <thead>
+                    <tr>
+                        <th rowspan="2">屬性名稱</th>
+                        <th colspan="2">傳說</th>
+                        <th colspan="2">罕見</th>
+                        <th colspan="2">稀有</th>
+                    </tr>
+                    <tr>
+                        <th>權重</th>
+                        <th>機率%</th>
+                        <th>權重</th>
+                        <th>機率%</th>
+                        <th>權重</th>
+                        <th>機率%</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- 數據庫 ---
+    const rawData = [
+        { id: 0, name: "STR增加", w: [45, 9, 45] },
+        { id: 1, name: "DEX增加", w: [45, 9, 45] },
+        { id: 2, name: "INT增加", w: [45, 9, 45] },
+        { id: 3, name: "LUK增加", w: [45, 9, 45] },
+        { id: 4, name: "最大HP增加", w: [30, 5, 20] },
+        { id: 5, name: "最大MP增加", w: [30, 5, 20] },
+        { id: 6, name: "攻擊力增加", w: [20, 3, 25] },
+        { id: 7, name: "魔力增加", w: [20, 3, 25] },
+        { id: 8, name: "暴擊機率提升%", w: [10, 1, 5] },
+        { id: 9, name: "所有能力值提升", w: [30, 4, 20] },
+        { id: 10, name: "攻擊速度階段提升", w: [0, 0, 5] },
+        { id: 11, name: "根據AP投資STR的%提升DEX", w: [30, 6, 25] },
+        { id: 12, name: "根據AP投資DEX的%提升STR", w: [30, 6, 25] },
+        { id: 13, name: "根據AP投資INT的%提升LUK", w: [30, 6, 25] },
+        { id: 14, name: "根據AP投資LUK的%提升DEX", w: [30, 6, 25] },
+        { id: 15, name: "每一定等級攻擊力提升1", w: [0, 0, 25] },
+        { id: 16, name: "每一定等級魔力提升1", w: [0, 0, 25] },
+        { id: 17, name: "最大HP提升%", w: [0, 4, 20] },
+        { id: 18, name: "最大MP提升%", w: [0, 4, 20] },
+        { id: 19, name: "攻擊BOSS怪物時傷害提升%", w: [0, 2, 25] },
+        { id: 20, name: "攻擊一般怪物時傷害提升%", w: [30, 4, 20] },
+        { id: 21, name: "攻擊套用狀態異常對象傷害%", w: [30, 4, 20] },
+        { id: 22, name: "根據防禦力的%提升傷害", w: [0, 4, 20] },
+        { id: 23, name: "使用技能時%機率不冷卻", w: [0, 4, 20] },
+        { id: 24, name: "被動技能等級提升", w: [0, 0, 8] },
+        { id: 25, name: "多數攻擊技能的攻擊對象增加", w: [0, 0, 8] },
+        { id: 26, name: "BUFF技能持續時間增加%", w: [15, 2, 10] },
+        { id: 27, name: "道具掉落率提升%", w: [30, 4, 20] },
+        { id: 28, name: "楓幣獲得量增加%", w: [30, 4, 20] },
+        { id: 29, name: "STR, DEX增加", w: [42, 8, 35] },
+        { id: 30, name: "STR, INT增加", w: [42, 8, 35] },
+        { id: 31, name: "STR, LUK增加", w: [42, 8, 35] },
+        { id: 32, name: "DEX, INT增加", w: [42, 8, 35] },
+        { id: 33, name: "DEX, LUK增加", w: [42, 8, 35] },
+        { id: 34, name: "INT, LUK增加", w: [42, 8, 35] },
+        { id: 35, name: "DEX, STR增加", w: [42, 8, 35] },
+        { id: 36, name: "INT, STR增加", w: [42, 8, 35] },
+        { id: 37, name: "LUK, STR增加", w: [42, 8, 35] },
+        { id: 38, name: "INT, DEX增加", w: [42, 8, 35] },
+        { id: 39, name: "LUK, DEX增加", w: [42, 8, 35] },
+        { id: 40, name: "LUK, INT增加", w: [42, 8, 35] }
+    ];
+
+    const POPULAR_IDS = [ 8, 19, 20, 21, 23, 25, 26, 27, 28 ];
+    const BASE_COSTS = { 0: 8000, 1: 11000, 2: 16000 };
+    const BASE_TOTAL_W = {
+        leg: rawData.reduce((a,b)=>a+b.w[2],0),
+        uni: rawData.reduce((a,b)=>a+b.w[1],0),
+        epic: rawData.reduce((a,b)=>a+b.w[0],0)
+    };
+    const P_UNIQUE = 0.15;
+    const P_EPIC = 0.85;
+
+    // --- UI 初始化 ---
+    function init() {
+        const s1 = document.getElementById('sel1');
+        const s2 = document.getElementById('sel2');
+        const s3 = document.getElementById('sel3');
+
+        const popGroup1 = document.createElement('optgroup');
+        popGroup1.label = "熱門/常用詞條";
+        const otherGroup1 = document.createElement('optgroup');
+        otherGroup1.label = "其他詞條";
+
+        POPULAR_IDS.forEach(pid => {
+            const d = rawData.find(item => item.id === pid);
+            if (d && d.w[2] > 0) popGroup1.appendChild(new Option(`[傳說] ${d.name}`, JSON.stringify({id: d.id, tier: 2})));
+        });
+        rawData.forEach(d => {
+            if (!POPULAR_IDS.includes(d.id) && d.w[2] > 0) otherGroup1.appendChild(new Option(`[傳說] ${d.name}`, JSON.stringify({id: d.id, tier: 2})));
+        });
+        s1.appendChild(popGroup1);
+        s1.appendChild(otherGroup1);
+
+        const createOpts = () => {
+            const popGroup = document.createElement('optgroup');
+            popGroup.label = "熱門/常用詞條 (僅限罕見)";
+            const otherGroup = document.createElement('optgroup');
+            otherGroup.label = "其他詞條";
+
+            POPULAR_IDS.forEach(pid => {
+                const d = rawData.find(item => item.id === pid);
+                if (d && d.w[1] > 0) popGroup.appendChild(new Option(`[罕見] ${d.name}`, JSON.stringify({id: d.id, tier: 1})));
+            });
+
+            rawData.forEach(d => {
+                if (POPULAR_IDS.includes(d.id)) {
+                    if (d.w[0] > 0) otherGroup.appendChild(new Option(`[稀有] ${d.name}`, JSON.stringify({id: d.id, tier: 0})));
+                } else {
+                    if (d.w[1] > 0) otherGroup.appendChild(new Option(`[罕見] ${d.name}`, JSON.stringify({id: d.id, tier: 1})));
+                    if (d.w[0] > 0) otherGroup.appendChild(new Option(`[稀有] ${d.name}`, JSON.stringify({id: d.id, tier: 0})));
+                }
+            });
+            return [popGroup, otherGroup];
+        };
+
+        const [pG2, oG2] = createOpts();
+        s2.appendChild(pG2);
+        s2.appendChild(oG2);
+
+        const [pG3, oG3] = createOpts();
+        s3.appendChild(pG3.cloneNode(true));
+        s3.appendChild(oG3.cloneNode(true));
+
+        setSelect(s1, "冷卻");
+        setSelect(s2, "[罕見] 攻擊BOSS");
+        setSelect(s3, "[罕見] 攻擊套用");
+
+        renderDataTable();
+    }
+
+    function setSelect(sel, txt) {
+        for(let i=0; i<sel.options.length; i++) {
+            if(sel.options[i].text.includes(txt)) {
+                sel.selectedIndex = i; break;
+            }
+        }
+    }
+
+    function renderDataTable() {
+        const tbody = document.querySelector('#dataTable tbody');
+        let html = '';
+        
+        rawData.forEach(d => {
+            let pLeg = (d.w[2] / BASE_TOTAL_W.leg * 100).toFixed(2);
+            if(d.w[2] === 0) pLeg = "-";
+
+            let pUni = "-";
+            if(d.w[1] > 0) {
+                let rawP = (d.w[1] / BASE_TOTAL_W.uni) * 100;
+                pUni = rawP.toFixed(2);
+            }
+
+            let pEpic = "-";
+            if(d.w[0] > 0) {
+                let rawP = (d.w[0] / BASE_TOTAL_W.epic) * 100;
+                pEpic = rawP.toFixed(2);
+            }
+
+            let nameDisplay = d.name;
+            if (POPULAR_IDS.includes(d.id)) {
+                nameDisplay = `<strong>${d.name}</strong>`;
+            }
+
+            html += `<tr>
+                <td style="text-align:left;">${nameDisplay}</td>
+                <td>${d.w[2]}</td>
+                <td>${pLeg}%</td>
+                <td>${d.w[1]}</td>
+                <td>${pUni}%</td>
+                <td>${d.w[0]}</td>
+                <td>${pEpic}%</td>
+            </tr>`;
+        });
+        tbody.innerHTML = html;
+    }
+
+    // --- DP Solver ---
+    async function runSolver() {
+        const btn = document.querySelector('.calc-btn');
+        const loading = document.getElementById('loading');
+        const resDiv = document.getElementById('result');
+
+        btn.disabled = true;
+        resDiv.style.display = 'none';
+        loading.style.display = 'block';
+
+        await new Promise(r => setTimeout(r, 50));
+        solveDP();
+
+        loading.style.display = 'none';
+        resDiv.style.display = 'block';
+        btn.disabled = false;
+    }
+
+    function solveDP() {
+        const isEventActive = document.getElementById('eventToggle').checked;
+        const multiplier = isEventActive ? 0.5 : 1.0;
+        const CURRENT_COSTS = {
+            0: BASE_COSTS[0] * multiplier,
+            1: BASE_COSTS[1] * multiplier,
+            2: BASE_COSTS[2] * multiplier
+        };
+
+        const t1 = JSON.parse(document.getElementById('sel1').value);
+        const t2 = JSON.parse(document.getElementById('sel2').value);
+        const t3 = JSON.parse(document.getElementById('sel3').value);
+        const names = [
+            `[傳說] ${rawData[t1.id].name}`, 
+            `[${t2.tier===1?'罕見':'稀有'}] ${rawData[t2.id].name}`, 
+            `[${t3.tier===1?'罕見':'稀有'}] ${rawData[t3.id].name}`
+        ];
+
+        // 1. 精確計算所有 Action 帶來的狀態轉移機率矩陣 (DFS 全展開)
+        let P_TRANS = {}; 
+        for (let actionMask = 0; actionMask < 8; actionMask++) {
+            let kept = [(actionMask&4)>>2, (actionMask&2)>>1, actionMask&1];
+            let lockedIds = [];
+            if (kept[0]) lockedIds.push(t1.id);
+            if (kept[1]) lockedIds.push(t2.id);
+            if (kept[2]) lockedIds.push(t3.id);
+
+            let linesToRoll = [];
+            if (!kept[0]) linesToRoll.push("LEG");
+            if (!kept[1]) linesToRoll.push("BOT");
+            if (!kept[2]) linesToRoll.push("BOT");
+
+            let dist = {};
+
+            function dfs(lineIdx, currentExcluded, currentMask, pSoFar) {
+                if (lineIdx === linesToRoll.length) {
+                    dist[currentMask] = (dist[currentMask] || 0) + pSoFar;
+                    return;
+                }
+
+                let lineType = linesToRoll[lineIdx];
+                let tiersToRoll = [];
+                if (lineType === "LEG") tiersToRoll = [{ tier: 2, p: 1.0 }];
+                else tiersToRoll = [{ tier: 1, p: P_UNIQUE }, { tier: 0, p: P_EPIC }];
+
+                for (let t of tiersToRoll) {
+                    let totalWeight = 0;
+                    let validStats = [];
+                    for (let stat of rawData) {
+                        if (!currentExcluded.includes(stat.id)) {
+                            let w = stat.w[t.tier];
+                            if (w > 0) {
+                                validStats.push({ id: stat.id, w: w });
+                                totalWeight += w;
+                            }
+                        }
+                    }
+
+                    if (totalWeight === 0) continue; 
+
+                    for (let stat of validStats) {
+                        let prob = t.p * (stat.w / totalWeight);
+                        let nextMask = currentMask;
+                        let matched = false;
+                        
+                        if (!kept[0] && !(nextMask & 4) && stat.id === t1.id && t.tier === t1.tier) { nextMask |= 4; matched = true; }
+                        if (!matched && !kept[1] && !(nextMask & 2) && stat.id === t2.id && t.tier === t2.tier) { nextMask |= 2; matched = true; }
+                        if (!matched && !kept[2] && !(nextMask & 1) && stat.id === t3.id && t.tier === t3.tier) { nextMask |= 1; matched = true; }
+
+                        let nextExcluded = [...currentExcluded, stat.id];
+                        dfs(lineIdx + 1, nextExcluded, nextMask, pSoFar * prob);
+                    }
+                }
+            }
+
+            dfs(0, lockedIds, actionMask, 1.0);
+            P_TRANS[actionMask] = dist;
+        }
+
+        function calcActionVal(s, actionMask, V_array) {
+            let lockCount = 0;
+            if(actionMask & 4) lockCount++;
+            if(actionMask & 2) lockCount++;
+            if(actionMask & 1) lockCount++;
+            let immediateCost = CURRENT_COSTS[lockCount];
+
+            let dist = P_TRANS[actionMask];
+            let expectedNextV = 0;
+            let probStay = 0;
+
+            for (let nextS_str in dist) {
+                let nextS = parseInt(nextS_str);
+                let p = dist[nextS_str];
+                if (nextS === s) {
+                    probStay += p;
+                } else {
+                    expectedNextV += p * V_array[nextS];
+                }
+            }
+
+            if (probStay >= 0.99999999) return Infinity; 
+            return (immediateCost + expectedNextV) / (1.0 - probStay);
+        }
+
+        // 2. 一般 DP (找尋無約束的最佳解)
+        let V = new Array(8).fill(Infinity);
+        let Policy = new Array(8).fill(null);
+        V[7] = 0; 
+
+        let changed = true;
+        let iter = 0;
+        while(changed && iter < 10000) {
+            changed = false;
+            for (let s = 0; s < 7; s++) { 
+                let bestCost = Infinity;
+                let bestAction = null;
+
+                let possibleLocks = [];
+                for (let mask = 0; mask < 8; mask++) {
+                    if ((mask & s) === mask) possibleLocks.push(mask);
+                }
+
+                for (let actionMask of possibleLocks) {
+                    let val = calcActionVal(s, actionMask, V);
+                    if (val < bestCost) {
+                        bestCost = val;
+                        bestAction = actionMask;
+                    }
+                }
+
+                if (Math.abs(V[s] - bestCost) > 0.0001) {
+                    V[s] = bestCost;
+                    Policy[s] = bestAction;
+                    changed = true;
+                }
+            }
+            iter++;
+        }
+
+        // 3. 約束型 DP (計算「若不放棄當前詞條」的條件最佳解)
+        let ForcedCost = new Array(8).fill(null);
+        
+        for (let target_s = 1; target_s < 7; target_s++) {
+            let has = [(target_s&4), (target_s&2), (target_s&1)];
+            let act = Policy[target_s];
+            if (act === null) continue;
+            
+            // 檢查最佳解是否叫我們放生目前擁有的詞條
+            let dropsSomething = false;
+            if (has[0] && !(act & 4)) dropsSomething = true;
+            if (has[1] && !(act & 2)) dropsSomething = true;
+            if (has[2] && !(act & 1)) dropsSomething = true;
+
+            if (dropsSomething) {
+                // 如果叫我們放生，那我們就算算看「死活不放」的代價
+                let V_f = new Array(8).fill(Infinity);
+                V_f[7] = 0;
+                let f_changed = true;
+                let f_iter = 0;
+                
+                while (f_changed && f_iter < 10000) {
+                    f_changed = false;
+                    for (let curr = 0; curr < 7; curr++) {
+                        // 只計算包含 target_s (死活不放的詞條) 的狀態
+                        if ((curr & target_s) !== target_s) continue;
+                        
+                        let bestC = Infinity;
+                        for (let mask = 0; mask < 8; mask++) {
+                            // 規則一：只能鎖目前擁有的詞條 (Subset)
+                            if ((mask & curr) !== mask) continue;
+                            // 規則二：【絕對不放】目標詞條 (Superset)
+                            if ((mask & target_s) !== target_s) continue;
+                            
+                            let val = calcActionVal(curr, mask, V_f);
+                            if (val < bestC) bestC = val;
+                        }
+                        
+                        if (Math.abs(V_f[curr] - bestC) > 0.0001) {
+                            V_f[curr] = bestC;
+                            f_changed = true;
+                        }
+                    }
+                    f_iter++;
+                }
+                ForcedCost[target_s] = V_f[target_s];
+            }
+        }
+
+        document.getElementById('expectedCost').innerText = Math.round(V[0]).toLocaleString();
+        document.getElementById('costNote').innerText = isEventActive ? "已套用 50% 活動折扣費率" : "標準費率 (無活動)";
+        renderPolicyTable(V, Policy, names, CURRENT_COSTS, ForcedCost);
+    }
+
+    function renderPolicyTable(V, Policy, names, costs, ForcedCost) {
+        let tbody = document.getElementById('policyBody');
+        tbody.innerHTML = '';
+        
+        for(let s=0; s<7; s++) {
+            let tr = document.createElement('tr');
+            let has = [(s&4), (s&2), (s&1)];
+            
+            let badges = `
+                <div class="state-badges">
+                    <span class="badge ${has[0]?'badge-have':'badge-miss'}">${names[0]}</span>
+                    <span class="badge ${has[1]?'badge-have':'badge-miss'}">${names[1]}</span>
+                    <span class="badge ${has[2]?'badge-have':'badge-miss'}">${names[2]}</span>
+                </div>
+            `;
+            
+            let act = Policy[s];
+            let actionText = "";
+            let dropped = [];
+            
+            if (act === null) {
+                actionText = "無解 (機率異常)";
+            } else {
+                let locks = [];
+                let lockCount = 0;
+                if(act & 4) { locks.push(names[0]); lockCount++; }
+                if(act & 2) { locks.push(names[1]); lockCount++; }
+                if(act & 1) { locks.push(names[2]); lockCount++; }
+                
+                if(has[0] && !(act&4)) dropped.push(names[0]);
+                if(has[1] && !(act&2)) dropped.push(names[1]);
+                if(has[2] && !(act&1)) dropped.push(names[2]);
+
+                if (locks.length === 0) {
+                    actionText = `<span class="action-text action-free">🔓 全部不鎖定，重洗</span> <span class="action-cost">(消耗: ${costs[0]} 名聲)</span>`;
+                } else {
+                    actionText = `<span class="action-text action-lock">🔒 鎖定: ${locks.join(' + ')}</span> <span class="action-cost">(消耗: ${costs[lockCount]} 名聲)</span>`;
+                }
+
+                if(dropped.length > 0) {
+                    actionText += `<span class="warning-text">⚠️ 建議放棄: ${dropped.join(', ')}</span>`;
+                }
+            }
+            
+            let costHtml = `<div style="font-weight:bold; color:#2c3e50; font-size:1.1em;">${Math.round(V[s]).toLocaleString()}</div>`;
+            if (dropped.length > 0 && ForcedCost[s] !== null && ForcedCost[s] !== Infinity) {
+                // 將「若鎖到最後一刻」替換為明確指出堅持保留的對象
+                costHtml += `<div style="font-size: 0.85em; color: #e74c3c; margin-top: 8px; font-weight: 600;">(若堅持保留 ${dropped.join(' 與 ')}: ${Math.round(ForcedCost[s]).toLocaleString()})</div>`;
+            }
+
+            tr.innerHTML = `
+                <td>${badges}</td>
+                <td>${actionText}</td>
+                <td>${costHtml}</td>
+            `;
+            tbody.appendChild(tr);
+        }
+    }
+
+    // ==========================================
+    // localStorage 儲存機制
+    // ==========================================
+    const _SK17 = 'tool17_settings';
+
+    function _save17() {
+        localStorage.setItem(_SK17, JSON.stringify({
+            eventToggle: document.getElementById('eventToggle').checked,
+            sel1: document.getElementById('sel1').value,
+            sel2: document.getElementById('sel2').value,
+            sel3: document.getElementById('sel3').value
+        }));
+    }
+
+    function _load17() {
+        const raw = localStorage.getItem(_SK17);
+        if (!raw) return;
+        try {
+            const s = JSON.parse(raw);
+            if (s.eventToggle !== undefined) document.getElementById('eventToggle').checked = s.eventToggle;
+            if (s.sel1) document.getElementById('sel1').value = s.sel1;
+            if (s.sel2) document.getElementById('sel2').value = s.sel2;
+            if (s.sel3) document.getElementById('sel3').value = s.sel3;
+        } catch(e) {}
+    }
+
+    init();
+    _load17();
+
+    ['sel1', 'sel2', 'sel3', 'eventToggle'].forEach(id => {
+        document.getElementById(id).addEventListener('change', _save17);
+    });
+</script>
+
+</body>
+</html>
+
+
