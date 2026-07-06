@@ -336,12 +336,21 @@
         </div>
     </div>
 
+    <div id="notice-modal" style="display: flex; position: fixed; z-index: 9999; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); justify-content: center; align-items: center; backdrop-filter: blur(2px);">
+        <div style="background-color: #fff; padding: 24px; border-radius: 10px; width: 90%; max-width: 450px; box-shadow: 0 4px 20px rgba(0,0,0,0.2); position: relative; text-align: center; font-family: sans-serif;">
+            <span style="position: absolute; right: 16px; top: 12px; color: #999; font-size: 28px; font-weight: bold; cursor: pointer;" onclick="document.getElementById('notice-modal').style.display='none'" onmouseover="this.style.color='#333'" onmouseout="this.style.color='#999'">&times;</span>
+            
+            <h2 style="color: #e74c3c; margin-top: 5px; margin-bottom: 15px; font-size: 1.5rem;">⚠️ 重要公告</h2>
+            
+            <p style="text-align: left; line-height: 1.8; color: #444; font-size: 1rem; margin-bottom: 20px;">
+                請注意：目前官網提供的<strong>痕跡修復費用</strong>跟遊戲中是不符合的，參考巴哈姆特近期有網友討論到。<br><br>
+                目前資訊完全參考官網提供的資訊，等待資訊更正完成後將再進行更新！
+            </p>
+            
+            <button onclick="document.getElementById('notice-modal').style.display='none'" style="padding: 10px 30px; font-size: 1rem; cursor: pointer; background-color: #2980b9; color: white; border: none; border-radius: 6px; font-weight: bold; transition: background 0.2s;">我知道了</button>
+        </div>
+    </div>
+
     <script src="script.js"></script>
-    <script>
-    // 確保網頁內容載入後才跳出提示
-    window.addEventListener('DOMContentLoaded', (event) => {
-        alert("請注意：目前官網提供的痕跡修復費用跟遊戲中是不符合的，參考巴哈姆特近期有網友討論到。\n目前資訊完全參考官網提供的資訊，等待資訊更正完成後將再進行更新！");
-    });
-    </script>
 </body>
 </html>
