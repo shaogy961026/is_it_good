@@ -46,16 +46,36 @@ const starProbabilities = baseStarProbabilities.map(p => {
 });
 
 // 痕跡完全修復費用表
+// mesos 依【被破壞的星數】×【裝備等級】二維查表；equips 不受裝備等級影響
+// 注意：目前官網資料與遊戲內數值不符，以下為暫時佔位值，待官方公告後更新
 const TRACE_RECOVERY_COSTS = {
-    15: { equips: 1, mesos: 900000000 },
-    16: { equips: 1, mesos: 10000000000 },
-    17: { equips: 1, mesos: 10000000000 },
-    18: { equips: 1, mesos: 100000000000 },
-    19: { equips: 2, mesos: 100000000000 },
-    20: { equips: 2, mesos: 100000000000 },
-    21: { equips: 3, mesos: 100000000000 },
-    22: { equips: 4, mesos: 100000000000 }
+    15: { equips: 1, mesos: { 130: 900000000,    140: 900000000,    150: 900000000,    160: 900000000,    200: 900000000,    250: 900000000    } },
+    16: { equips: 1, mesos: { 130: 10000000000,  140: 10000000000,  150: 10000000000,  160: 10000000000,  200: 10000000000,  250: 10000000000  } },
+    17: { equips: 1, mesos: { 130: 10000000000,  140: 10000000000,  150: 10000000000,  160: 10000000000,  200: 10000000000,  250: 10000000000  } },
+    18: { equips: 1, mesos: { 130: 100000000000, 140: 100000000000, 150: 100000000000, 160: 100000000000, 200: 100000000000, 250: 100000000000 } },
+    19: { equips: 2, mesos: { 130: 100000000000, 140: 100000000000, 150: 100000000000, 160: 100000000000, 200: 100000000000, 250: 100000000000 } },
+    20: { equips: 2, mesos: { 130: 100000000000, 140: 100000000000, 150: 100000000000, 160: 100000000000, 200: 100000000000, 250: 100000000000 } },
+    21: { equips: 3, mesos: { 130: 100000000000, 140: 100000000000, 150: 100000000000, 160: 100000000000, 200: 100000000000, 250: 100000000000 } },
+    22: { equips: 4, mesos: { 130: 100000000000, 140: 100000000000, 150: 100000000000, 160: 100000000000, 200: 100000000000, 250: 100000000000 } },
 };
+
+/**
+ * 查詢痕跡完全修復所需楓幣。
+ * @param {number} traceStar  - 被破壞當下的星數（15-22）
+ * @param {string} equipLevel - 裝備等級字串，e.g. '150'
+ * @returns {number} 需要的楓幣；若查無資料則回傳 Infinity
+ */
+function getTraceMesos(traceStar, equipLevel) {
+    const entry = TRACE_RECOVERY_COSTS[traceStar];
+    if (!entry) return Infinity;
+    const levelKey = String(equipLevel);
+    // 若此等級尚無對應資料，取所有等級中最接近（且不超過）的數值作為保守估算
+    if (entry.mesos[levelKey] !== undefined) return entry.mesos[levelKey];
+    const keys = Object.keys(entry.mesos).map(Number).sort((a, b) => a - b);
+    const lvl = parseInt(levelKey, 10);
+    const fallback = keys.filter(k => k <= lvl).at(-1) ?? keys[0];
+    return entry.mesos[fallback];
+}
 
 // 成本表
 const enhancementCosts = {
@@ -228,8 +248,10 @@ document.addEventListener('DOMContentLoaded', () => {
         dataTablesTitle: document.getElementById('data-tables-title'),
         costsTableTitle: document.getElementById('costs-table-title'),
         probsTableTitle: document.getElementById('probs-table-title'),
+        traceTableTitle: document.getElementById('trace-table-title'),
         costsTableContainer: document.getElementById('costs-table-container'),
         probsTableContainer: document.getElementById('probs-table-container'),
+        traceTableContainer: document.getElementById('trace-table-container'),
         
         previewStatMain: document.getElementById('preview-stat-main'),
         previewStatAtk: document.getElementById('preview-stat-atk'),
@@ -486,7 +508,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (traceStar >= 15 && TRACE_RECOVERY_COSTS[traceStar]) {
                     const recData = TRACE_RECOVERY_COSTS[traceStar];
-                    const restoreCost = (recData.equips * compensationPrice) + recData.mesos;
+                    const restoreCost = (recData.equips * compensationPrice) + getTraceMesos(traceStar, equipLevel);
                     pathB = findOptimalPath(traceStar, n, intervalResults, couponPrices, memo, K);
                     costB = restoreCost + pathB.totalCost;
                     varB = pathB.totalVar;
@@ -823,7 +845,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     if (recStrategy === 'full' && traceStar >= 15 && TRACE_RECOVERY_COSTS[traceStar]) {
                         const recData = TRACE_RECOVERY_COSTS[traceStar];
-                        const restoreCost = (recData.equips * compensationPrice) + recData.mesos;
+                        const restoreCost = (recData.equips * compensationPrice) + getTraceMesos(traceStar, equipLevel);
                         totalCost += restoreCost;
                         totalDestructionCost += restoreCost;
                         currentStars = traceStar;
@@ -877,7 +899,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return { exchangeRate, currencyName, isTWD };
     }
 
-    function displayDataTables(equipLevel, costDiscount, vipDiscount, activeProbabilities) {
+    function displayDataTables(equipLevel, costDiscount, vipDiscount, activeProbabilities, compensationPrice) {
         const maxStar = enhancementCosts[equipLevel].length;
         dom.dataTablesTitle.textContent = "基礎數據參考 (基於當前設定)";
         dom.costsTableTitle.textContent = "單次強化成本表 (含套用活動/VIP折扣)";
@@ -896,6 +918,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         costsHtml += '</tbody></table>';
         dom.costsTableContainer.innerHTML = costsHtml;
+
         let probsHtml = '<table class="data-table"><thead><tr><th>星等</th><th>成功</th><th>維持</th><th>破壞</th></tr></thead><tbody>';
         activeProbabilities.forEach((p, n) => {
             if (n >= maxStar) return;
@@ -903,6 +926,39 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         probsHtml += '</tbody></table>';
         dom.probsTableContainer.innerHTML = probsHtml;
+
+        // 痕跡完全復原費用表
+        dom.traceTableTitle.textContent = `痕跡完全復原費用參考（裝備等級 ${equipLevel}）`;
+        let traceHtml = `
+            <p style="margin:0 0 8px; font-size:0.82rem; color:#c0392b; line-height:1.6;">
+                ⚠️ 目前官網公布的費用與遊戲中<strong>不符</strong>，下方數值為計算機實際套用的暫時參考值，待官方更正後更新。<br>
+                合計 = 需備用裝備數 × 裝備補償價格（${compensationPrice.toLocaleString()} 楓幣）＋ 痕跡楓幣費
+            </p>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>破壞時的星數</th>
+                        <th>需備用裝備數</th>
+                        <th>痕跡楓幣費</th>
+                        <th>合計估算</th>
+                    </tr>
+                </thead>
+                <tbody>`;
+        for (let star = 15; star <= 22; star++) {
+            const entry = TRACE_RECOVERY_COSTS[star];
+            if (!entry) continue;
+            const mesos = getTraceMesos(star, equipLevel);
+            const total = entry.equips * compensationPrice + mesos;
+            const displayStar = star >= 23 ? '≥23（以22★計）' : `${star}★`;
+            traceHtml += `<tr>
+                <td>${displayStar}</td>
+                <td>${entry.equips} 件</td>
+                <td>${mesos.toLocaleString()}</td>
+                <td>${total.toLocaleString()}</td>
+            </tr>`;
+        }
+        traceHtml += '</tbody></table>';
+        dom.traceTableContainer.innerHTML = traceHtml;
     }
     
     // =====================================================================
@@ -958,7 +1014,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 let traceStar = n >= 23 ? 22 : n;
                 if (traceStar >= 15 && TRACE_RECOVERY_COSTS[traceStar]) {
                     const recData = TRACE_RECOVERY_COSTS[traceStar];
-                    const restoreCost = (recData.equips * compensationPrice) + recData.mesos;
+                    const restoreCost = (recData.equips * compensationPrice) + getTraceMesos(traceStar, equipLevel);
                     costB = restoreCost;
                     for(let i = traceStar; i < n; i++) {
                         costB += intervalResults[i].cost;
@@ -1598,7 +1654,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
         
-        displayDataTables(equipLevel, costDiscount, vipDiscount, activeProbabilities);
+        displayDataTables(equipLevel, costDiscount, vipDiscount, activeProbabilities, compensationPrice);
         dom.dataTablesContainer.classList.remove('hidden');
 
         const strategies = [
