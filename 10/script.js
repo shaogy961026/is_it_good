@@ -1277,7 +1277,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (specialCouponPrices.append23 !== null && tgt <= 23 && equipLevelNum <= 200) {
                 options.push({ value: 'append', label: `追加1星 30%（23星）` });
             }
-            if (options.length > 1) rows.push({ n, options });
+            // 15★以上有炸裝風險，即使強化方式只有一種，仍需顯示「破壞復原方式」欄
+            if (options.length > 1 || n >= 15) rows.push({ n, options });
         }
 
         if (rows.length === 0) {
@@ -1288,11 +1289,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const traceSupported = getTraceMesos(15, equipLevel) !== Infinity;
 
         const buildRecSelect = (n, savedRec) => {
+            // 23★以上炸裝，痕跡完全恢復最高只能恢復至22★（非原星數）
+            const fullLabel = n >= 23
+                ? `完全恢復至 22★（補空裝＋痕跡費，恢復至 22★ 後繼續衝）`
+                : `完全恢復至原星數（補空裝＋痕跡費，直接繼續衝）`;
             let opts = `
-                <option value="auto"${savedRec==='auto'?' selected':''}>自動評估（計算機決定哪條路更省錢）</option>
-                <option value="12"${savedRec==='12'?' selected':''}>降回 12 星（補一件空裝，從12星重新爬）</option>`;
+                <option value="auto"${savedRec==='auto'?' selected':''}>自動選最省路線</option>
+                <option value="12"${savedRec==='12'?' selected':''}>恢復至 12★（補一件空裝，從 12★ 重新爬）</option>`;
             if (traceSupported) {
-                opts += `<option value="full"${savedRec==='full'?' selected':''}>完全復原（花痕跡費用，維持原星數繼續衝）</option>`;
+                opts += `<option value="full"${savedRec==='full'?' selected':''}>完全恢復：${fullLabel}</option>`;
             }
             return `<select id="custom-rec-${n}" style="width:100%;font-size:0.88em;padding:4px;">${opts}</select>`;
         };
@@ -1300,16 +1305,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const traceHint = traceSupported
             ? ''
             : `<p style="margin:0 0 10px;padding:7px 10px;background:#fff8e1;border-left:3px solid #f39c12;border-radius:4px;font-size:0.83rem;color:#7d6009;line-height:1.6;">
-                ⚠️ <strong>此裝備等級（${equipLevel}）不支援痕跡完全復原</strong>，「破壞復原方式」固定走「降回12星」。
+                ⚠️ <strong>此裝備等級（${equipLevel}）不支援完全恢復</strong>，炸裝後固定恢復至 12★，無法選擇完全恢復至原星數。
                </p>`;
 
         let html = `
             ${traceHint}
             <p style="margin:0 0 10px;padding:7px 10px;background:#eaf4fb;border-left:3px solid #2980b9;border-radius:4px;font-size:0.83rem;color:#1a5276;line-height:1.7;">
                 💡 <strong>建議配置</strong><br>
-                • <strong>強化方式</strong>：不確定時維持「直接強化（不防爆）」；15-17★ 若預算充裕可選「防爆」<br>
-                • <strong>破壞復原方式</strong>：選「自動評估」讓計算機比較哪條路更省，不需要手動猜測<br>
-                • <strong>上方修復跳躍</strong>：若有星等選「降回12星」或「自動評估」，搭配星力強化券可節省重爬費用
+                • <strong>強化方式</strong>：不確定時維持「直接強化（不防爆）」；15-17★ 可視情況選「防爆」<br>
+                • <strong>破壞復原方式</strong>：炸裝後有兩種恢復方式——「恢復至 12★」（補一件空裝重爬，較省）或「完全恢復」（補空裝 + 痕跡費，免重爬；15-22★ 恢復至原星數，23★以上最高恢復至 22★）。選「自動」讓計算機決定<br>
+                • <strong>上方修復跳躍</strong>：若有星等選「恢復至 12★」或「自動」，搭配星力強化券可節省重爬費用
             </p>
             <table style="width:100%;border-collapse:collapse;font-size:0.88em;">
             <thead><tr>
@@ -1341,7 +1346,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     html += buildRecSelect(n, savedRecoveryMethods[n] || 'auto');
                 }
             } else {
-                html += `<span style="color:#aaa;font-size:0.85em;padding-left:4px;">15★以下若破壞，固定降回12星</span>`;
+                html += `<span style="color:#aaa;font-size:0.85em;padding-left:4px;">15★以下若破壞，固定恢復至 12★</span>`;
             }
             html += `</td></tr>`;
         }
@@ -1387,7 +1392,7 @@ document.addEventListener('DOMContentLoaded', () => {
             recoveryJumpSel.style.opacity = '0.4';
             recoveryJumpSel.style.cursor = 'not-allowed';
             if (recoveryJumpNote) {
-                recoveryJumpNote.innerHTML = '⚠️ 目前所有星等已指定「完全復原」，此選項無作用（不會走降回12星路線）。';
+                recoveryJumpNote.innerHTML = '⚠️ 目前所有星等已指定「完全恢復至原星數」，炸裝後不會走至 12★，此跳躍選項無作用。';
                 recoveryJumpNote.style.color = '#aaa';
             }
         } else {
@@ -1395,7 +1400,7 @@ document.addEventListener('DOMContentLoaded', () => {
             recoveryJumpSel.style.opacity = '1';
             recoveryJumpSel.style.cursor = '';
             if (recoveryJumpNote) {
-                recoveryJumpNote.innerHTML = '裝備炸掉後若走「降回12星」路線，可花一張星力強化券直接跳回指定星數，節省低星段的強化費用。';
+                recoveryJumpNote.innerHTML = '炸裝後若恢復至 12★，可花一張星力強化券直接跳至指定星數，節省低星段的重爬費用。';
                 recoveryJumpNote.style.color = '#777';
             }
         }
@@ -1648,7 +1653,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <td style="text-align:left; line-height: 1.4;">${stratNameHtml}${badge ? '<div style="margin-top:4px;">' + badge + '</div>' : ''}</td>
                         <td style="text-align:left;">
                             <strong>建議配置（初始衝裝）：</strong><br>${result.pathDescription.init}<br>
-                            <div style="margin-top:5px;"><strong>炸裝後恢復路徑（如有降至 12★）：</strong><br>${result.pathDescription.recover}</div>
+                            <div style="margin-top:5px;"><strong>炸裝後恢復路徑（如選擇降至 12★）：</strong><br>${result.pathDescription.recover}</div>
                         </td>
                         <td class="cost">${formatCost(finalResult.totalCost, exchangeRate)} ${costBreakdown}</td>
                         <td class="destroy">${finalResult.totalDestructions.toFixed(4)}</td>
@@ -1713,7 +1718,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <td style="text-align:left; line-height:1.4;">${stratNameHtml}${badge ? '<div style="margin-top:4px;">' + badge + '</div>' : ''}</td>
                         <td style="text-align:left; font-size: 0.9em; line-height:1.4;">
                              <strong>建議配置（初始衝裝）：</strong><br>${result.pathDescription.init}<br>
-                             <div style="margin-top:5px;"><strong>炸裝後恢復路徑（如有降至 12★）：</strong><br>${result.pathDescription.recover}</div>
+                             <div style="margin-top:5px;"><strong>炸裝後恢復路徑（如選擇降至 12★）：</strong><br>${result.pathDescription.recover}</div>
                         </td>
                         <td class="cost">${avgCostDisplay}</td>
                         <td class="destroy">${avgDestroysDisplay}</td>
