@@ -1310,12 +1310,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let html = `
             ${traceHint}
-            <p style="margin:0 0 10px;padding:7px 10px;background:#eaf4fb;border-left:3px solid #2980b9;border-radius:4px;font-size:0.83rem;color:#1a5276;line-height:1.7;">
-                💡 <strong>建議配置</strong><br>
-                • <strong>強化方式</strong>：不確定時維持「直接強化（不防爆）」；15-17★ 可視情況選「防爆」<br>
-                • <strong>破壞復原方式</strong>：炸裝後有兩種恢復方式——「恢復至 12★」（補一件空裝重爬，較省）或「完全恢復」（補空裝 + 痕跡費，免重爬；15-22★ 恢復至原星數，23★以上最高恢復至 22★）。選「自動」讓計算機決定<br>
-                • <strong>上方修復跳躍</strong>：若有星等選「恢復至 12★」或「自動」，搭配星力強化券可節省重爬費用
-            </p>
             <table style="width:100%;border-collapse:collapse;font-size:0.88em;">
             <thead><tr>
                 <th style="padding:6px 10px;background:#eef2fa;text-align:left;width:90px;font-weight:bold;">星等</th>
