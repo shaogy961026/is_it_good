@@ -1423,7 +1423,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
         } else {
-            dom.legendNote.innerHTML = `上方為模擬值 <span class="theoretical-value">(綠字) 為理論期望值</span><br><br><span style="background-color: #f1f8ff; padding: 4px 8px; border-radius: 4px; font-size: 0.95em; color: #2c3e50; border-left: 3px solid #3498db; display: inline-block;">💡 <strong>提示：</strong>當「面臨爆裝風險且手動強化的星數」小於「炸裝後設定的跳躍券星數」時，舊版理論值會產生誤差。本計算機已全面升級為 <strong>全域動態規劃 (MDP)</strong> 模型，現在不論任何跨星跳躍策略，理論期望值皆保證絕對精準無死角！</span>`;
+            dom.legendNote.innerHTML = `上方為模擬值 <span class="theoretical-value">(綠字) 為理論期望值</span><br><br>`;
             dom.resultsTitle.textContent = "模擬與理論成本統計";
             tableHeaders = `
                 <thead>
