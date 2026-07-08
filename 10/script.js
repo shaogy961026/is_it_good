@@ -1219,18 +1219,47 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        let html = `<table style="width:100%;border-collapse:collapse;font-size:0.88em;">
+        const traceSupported = getTraceMesos(15, equipLevel) !== Infinity;
+
+        const buildRecSelect = (n, savedRec) => {
+            let opts = `
+                <option value="auto"${savedRec==='auto'?' selected':''}>自動評估（計算機決定哪條路更省錢）</option>
+                <option value="12"${savedRec==='12'?' selected':''}>降回 12 星（補一件空裝，從12星重新爬）</option>`;
+            if (traceSupported) {
+                opts += `<option value="full"${savedRec==='full'?' selected':''}>完全復原（花痕跡費用，維持原星數繼續衝）</option>`;
+            }
+            return `<select id="custom-rec-${n}" style="width:100%;font-size:0.88em;padding:4px;">${opts}</select>`;
+        };
+
+        const traceHint = traceSupported
+            ? ''
+            : `<p style="margin:0 0 10px;padding:7px 10px;background:#fff8e1;border-left:3px solid #f39c12;border-radius:4px;font-size:0.83rem;color:#7d6009;line-height:1.6;">
+                ⚠️ <strong>此裝備等級（${equipLevel}）不支援痕跡完全復原</strong>，「破壞復原方式」固定走「降回12星」。
+               </p>`;
+
+        let html = `
+            ${traceHint}
+            <p style="margin:0 0 10px;padding:7px 10px;background:#eaf4fb;border-left:3px solid #2980b9;border-radius:4px;font-size:0.83rem;color:#1a5276;line-height:1.7;">
+                💡 <strong>建議配置</strong><br>
+                • <strong>強化方式</strong>：不確定時維持「直接強化（不防爆）」；15-17★ 若預算充裕可選「防爆」<br>
+                • <strong>破壞復原方式</strong>：選「自動評估」讓計算機比較哪條路更省，不需要手動猜測<br>
+                • <strong>上方修復跳躍</strong>：若有星等選「降回12星」或「自動評估」，搭配星力強化券可節省重爬費用
+            </p>
+            <table style="width:100%;border-collapse:collapse;font-size:0.88em;">
             <thead><tr>
-                <th style="padding:6px 10px;background:#eef2fa;text-align:left;width:100px;font-weight:bold;">星等</th>
+                <th style="padding:6px 10px;background:#eef2fa;text-align:left;width:90px;font-weight:bold;">星等</th>
                 <th style="padding:6px 10px;background:#eef2fa;text-align:left;font-weight:bold;">強化方式</th>
-                <th style="padding:6px 10px;background:#eef2fa;text-align:left;width:120px;font-weight:bold;">破壞復原方式</th>
+                <th style="padding:6px 10px;background:#eef2fa;text-align:left;font-weight:bold;">
+                    破壞復原方式
+                    <span style="display:block;font-size:0.8em;font-weight:normal;color:#7f8c8d;">裝備炸掉時要怎麼恢復</span>
+                </th>
             </tr></thead><tbody>`;
             
         for (const { n, options } of rows) {
             const savedVal = savedStarMethods[n] !== undefined ? savedStarMethods[n] : 'no_prev';
             const isPrev = savedVal === 'prev';
             html += `<tr style="border-bottom:1px solid #eee;">
-                <td style="padding:6px 10px;font-weight:bold;white-space:nowrap;">${n} → ${n+1} 星</td>
+                <td style="padding:6px 10px;font-weight:bold;white-space:nowrap;">${n} → ${n+1}★</td>
                 <td style="padding:4px 8px;"><select id="custom-star-${n}" style="width:100%;font-size:0.88em;padding:4px;">`;
             for (const opt of options) {
                 const sel = opt.value === savedVal ? ' selected' : '';
@@ -1241,17 +1270,12 @@ document.addEventListener('DOMContentLoaded', () => {
             html += `<td style="padding:4px 8px;" id="custom-rec-cell-${n}">`;
             if (n >= 15) {
                 if (isPrev) {
-                    html += `<span style="color:#aaa;font-size:0.85em;padding-left:4px;">防爆時無破壞風險</span>`;
+                    html += `<span style="color:#aaa;font-size:0.85em;padding-left:4px;">選防爆則不會破壞，無需選擇</span>`;
                 } else {
-                    const savedRec = savedRecoveryMethods[n] || 'auto';
-                    html += `<select id="custom-rec-${n}" style="width:100%;font-size:0.88em;padding:4px;">
-                        <option value="auto"${savedRec==='auto'?' selected':''}>自動評估</option>
-                        <option value="12"${savedRec==='12'?' selected':''}>降回 12 星</option>
-                        <option value="full"${savedRec==='full'?' selected':''}>完全復原</option>
-                    </select>`;
+                    html += buildRecSelect(n, savedRecoveryMethods[n] || 'auto');
                 }
             } else {
-                html += `<span style="color:#aaa;font-size:0.85em;padding-left:4px;">強制降回 12 星</span>`;
+                html += `<span style="color:#aaa;font-size:0.85em;padding-left:4px;">15★以下若破壞，固定降回12星</span>`;
             }
             html += `</td></tr>`;
         }
@@ -1266,16 +1290,49 @@ document.addEventListener('DOMContentLoaded', () => {
                 const cell = document.getElementById(`custom-rec-cell-${n}`);
                 if (!cell) return;
                 if (starSel.value === 'prev') {
-                    cell.innerHTML = `<span style="color:#aaa;font-size:0.85em;padding-left:4px;">防爆時無破壞風險</span>`;
+                    cell.innerHTML = `<span style="color:#aaa;font-size:0.85em;padding-left:4px;">選防爆則不會破壞，無需選擇</span>`;
                 } else {
-                    cell.innerHTML = `<select id="custom-rec-${n}" style="width:100%;font-size:0.88em;padding:4px;">
-                        <option value="auto">自動評估</option>
-                        <option value="12">降回 12 星</option>
-                        <option value="full">完全復原</option>
-                    </select>`;
+                    cell.innerHTML = buildRecSelect(n, 'auto');
+                    document.getElementById(`custom-rec-${n}`)?.addEventListener('change', updateRecoveryJumpState);
                 }
+                updateRecoveryJumpState();
             });
+            document.getElementById(`custom-rec-${n}`)?.addEventListener('change', updateRecoveryJumpState);
         });
+
+        updateRecoveryJumpState();
+    }
+
+    function updateRecoveryJumpState() {
+        const recoveryJumpSel = document.getElementById('custom-recovery-jump');
+        const recoveryJumpNote = document.getElementById('recovery-jump-note');
+        if (!recoveryJumpSel) return;
+
+        const allRecSelects = document.querySelectorAll('[id^="custom-rec-"]');
+        let anyNeedsJump = false;
+        allRecSelects.forEach(sel => {
+            if (sel.value === '12' || sel.value === 'auto') anyNeedsJump = true;
+        });
+
+        if (allRecSelects.length === 0) anyNeedsJump = true;
+
+        if (!anyNeedsJump) {
+            recoveryJumpSel.disabled = true;
+            recoveryJumpSel.style.opacity = '0.4';
+            recoveryJumpSel.style.cursor = 'not-allowed';
+            if (recoveryJumpNote) {
+                recoveryJumpNote.innerHTML = '⚠️ 目前所有星等已指定「完全復原」，此選項無作用（不會走降回12星路線）。';
+                recoveryJumpNote.style.color = '#aaa';
+            }
+        } else {
+            recoveryJumpSel.disabled = false;
+            recoveryJumpSel.style.opacity = '1';
+            recoveryJumpSel.style.cursor = '';
+            if (recoveryJumpNote) {
+                recoveryJumpNote.innerHTML = '裝備炸掉後若走「降回12星」路線，可花一張星力強化券直接跳回指定星數，節省低星段的強化費用。';
+                recoveryJumpNote.style.color = '#777';
+            }
+        }
     }
 
     function getCustomPathData() {
