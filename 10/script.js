@@ -1544,7 +1544,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <thead>
                     <tr>
                         <th style="min-width: 250px;">策略與說明</th>
-                        <th style="min-width: 250px;">建議配置 (初始/修復)</th>
+                        <th style="min-width: 250px;">建議配置</th>
                         <th class="cost-header">理論期望總成本 (${currencyName})</th>
                         <th class="destroy-header">理論期望破壞次數</th>
                     </tr>
@@ -1596,7 +1596,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <thead>
                     <tr>
                         <th style="min-width: 250px;">策略與說明</th>
-                        <th style="min-width: 250px;">建議配置 (初始/修復)</th>
+                        <th style="min-width: 250px;">建議配置</th>
                         <th class="cost-header">平均總成本 (${currencyName})</th>
                         <th class="destroy-header">平均破壞</th>
                         <th>單次模擬</th>
