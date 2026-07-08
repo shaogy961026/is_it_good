@@ -311,8 +311,8 @@
         <div>
             <label>星火種類</label>
             <select id="flameType" onchange="updateInfoPanel()">
-                <option value="powerful">強力的輪迴星火</option>
-                <option value="eternal">永遠的輪迴星火/暗黑輪迴星火</option>
+                <option value="powerful">強力的輪迴星火/燃燒的輪迴星火</option>
+                <option value="eternal">永遠的輪迴星火/暗黑輪迴星火/1000萬楓幣</option>
                 <option value="awakened">覺醒的輪迴星火</option>
                 <option value="awakened_dark">覺醒的暗黑輪迴星火</option>
             </select>
@@ -612,15 +612,15 @@ function buildWeaponStatsDB() {
 }
 
 const FLAME_PROBS = {
-    powerful:      { label: "強力的輪迴星火",        tierCount: 3, bossOffset: 0, tiers: [5/10, 3/10, 2/10],                                         tierLabels: ["T1 (50%)", "T2 (30%)", "T3 (20%)"] },
-    eternal:       { label: "永遠/暗黑輪迴星火",     tierCount: 3, bossOffset: 0, tiers: [4/9, 3/9, 2/9],                                            tierLabels: ["T1 (44.4%)", "T2 (33.3%)", "T3 (22.2%)"] },
+    powerful:      { label: "強力的輪迴星火/燃燒的輪迴星火",        tierCount: 3, bossOffset: 0, tiers: [5/10, 3/10, 2/10],                                         tierLabels: ["T1 (50%)", "T2 (30%)", "T3 (20%)"] },
+    eternal:       { label: "永遠的輪迴星火/暗黑輪迴星火/1000萬楓幣", tierCount: 3, bossOffset: 0, tiers: [4/9, 3/9, 2/9],                                            tierLabels: ["T1 (44.4%)", "T2 (33.3%)", "T3 (22.2%)"] },
     awakened:      { label: "覺醒的輪迴星火",        tierCount: 5, bossOffset: 2, tiers: [9736/10000, 150/10000, 58/10000, 33/10000, 23/10000],      tierLabels: ["T1 (97.36%)", "T2 (1.50%)", "T3 (0.58%)", "T4 (0.33%)", "T5 (0.23%)"] },
     awakened_dark: { label: "覺醒的暗黑輪迴星火",    tierCount: 5, bossOffset: 2, tiers: [0, 1700/2000, 260/2000, 30/2000, 10/2000],                 tierLabels: ["T1 (0%)", "T2 (85.00%)", "T3 (13.00%)", "T4 (1.50%)", "T5 (0.50%)"] }
 };
 
 const FLAME_PROBS_EVENT = {
-    powerful:      { label: "強力的輪迴星火 (活動)",        tierCount: 3, bossOffset: 0, tiers: [3/10, 3/10, 4/10],                                              tierLabels: ["T1 (30%)", "T2 (30%)", "T3 (40%)"] },
-    eternal:       { label: "永遠/暗黑輪迴星火 (活動)",     tierCount: 3, bossOffset: 0, tiers: [2/9, 3/9, 4/9],                                                 tierLabels: ["T1 (22.22%)", "T2 (33.33%)", "T3 (44.44%)"] },
+    powerful:      { label: "強力的輪迴星火/燃燒的輪迴星火 (活動)",  tierCount: 3, bossOffset: 0, tiers: [3/10, 3/10, 4/10],                                              tierLabels: ["T1 (30%)", "T2 (30%)", "T3 (40%)"] },
+    eternal:       { label: "永遠的輪迴星火/暗黑輪迴星火/1000萬楓幣 (活動)", tierCount: 3, bossOffset: 0, tiers: [2/9, 3/9, 4/9],                                                 tierLabels: ["T1 (22.22%)", "T2 (33.33%)", "T3 (44.44%)"] },
     awakened:      { label: "覺醒的輪迴星火 (活動)",        tierCount: 5, bossOffset: 2, tiers: [9622/10000, 150/10000, 116/10000, 66/10000, 46/10000],          tierLabels: ["T1 (96.22%)", "T2 (1.50%)", "T3 (1.16%)", "T4 (0.66%)", "T5 (0.46%)"] },
     awakened_dark: { label: "覺醒的暗黑輪迴星火 (活動)",    tierCount: 5, bossOffset: 2, tiers: [0, 70/100, 26/100, 3/100, 1/100],                               tierLabels: ["T1 (0%)", "T2 (70.00%)", "T3 (26.00%)", "T4 (3.00%)", "T5 (1.00%)"] }
 };
