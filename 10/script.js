@@ -89,7 +89,48 @@ const enhancementCosts = {
     '250': [435000, 869100, 1303100, 1737100, 2171100, 2605200, 3039200, 3473200, 3907300, 4341300, 17740600, 40802800, 74312000, 123728500, 218718100, 222861900, 273434000, 348068200, 984561100, 1696211500, 387009800, 438804400, 494760300, 555008800, 619680000, 688902000, 762801400, 841503600, 925132300, 1013810000],
 };
 
-const SETTINGS_KEY = 'starforceSimulatorSettings_v5'; 
+const SETTINGS_KEY = 'starforceSimulatorSettings_v5';
+
+const DEFAULT_SETTINGS = {
+    equipLevel: "200",
+    startStar: "0",
+    targetStar: "23",
+    compensationPrice: "2500000000",
+    vipDiscount: "0",
+    costDiscount: false,
+    guaranteedSuccess: false,
+    reduceDestruction: false,
+    disableCoupons: false,
+    disableHighCoupons: true,
+    disableSpecialCoupons: true,
+    exchangeRate: "25000000",
+    ratioMain: "2",
+    ratioVice: "10",
+    coupons: {
+        "10": "4429999", "11": "2699999", "12": "3999999", "13": "3944444", "14": "4444444",
+        "15": "36399999", "16": "229999998", "17": "1319999998", "18": "2429988876",
+        "19": "3829999999", "20": "19898888888", "21": "", "22": "", "23": ""
+    },
+    specialCoupons: {
+        "limit-21": "", "limit-22": "", "limit-23": "", "limit-24": "", "limit-25": "",
+        "limit-50-23": "", "limit-50-24": "", "limit-50-25": "", "limit-50-26": "",
+        "limit-30-23": "", "limit-30-24": "", "limit-30-25": "", "limit-30-26": "",
+        "append-23": ""
+    },
+    customPath: {
+        enabled: true,
+        initialJump: "coupon_19",
+        recoveryJump: "coupon_19",
+        starMethods: {
+            "15": "no_prev", "16": "no_prev", "17": "no_prev", "18": "no_prev",
+            "19": "no_prev", "20": "no_prev", "21": "no_prev", "22": "no_prev"
+        },
+        recMethods: {
+            "15": "auto", "16": "auto", "17": "auto", "18": "auto", "19": "auto",
+            "20": "full", "21": "full", "22": "full"
+        }
+    }
+};
 
 function getSettingsObject() {
     const settings = {
@@ -198,7 +239,10 @@ function applySettingsToUI(settings, dom) {
 
 function loadSettings(dom) {
     const savedSettings = localStorage.getItem(SETTINGS_KEY);
-    if (!savedSettings) return null;
+    if (!savedSettings) {
+        applySettingsToUI(DEFAULT_SETTINGS, dom);
+        return DEFAULT_SETTINGS;
+    }
     const settings = JSON.parse(savedSettings);
     applySettingsToUI(settings, dom);
     return settings;
