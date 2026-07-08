@@ -34,7 +34,6 @@ const baseStarProbabilities = [
 ];
 
 // 已套用「刪除星力捕捉，成功率永久 1.05 倍」的新機率表
-// Star catch 使成功率 ×1.05，其餘機率（失敗與破壞）等比例縮小
 const starProbabilities = baseStarProbabilities.map(p => {
     const newSuccess = Math.min(1.0, p.success * 1.05);
     const scale = (1.0 - newSuccess) / (1.0 - p.success);
@@ -46,9 +45,7 @@ const starProbabilities = baseStarProbabilities.map(p => {
     };
 });
 
-// 痕跡完全修復費用表（官方公告數值，2026/07）
-// mesos 依【被破壞的星數】×【裝備等級】二維查表；equips 不受裝備等級影響
-// 130 等級裝備不支援痕跡完全復原，故不列入
+// 痕跡完全修復費用表
 const TRACE_RECOVERY_COSTS = {
     15: { equips: 1, mesos: { 140: 149000000,   150: 183000000,   160: 222000000,   200: 433000000,   250: 846000000   } },
     16: { equips: 1, mesos: { 140: 484000000,   150: 596000000,   160: 723000000,   200: 1420000000,  250: 2760000000  } },
@@ -60,12 +57,6 @@ const TRACE_RECOVERY_COSTS = {
     22: { equips: 4, mesos: { 140: 14100000000, 150: 17300000000, 160: 21000000000, 200: 41000000000, 250: 80100000000 } },
 };
 
-/**
- * 查詢痕跡完全修復所需楓幣。
- * @param {number} traceStar  - 被破壞當下的星數（15-22）
- * @param {string} equipLevel - 裝備等級字串，e.g. '150'
- * @returns {number} 需要的楓幣；若查無資料則回傳 Infinity
- */
 function getTraceMesos(traceStar, equipLevel) {
     const entry = TRACE_RECOVERY_COSTS[traceStar];
     if (!entry) return Infinity;
@@ -73,7 +64,6 @@ function getTraceMesos(traceStar, equipLevel) {
     if (entry.mesos[levelKey] !== undefined) return entry.mesos[levelKey];
     const keys = Object.keys(entry.mesos).map(Number).sort((a, b) => a - b);
     const lvl = parseInt(levelKey, 10);
-    // 低於最小支援等級（如 130）視為不支援，不做 fallback
     if (lvl < keys[0]) return Infinity;
     const fallback = keys.filter(k => k <= lvl).at(-1) ?? keys[0];
     return entry.mesos[fallback];
@@ -89,7 +79,7 @@ const enhancementCosts = {
     '250': [435000, 869100, 1303100, 1737100, 2171100, 2605200, 3039200, 3473200, 3907300, 4341300, 17740600, 40802800, 74312000, 123728500, 218718100, 222861900, 273434000, 348068200, 984561100, 1696211500, 387009800, 438804400, 494760300, 555008800, 619680000, 688902000, 762801400, 841503600, 925132300, 1013810000],
 };
 
-const SETTINGS_KEY = 'starforceSimulatorSettings_v5';
+const SETTINGS_KEY = 'starforceSimulatorSettings_v6';
 
 const DEFAULT_SETTINGS = {
     equipLevel: "200",
@@ -248,9 +238,334 @@ function loadSettings(dom) {
     return settings;
 }
 
+// ============================================================================
+// 終極絕對精準動態規劃引擎 (Exact MDP Solver) - 防記憶體洩漏與卡死優化版
+// ============================================================================
+function solveMDPExact(targetStar, equipLevel, compensationPrice, couponPrices, specialCouponPrices, costDiscount, vipDiscount, activeProbabilities, K, forcedPath = null) {
+    const MAX_STATES = 30;
+    let V = new Array(MAX_STATES).fill(0);
+    let Var = new Array(MAX_STATES).fill(0);
+    let D = new Array(MAX_STATES).fill(0);
+    let CPN = new Array(MAX_STATES).fill(0);
+    let EQ = new Array(MAX_STATES).fill(0);
+    let Policy = new Array(MAX_STATES).fill(null);
+    const YI = 100000000;
+    const equipLevelNum = parseInt(equipLevel);
+    const originalCosts = enhancementCosts[equipLevel];
+
+    for (let iter = 0; iter < 500; iter++) {
+        let maxDiff = 0;
+        for (let n = targetStar - 1; n >= 0; n--) {
+            if (n >= originalCosts.length) continue;
+            
+            let oldScore = V[n] + K * Var[n];
+            let bestScore = Infinity;
+            let bestV = Infinity, bestVar = 0, bestD = 0, bestCPN = 0, bestEQ = 0;
+            let bestType = null, bestName = null, bestLimitStar = null, bestRecChoice = null, bestActionCost = 0;
+
+            // 🐛 【修復點】：這裡的變數屬性名稱已修正為 forcedStarMethods 與 forcedRecoveryMethods
+            let forcedMethod = (forcedPath && forcedPath.forcedStarMethods) ? forcedPath.forcedStarMethods[n] : null;
+            let forcedRec = (forcedPath && forcedPath.forcedRecoveryMethods) ? forcedPath.forcedRecoveryMethods[n] : 'auto';
+
+            if (!forcedPath) {
+                for (const [cpnStar, price] of Object.entries(couponPrices)) {
+                    let s = parseInt(cpnStar);
+                    if (s > n && s <= targetStar) {
+                        let cost = price;
+                        let v_new = cost + V[s];
+                        let var_new = Var[s]; 
+                        let score_new = (v_new / YI) + K * var_new;
+                        if (score_new < bestScore) {
+                            bestScore = score_new; bestV = v_new; bestVar = var_new; 
+                            bestD = D[s]; bestCPN = cost + CPN[s]; bestEQ = EQ[s]; 
+                            bestType = 'coupon'; bestLimitStar = s; bestActionCost = cost; bestName = `使用${s}星券`;
+                        }
+                    }
+                }
+            }
+
+            let traceStar = n >= 23 ? 22 : n;
+            let traceCost = Infinity;
+            let traceEquipCount = 0;
+            if (traceStar >= 15 && TRACE_RECOVERY_COSTS[traceStar] && getTraceMesos(traceStar, equipLevel) !== Infinity) {
+                const recData = TRACE_RECOVERY_COSTS[traceStar];
+                traceCost = (recData.equips * compensationPrice) + getTraceMesos(traceStar, equipLevel);
+                traceEquipCount = recData.equips;
+            }
+
+            let jumpTarget = 12;
+            let jumpCost = compensationPrice;
+            if (forcedPath && forcedPath.recoveryJump) {
+                jumpTarget = forcedPath.recoveryJump;
+                jumpCost = compensationPrice + (couponPrices[jumpTarget] || 0);
+            }
+
+            let costDest12 = jumpCost + V[jumpTarget];
+            let varDest12 = Var[jumpTarget];
+            let scoreDest12 = (costDest12 / YI) + K * varDest12;
+
+            let costDestFull = traceCost + V[traceStar];
+            let varDestFull = Var[traceStar];
+            let scoreDestFull = (costDestFull / YI) + K * varDestFull;
+
+            let recChoice = '12';
+            let d_v = costDest12, d_var = varDest12, d_equip = compensationPrice + EQ[jumpTarget];
+            let d_cpn = (forcedPath && forcedPath.recoveryJump ? (couponPrices[jumpTarget] || 0) : 0) + CPN[jumpTarget];
+            let d_d = 1 + D[jumpTarget];
+            
+            let useFull = false;
+            if (forcedRec === 'full' && traceCost !== Infinity) useFull = true;
+            else if (forcedRec === '12') useFull = false;
+            else if (forcedRec === 'auto') { useFull = (traceCost !== Infinity) && (scoreDestFull < scoreDest12); }
+            else if (!forcedPath) { useFull = (traceCost !== Infinity) && (scoreDestFull < scoreDest12); }
+
+            if (useFull) {
+                recChoice = 'full';
+                d_v = costDestFull; d_var = varDestFull; d_equip = traceEquipCount * compensationPrice + EQ[traceStar]; 
+                d_cpn = CPN[traceStar]; d_d = 1 + D[traceStar];
+            }
+
+            const evalTransition = (type, actionCost, p, k, r, actionName, limitStar=null) => {
+                if (1 - k <= 0) return;
+                let expV = (actionCost + p * V[n+1] + r * d_v) / (1 - k);
+                let term1 = p * Math.pow(V[n+1] - expV, 2);
+                let term2 = r * Math.pow(d_v - expV, 2);
+                let expVar = (term1 + term2 + p * Var[n+1] + r * d_var) / (1 - k);
+                let score = (expV / YI) + K * expVar;
+                
+                if (score < bestScore) {
+                    bestScore = score; bestV = expV; bestVar = expVar;
+                    let cpnImm = (type.startsWith('limit') || type === 'append') ? actionCost : 0;
+                    bestCPN = (cpnImm + p * CPN[n+1] + r * d_cpn) / (1 - k);
+                    bestEQ = (p * EQ[n+1] + r * d_equip) / (1 - k);
+                    bestD = (p * D[n+1] + r * d_d) / (1 - k);
+                    
+                    bestType = type; bestName = actionName; bestLimitStar = limitStar; 
+                    bestRecChoice = recChoice; bestActionCost = actionCost;
+                }
+            };
+
+            const originalBaseCost = enhancementCosts[equipLevel][n];
+            let totalDiscountRate = 0;
+            if (costDiscount) totalDiscountRate += 0.30;
+            if (n <= 16) totalDiscountRate += vipDiscount;
+
+            if (originalBaseCost !== undefined && (!forcedMethod || forcedMethod === 'no_prev')) {
+                let costNoPrev = totalDiscountRate > 0 ? originalBaseCost * (1 - totalDiscountRate) : originalBaseCost;
+                let probs = activeProbabilities[n];
+                evalTransition('sf', costNoPrev, probs.success, probs.keep, probs.destroy, '直接強化(不防爆)');
+            }
+
+            if (n >= 15 && n <= 17 && originalBaseCost !== undefined && (!forcedMethod || forcedMethod === 'prev')) {
+                let costPrev = originalBaseCost * 3;
+                if (totalDiscountRate > 0) costPrev -= originalBaseCost * totalDiscountRate;
+                let probs = activeProbabilities[n];
+                evalTransition('sf_prev', costPrev, probs.success, probs.keep + probs.destroy, 0, '直接強化(防爆)');
+            }
+
+            let nextStar = n + 1;
+            for (const [ls, price] of Object.entries(specialCouponPrices.limit)) {
+                if (nextStar <= parseInt(ls) && (!forcedMethod || forcedMethod === `limit_${ls}`)) {
+                    evalTransition('limit', price, 1.0, 0, 0, `突破券100%(${ls}星)`, ls);
+                }
+            }
+            for (const [ls, price] of Object.entries(specialCouponPrices.limit50)) {
+                if (nextStar <= parseInt(ls) && (!forcedMethod || forcedMethod === `limit50_${ls}`)) {
+                    evalTransition('limit50', price, 0.5, 0.5, 0, `突破券50%(${ls}星)`, ls);
+                }
+            }
+            for (const [ls, price] of Object.entries(specialCouponPrices.limit30)) {
+                if (nextStar <= parseInt(ls) && (!forcedMethod || forcedMethod === `limit30_${ls}`)) {
+                    evalTransition('limit30', price, 0.3, 0.7, 0, `突破券30%(${ls}星)`, ls);
+                }
+            }
+            if (specialCouponPrices.append23 !== null && nextStar <= 23 && equipLevelNum <= 200 && (!forcedMethod || forcedMethod === 'append')) {
+                evalTransition('append', specialCouponPrices.append23, 0.3, 0.7, 0, '追加券30%(23星)', 23);
+            }
+
+            V[n] = bestV; Var[n] = bestVar; D[n] = bestD; CPN[n] = bestCPN; EQ[n] = bestEQ;
+            
+            if (bestType) {
+                Policy[n] = { type: bestType, name: bestName, limitStar: bestLimitStar, recChoice: bestRecChoice, cost: bestActionCost };
+                if (bestType === 'coupon') Policy[n].target = bestLimitStar;
+            } else {
+                Policy[n] = null;
+            }
+            
+            if (forcedPath && forcedPath.recoveryJump && n === 12) {
+                let jumpTarget = forcedPath.recoveryJump;
+                Policy[12] = { type: 'coupon', target: jumpTarget, cost: couponPrices[jumpTarget] || 0, name: `使用${jumpTarget}星券` };
+            }
+
+            if (isFinite(bestScore) && isFinite(oldScore)) {
+                maxDiff = Math.max(maxDiff, Math.abs(bestScore - oldScore));
+            }
+        }
+        if (maxDiff < 1e-6) break;
+    }
+
+    if (forcedPath && forcedPath.initialJump) {
+        let jumpTarget = forcedPath.initialJump;
+        let jumpCost = couponPrices[jumpTarget] || 0;
+        let startStar = forcedPath.startStar;
+        
+        V[startStar] = jumpCost + V[jumpTarget];
+        Var[startStar] = Var[jumpTarget];
+        D[startStar] = D[jumpTarget];
+        CPN[startStar] = jumpCost + CPN[jumpTarget];
+        EQ[startStar] = EQ[jumpTarget];
+        Policy[startStar] = { type: 'coupon', target: jumpTarget, cost: jumpCost, name: `使用${jumpTarget}星券` };
+    }
+
+    return { V, Var, D, CPN, EQ, Policy };
+}
+
+// 根據 MDP Policy 產生文字說明
+function generatePathDescriptionMDP(start, target, policyArray) {
+    let segments = [];
+    let curr = start;
+    let visited = new Set();
+    
+    let currentGroupStart = -1;
+    let currentGroupAction = null;
+
+    const flushGroup = (endStar) => {
+        if (currentGroupStart !== -1 && currentGroupAction) {
+            let recText = "";
+            if (currentGroupAction.type.startsWith('sf') && currentGroupAction.recChoice) {
+                 recText = currentGroupAction.recChoice === 'full' 
+                    ? ' <span style="color:#d35400; font-weight:bold;">[若炸：選完全復原]</span>' 
+                    : ' <span style="color:#2980b9; font-weight:bold;">[若炸：選降回12星]</span>';
+            }
+            segments.push(`${segments.length+1}. ${currentGroupStart} → ${endStar}: ${currentGroupAction.name}${recText}`);
+        }
+    };
+
+    while (curr < target) {
+        if (visited.has(curr)) break; 
+        visited.add(curr);
+        
+        let act = policyArray[curr];
+        if (!act) break;
+
+        if (act.type === 'coupon') {
+            flushGroup(curr);
+            currentGroupStart = -1;
+            currentGroupAction = null;
+            segments.push(`${segments.length+1}. ${act.name} (跳至${act.target}星)`);
+            curr = act.target;
+        } else {
+            let actKey = act.name + "_" + act.recChoice;
+            let prevKey = currentGroupAction ? (currentGroupAction.name + "_" + currentGroupAction.recChoice) : null;
+            
+            if (currentGroupStart === -1) {
+                currentGroupStart = curr;
+                currentGroupAction = act;
+            } else if (actKey !== prevKey) {
+                flushGroup(curr);
+                currentGroupStart = curr;
+                currentGroupAction = act;
+            }
+            curr++;
+        }
+    }
+    flushGroup(curr);
+    
+    if (segments.length === 0) return "無 (已達成)";
+    return segments.join('<br>');
+}
+
+// 根據 MDP Policy 進行單次模擬
+function simulateTrialMDP(equipLevel, targetStar, compensationPrice, policyArray, costDiscount, vipDiscount, activeProbabilities, startStar, keepLog = false) {
+    let currentStars = startStar;
+    let totalCost = 0, totalDestroys = 0, totalEnhancementCost = 0, totalDestructionCost = 0, totalCouponCost = 0;
+    const log = [];
+    let attempts = 0;
+    const MAX_ATTEMPTS = 2000000; 
+
+    if (keepLog) log.push(`<span class="log-strategy">=> 模擬開始 (初始: ${currentStars}星)</span>`);
+
+    while (currentStars < targetStar) {
+        attempts++;
+        if (attempts > MAX_ATTEMPTS) {
+            if (keepLog) log.push(`<span class="log-fail">系統：模擬次數過多 (${attempts}次)，已強制中斷。</span>`);
+            return { aborted: true, log: log, totalCost: Infinity }; 
+        }
+
+        let act = policyArray[currentStars];
+        if (!act) break;
+
+        if (act.type === 'coupon') {
+            totalCost += act.cost; totalCouponCost += act.cost;
+            if (keepLog) log.push(`<span class="log-strategy">=> 決策：${act.name} <span class="log-cost">(花費: ${act.cost.toLocaleString()})</span> <span class="log-cumulative">(累積: ${totalCost.toLocaleString()})</span></span>`);
+            currentStars = act.target;
+            continue;
+        }
+
+        if (act.type.startsWith('limit') || act.type === 'append') {
+            totalCost += act.cost; totalCouponCost += act.cost;
+            let r = Math.random();
+            let success = false;
+            if (act.type === 'limit') success = true;
+            else if (act.type === 'limit50') success = r < 0.5;
+            else if (act.type === 'limit30' || act.type === 'append') success = r < 0.3;
+
+            let name = act.name;
+            if (success) {
+                currentStars++;
+                if (keepLog) log.push(`[${currentStars-1} → ${currentStars}星]...<span class="log-strategy">使用 ${name}</span> <span class="log-success">成功！</span> <span class="log-cost">(券費: ${act.cost.toLocaleString()})</span> <span class="log-cumulative">(累積: ${totalCost.toLocaleString()})</span>`);
+            } else {
+                if (keepLog) log.push(`[${currentStars} → ${currentStars+1}星]...<span class="log-strategy">使用 ${name}</span> <span class="log-keep">失敗(券消失)</span> <span class="log-cost">(券費: ${act.cost.toLocaleString()})</span> <span class="log-cumulative">(累積: ${totalCost.toLocaleString()})</span>`);
+            }
+            continue;
+        }
+
+        let cost = act.cost;
+        totalCost += cost; totalEnhancementCost += cost;
+        let probs = { ...activeProbabilities[currentStars] };
+        let preventInfo = '';
+        if (act.type === 'sf_prev') {
+            probs.keep += probs.destroy; probs.destroy = 0;
+            preventInfo = ' (防爆)';
+        }
+
+        let r = Math.random();
+        let outcomeClass, outcomeText;
+        let starBeforeAttempt = currentStars;
+
+        if (r < probs.success) {
+            currentStars++; outcomeClass = 'log-success'; outcomeText = '成功！';
+        } else if (r < probs.success + probs.destroy) {
+            totalDestroys++;
+            if (act.recChoice === 'full') {
+                let traceStar = currentStars >= 23 ? 22 : currentStars;
+                const recData = TRACE_RECOVERY_COSTS[traceStar];
+                let traceCost = getTraceMesos(traceStar, equipLevel);
+                let equipC = recData.equips * compensationPrice;
+                let restoreCost = traceCost + equipC;
+                totalCost += restoreCost;
+                totalDestructionCost += equipC;
+                currentStars = traceStar;
+                outcomeClass = 'log-fail';
+                outcomeText = `破壞！(選用完全復原花費 +${restoreCost.toLocaleString()}，維持 ${traceStar}星)`;
+            } else {
+                totalCost += compensationPrice;
+                totalDestructionCost += compensationPrice;
+                currentStars = 12;
+                outcomeClass = 'log-fail';
+                outcomeText = `裝備已破壞！(補償一件裝備 +${compensationPrice.toLocaleString()}，降至 12星)`;
+            }
+        } else {
+            outcomeClass = 'log-keep'; outcomeText = '維持星級。';
+        }
+        if (keepLog) log.push(`[${starBeforeAttempt} → ${currentStars}星]...<span class="${outcomeClass}">${outcomeText}</span>${preventInfo} <span class="log-cost">(花費: ${cost.toLocaleString()})</span> <span class="log-cumulative">(累積: ${totalCost.toLocaleString()})</span>`);
+    }
+    return { totalCost, totalDestroys, totalEnhancementCost, totalDestructionCost, totalCouponCost, log, aborted: false };
+}
+
+
 document.addEventListener('DOMContentLoaded', () => {
     
-    // --- 動態注入 Tooltip 浮動框架 (完全不干擾 Table 的 z-index) ---
     const globalTooltip = document.createElement('div');
     globalTooltip.id = 'global-tooltip';
     globalTooltip.style.cssText = 'position: fixed; visibility: hidden; width: 320px; background-color: #2c3e50; color: #ecf0f1; border-radius: 8px; padding: 15px; z-index: 999999; font-size: 0.9rem; line-height: 1.6; box-shadow: 0 8px 20px rgba(0,0,0,0.5); pointer-events: none; transition: opacity 0.2s; opacity: 0; word-break: break-all; font-family: sans-serif;';
@@ -540,415 +855,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return prices;
     }
 
-    // --- 核心進化：正確的 DP 內層變異數掃描 + 雙軌復原策略 ---
-    function calculateTheoreticalIntervals(equipLevel, maxStar, compensationPrice, couponPrices, specialCouponPrices, costDiscount, vipDiscount, activeProbabilities, K = 0) {
-        const originalCosts = enhancementCosts[equipLevel];
-        const intervalResults = [];
-        const memo = {}; 
-        const equipLevelNum = parseInt(equipLevel, 10);
-        const YI = 100000000;
-
-        for (let n = 0; n < maxStar; n++) {
-            if (n >= originalCosts.length) {
-                intervalResults[n] = { cost: Infinity, varCost: Infinity, score: Infinity, destructions: Infinity, couponCost: Infinity, specialMethod: null, isPreventing: false, recoveryStrategy: '12' };
-                continue;
-            }
-            
-            const originalBaseCost = originalCosts[n];
-            let probsNoPrev = { ...activeProbabilities[n] };
-            
-            let totalDiscountRate = 0;
-            if (costDiscount) totalDiscountRate += 0.30;
-            if (n <= 16) totalDiscountRate += vipDiscount;
-
-            // 復原成本計算 (比較：回 12 星 vs 完全復原)
-            let recoveryTotalCost = 0, climbDestructions = 0, climbCouponCost = 0, climbVar = 0;
-            let recoveryStrategy = '12';
-            let expEquipCostForInterval = 0;
-
-            if (probsNoPrev.destroy > 0 && n >= 12) {
-                // 路線 A：降回 12 星
-                const path12 = findOptimalPath(12, n, intervalResults, couponPrices, memo, K);
-                let costA = compensationPrice + path12.totalCost;
-                let varA = path12.totalVar;
-                let scoreA = (costA / YI) + K * varA;
-
-                // 路線 B：完全復原 (若 n >= 23, 痕跡變為 22 星)
-                let scoreB = Infinity, costB = Infinity, varB = 0, pathB = null;
-                let traceStar = n >= 23 ? 22 : n;
-
-                if (traceStar >= 15 && TRACE_RECOVERY_COSTS[traceStar] && getTraceMesos(traceStar, equipLevel) !== Infinity) {
-                    const recData = TRACE_RECOVERY_COSTS[traceStar];
-                    const restoreCost = (recData.equips * compensationPrice) + getTraceMesos(traceStar, equipLevel);
-                    pathB = findOptimalPath(traceStar, n, intervalResults, couponPrices, memo, K);
-                    costB = restoreCost + pathB.totalCost;
-                    varB = pathB.totalVar;
-                    scoreB = (costB / YI) + K * varB;
-                }
-
-                // 取期望值較優的路線
-                if (scoreB < scoreA) {
-                    recoveryTotalCost = costB;
-                    climbVar = varB;
-                    climbDestructions = pathB.totalDestructions;
-                    climbCouponCost = pathB.totalCouponCost;
-                    recoveryStrategy = 'full';
-                    // 路線B：每次炸裝主要花 equips 件空裝，加上從 traceStar 爬回的裝備成本
-                    const traceStar_eq = n >= 23 ? 22 : n;
-                    const recData_eq = TRACE_RECOVERY_COSTS[traceStar_eq];
-                    expEquipCostForInterval = (probsNoPrev.destroy * (recData_eq.equips * compensationPrice + (pathB.totalEquipCost ?? 0))) / probsNoPrev.success;
-                } else {
-                    recoveryTotalCost = costA;
-                    climbVar = varA;
-                    climbDestructions = path12.totalDestructions;
-                    climbCouponCost = path12.totalCouponCost;
-                    recoveryStrategy = '12';
-                    // 路線A：每次炸裝花 1 件空裝，加上從 12 星爬回的裝備成本
-                    expEquipCostForInterval = (probsNoPrev.destroy * (compensationPrice + (path12.totalEquipCost ?? 0))) / probsNoPrev.success;
-                }
-            }
-
-            let baseCostNoPrev = originalBaseCost;
-            if (totalDiscountRate > 0) baseCostNoPrev = originalBaseCost * (1 - totalDiscountRate);
-            
-            let b = baseCostNoPrev / YI;
-            let mu_D = recoveryTotalCost / YI; // 使用最佳復原總成本
-            let v_D = climbVar; 
-            let p = probsNoPrev.success;
-            let k = probsNoPrev.keep;
-            let r = probsNoPrev.destroy;
-
-            let mu_n = (b + r * mu_D) / p;
-            let var_term = r * v_D + p * Math.pow(b - mu_n, 2) + k * Math.pow(b, 2) + r * Math.pow(b + mu_D, 2);
-            let v_n = Math.max(0, var_term / p);
-            
-            let scoreNoPrev = mu_n + K * v_n;
-            
-            const expCostNoPrev = mu_n * YI;
-            const expDestNoPrev = (probsNoPrev.destroy * (1 + climbDestructions)) / probsNoPrev.success;
-            const expCpnNoPrev = (probsNoPrev.destroy * climbCouponCost) / probsNoPrev.success;
-            
-            let bestMethod = { type: 'sf', isPreventing: false, cost: expCostNoPrev, varCost: v_n, score: scoreNoPrev, destructions: expDestNoPrev, couponCost: expCpnNoPrev, equipCost: expEquipCostForInterval };
-
-            if (n >= 15 && n <= 17 && originalBaseCost > 0) {
-                let baseCostPrev = originalBaseCost * 3;
-                if (totalDiscountRate > 0) baseCostPrev -= originalBaseCost * totalDiscountRate;
-                let probsPrev = { success: probsNoPrev.success, destroy: 0, keep: probsNoPrev.keep + probsNoPrev.destroy };
-                
-                let b_prev = baseCostPrev / YI;
-                let p_prev = probsPrev.success;
-                
-                let mu_prev = b_prev / p_prev;
-                let v_prev = Math.max(0, (b_prev * b_prev * (1 - p_prev)) / (p_prev * p_prev));
-                
-                let scorePrev = mu_prev + K * v_prev;
-                if (scorePrev < bestMethod.score) {
-                    bestMethod = { type: 'sf', isPreventing: true, cost: mu_prev * YI, varCost: v_prev, score: scorePrev, destructions: 0, couponCost: 0, equipCost: 0 };
-                }
-            }
-
-            const targetStar = n + 1;
-            
-            const evalScroll = (type, limitStar, costTrue, v_scroll) => {
-                let mu_scroll = costTrue / YI;
-                let score_scroll = mu_scroll + K * v_scroll;
-                if (score_scroll < bestMethod.score) {
-                    bestMethod = { type: type, limitStar: limitStar, cost: costTrue, varCost: v_scroll, score: score_scroll, destructions: 0, couponCost: costTrue, equipCost: 0 };
-                }
-            };
-
-            for (const [limitStar, price] of Object.entries(specialCouponPrices.limit)) {
-                if (targetStar <= parseInt(limitStar, 10)) evalScroll('limit', limitStar, price, 0); 
-            }
-            for (const [limitStar, price] of Object.entries(specialCouponPrices.limit50)) {
-                if (targetStar <= parseInt(limitStar, 10)) {
-                    let S = (price / 0.5) / YI;
-                    let v_50 = S * S * 2 * 0.25; 
-                    evalScroll('limit50', limitStar, price / 0.5, v_50);
-                }
-            }
-            for (const [limitStar, price] of Object.entries(specialCouponPrices.limit30)) {
-                if (targetStar <= parseInt(limitStar, 10)) {
-                    let S_yi = price / YI;
-                    let v_30 = S_yi * S_yi * (0.7 / 0.09); 
-                    evalScroll('limit30', limitStar, price / 0.3, v_30);
-                }
-            }
-            if (specialCouponPrices.append23 !== null && targetStar <= 23 && equipLevelNum <= 200) {
-                let S_yi = specialCouponPrices.append23 / YI;
-                let v_append = S_yi * S_yi * (0.7 / 0.09);
-                evalScroll('append', 23, specialCouponPrices.append23 / 0.3, v_append);
-            }
-
-            intervalResults[n] = bestMethod;
-            intervalResults[n].specialMethod = bestMethod.type !== 'sf' ? bestMethod : null;
-            intervalResults[n].isPreventing = bestMethod.type === 'sf' ? bestMethod.isPreventing : false;
-            intervalResults[n].recoveryStrategy = recoveryStrategy;
-        }
-        return intervalResults;
-    }
-
-    function findOptimalPath(startStar, endStar, theoreticalIntervals, couponPrices, memo = {}, K = 0) {
-        const disableCoupons = Object.keys(couponPrices).length === 0;
-        const memoKey = `${startStar}->${endStar}:${disableCoupons}:${K}`;
-        if (memo[memoKey]) return memo[memoKey];
-        const candidatePaths = [];
-        const YI = 100000000;
-        
-        let enhancementCost = 0, enhancementDestructions = 0, enhancementCouponCost = 0, enhancementVar = 0, enhancementEquipCost = 0; 
-        for (let i = startStar; i < endStar; i++) {
-            enhancementCost += theoreticalIntervals[i].cost;
-            enhancementDestructions += theoreticalIntervals[i].destructions;
-            enhancementCouponCost += theoreticalIntervals[i].couponCost;
-            enhancementVar += theoreticalIntervals[i].varCost;
-            enhancementEquipCost += (theoreticalIntervals[i].equipCost ?? 0);
-        }
-        
-        let sfScore = (enhancementCost / YI) + K * enhancementVar;
-        candidatePaths.push({
-            strategyText: `從${startStar}星強化`, startStar: startStar, couponCost: 0,
-            totalCost: enhancementCost, totalDestructions: enhancementDestructions, totalCouponCost: enhancementCouponCost,
-            totalVar: enhancementVar, totalEquipCost: enhancementEquipCost, score: sfScore
-        });
-        
-        if (!disableCoupons) {
-            const availableCoupons = Object.keys(couponPrices).map(Number);
-            for (const couponStar of availableCoupons) {
-                if (couponStar <= startStar || couponStar > endStar) continue;
-                let pathCost = couponPrices[couponStar] || 0;
-                let pathDestructions = 0;
-                let pathCouponCost = pathCost;
-                let pathVar = 0;
-                let pathEquipCost = 0;
-                
-                if (couponStar < endStar) {
-                    for (let i = couponStar; i < endStar; i++) {
-                        pathCost += theoreticalIntervals[i].cost;
-                        pathDestructions += theoreticalIntervals[i].destructions;
-                        pathCouponCost += theoreticalIntervals[i].couponCost;
-                        pathVar += theoreticalIntervals[i].varCost;
-                        pathEquipCost += (theoreticalIntervals[i].equipCost ?? 0);
-                    }
-                }
-                
-                let cpnScore = (pathCost / YI) + K * pathVar;
-                candidatePaths.push({
-                    strategyText: `使用${couponStar}星券`, startStar: couponStar, couponCost: couponPrices[couponStar] || 0,
-                    totalCost: pathCost, totalDestructions: pathDestructions, totalCouponCost: pathCouponCost,
-                    totalVar: pathVar, totalEquipCost: pathEquipCost, score: cpnScore
-                });
-            }
-        }
-        
-        const bestPath = candidatePaths.reduce((min, p) => p.score < min.score ? p : min);
-        memo[memoKey] = bestPath;
-        return bestPath;
-    }
-
-    function generatePathDescription(start, end, intervals, initialStrategyText, activeProbabilities) {
-        let segments = [];
-        let currentStar = start;
-        const match = initialStrategyText.match(/使用(\d+)星券/);
-        if (match) {
-            currentStar = parseInt(match[1], 10);
-            segments.push(`1. ${initialStrategyText} (跳至${currentStar}星)`);
-        } 
-        
-        let sfStart = null;
-        let currentKey = null; 
-
-        for (let i = currentStar; i < end; i++) {
-            const method = intervals[i].specialMethod;
-            const isPrev = intervals[i].isPreventing;
-            const target = i + 1;
-
-            if (method) {
-                if (sfStart !== null) {
-                    let prevInterval = intervals[sfStart];
-                    let prevIsPrev = prevInterval.isPreventing;
-                    let prevRecStrat = prevInterval.recoveryStrategy || '12';
-                    let prevHasDestroy = (activeProbabilities[sfStart] && activeProbabilities[sfStart].destroy > 0) && !prevIsPrev;
-                    
-                    let typeStr = prevIsPrev ? '直衝 (防爆)' : '直衝 (不防爆)';
-                    if (prevHasDestroy) {
-                        typeStr += prevRecStrat === 'full' 
-                            ? ' <span style="color:#d35400; font-weight:bold;">[若炸：選完全復原]</span>' 
-                            : ' <span style="color:#2980b9; font-weight:bold;">[若炸：選降回12星]</span>';
-                    }
-                    segments.push(`${segments.length+1}. ${sfStart} → ${i}: ${typeStr}`);
-                    sfStart = null;
-                }
-                let name = '';
-                if (method.type === 'limit') name = `突破券100%(${method.limitStar})`;
-                else if (method.type === 'limit50') name = `突破券50%(${method.limitStar})`;
-                else if (method.type === 'limit30') name = `突破券30%(${method.limitStar})`;
-                else name = `追加券30%(23)`;
-                segments.push(`${segments.length+1}. ${i} → ${target}: ${name}`);
-            } else {
-                let recStrat = intervals[i].recoveryStrategy || '12';
-                let hasDestroyRisk = (activeProbabilities[i] && activeProbabilities[i].destroy > 0) && !isPrev;
-                let thisKey = (isPrev ? 'prev' : 'noprev') + '_' + (hasDestroyRisk ? recStrat : 'none');
-
-                if (sfStart === null) {
-                    sfStart = i;
-                    currentKey = thisKey;
-                } else if (currentKey !== thisKey) {
-                    let prevInterval = intervals[sfStart];
-                    let prevIsPrev = prevInterval.isPreventing;
-                    let prevRecStrat = prevInterval.recoveryStrategy || '12';
-                    let prevHasDestroy = (activeProbabilities[sfStart] && activeProbabilities[sfStart].destroy > 0) && !prevIsPrev;
-                    
-                    let typeStr = prevIsPrev ? '直衝 (防爆)' : '直衝 (不防爆)';
-                    if (prevHasDestroy) {
-                        typeStr += prevRecStrat === 'full' 
-                            ? ' <span style="color:#d35400; font-weight:bold;">[若炸：選完全復原]</span>' 
-                            : ' <span style="color:#2980b9; font-weight:bold;">[若炸：選降回12星]</span>';
-                    }
-                    segments.push(`${segments.length+1}. ${sfStart} → ${i}: ${typeStr}`);
-                    sfStart = i;
-                    currentKey = thisKey;
-                }
-            }
-        }
-        if (sfStart !== null) {
-            let prevInterval = intervals[sfStart];
-            let prevIsPrev = prevInterval.isPreventing;
-            let prevRecStrat = prevInterval.recoveryStrategy || '12';
-            let prevHasDestroy = (activeProbabilities[sfStart] && activeProbabilities[sfStart].destroy > 0) && !prevIsPrev;
-            
-            let typeStr = prevIsPrev ? '直衝 (防爆)' : '直衝 (不防爆)';
-            if (prevHasDestroy) {
-                typeStr += prevRecStrat === 'full' 
-                    ? ' <span style="color:#d35400; font-weight:bold;">[若炸：選完全復原]</span>' 
-                    : ' <span style="color:#2980b9; font-weight:bold;">[若炸：選降回12星]</span>';
-            }
-            segments.push(`${segments.length+1}. ${sfStart} → ${end}: ${typeStr}`);
-        }
-        if (segments.length === 0) return "無 (已達成)";
-        return segments.join('<br>');
-    }
-
-    function simulateTrial(equipLevel, targetStar, compensationPrice, strategyGuide, costDiscount, vipDiscount, activeProbabilities, theoreticalIntervals, keepLog = false) {
-        let currentStars = strategyGuide.initialStart;
-        let totalCost = 0, totalDestroys = 0, totalEnhancementCost = 0, totalDestructionCost = 0, totalCouponCost = 0;
-        const log = [];
-        let destructionStrategy = null;
-        
-        let attempts = 0;
-        const MAX_ATTEMPTS = 2000000; 
-
-        if (keepLog) log.push(`<span class="log-strategy">=> 模擬開始 (初始: ${currentStars}星)</span>`);
-        
-        while (currentStars < targetStar) {
-            attempts++;
-            if (attempts > MAX_ATTEMPTS) {
-                if (keepLog) log.push(`<span class="log-fail">系統：模擬次數過多 (${attempts}次)，已強制中斷。</span>`);
-                return { aborted: true, log: log, totalCost: Infinity }; 
-            }
-
-            let currentStrategy;
-            if (currentStars === strategyGuide.initialStart) currentStrategy = strategyGuide[0];
-            else if (currentStars === 12) {
-                if (!destructionStrategy) destructionStrategy = strategyGuide[12];
-                currentStrategy = destructionStrategy;
-            } else currentStrategy = { startStar: currentStars };
-
-            if (currentStrategy.startStar > currentStars) {
-                const couponCost = currentStrategy.couponCost;
-                totalCost += couponCost; totalCouponCost += couponCost;
-                if (keepLog) log.push(`<span class="log-strategy">=> 決策：${currentStrategy.strategyText} <span class="log-cost">(花費: ${couponCost.toLocaleString()})</span> <span class="log-cumulative">(累積: ${totalCost.toLocaleString()})</span></span>`);
-                currentStars = currentStrategy.startStar;
-                if (currentStars >= targetStar) break;
-            }
-            const starBeforeAttempt = currentStars;
-            if (starBeforeAttempt >= enhancementCosts[equipLevel].length) break;
-
-            const intervalData = theoreticalIntervals[starBeforeAttempt];
-            if (intervalData.specialMethod) {
-                const method = intervalData.specialMethod;
-                let cost = 0; let name = ''; let success = false;
-                
-                if (method.type === 'limit') {
-                    name = `突破1星 100% (${method.limitStar}星)`;
-                    cost = method.cost; 
-                    success = true; 
-                } else if (method.type === 'limit50') {
-                    name = `突破1星 50% (${method.limitStar}星)`;
-                    cost = method.cost * 0.5; 
-                    if (Math.random() < 0.5) success = true;
-                } else if (method.type === 'limit30') {
-                    name = `突破1星 30% (${method.limitStar}星)`;
-                    cost = method.cost * 0.3; 
-                    if (Math.random() < 0.3) success = true;
-                } else if (method.type === 'append') {
-                    name = `追加1星 30% (23星)`;
-                    cost = method.cost * 0.3; 
-                    if (Math.random() < 0.3) success = true;
-                }
-                
-                totalCost += cost; totalCouponCost += cost; 
-                if (success) {
-                    currentStars++;
-                    if (keepLog) log.push(`[${starBeforeAttempt} → ${currentStars}星]...<span class="log-strategy">使用 ${name}</span> <span class="log-success">成功！</span> <span class="log-cost">(券費: ${cost.toLocaleString()})</span> <span class="log-cumulative">(累積: ${totalCost.toLocaleString()})</span>`);
-                } else {
-                    if (keepLog) log.push(`[${starBeforeAttempt} → ${currentStars}星]...<span class="log-strategy">使用 ${name}</span> <span class="log-keep">失敗(券消失)</span> <span class="log-cost">(券費: ${cost.toLocaleString()})</span> <span class="log-cumulative">(累積: ${totalCost.toLocaleString()})</span>`);
-                }
-            } else {
-                const originalBaseCost = enhancementCosts[equipLevel][starBeforeAttempt];
-                let currentEnhanceCost = originalBaseCost;
-                let probs = { ...activeProbabilities[starBeforeAttempt] };
-                let totalDiscountRate = 0;
-                if (costDiscount) totalDiscountRate += 0.30;
-                if (starBeforeAttempt <= 16) totalDiscountRate += vipDiscount;
-                
-                const isPreventing = intervalData.isPreventing;
-                let preventInfo = '';
-                if (isPreventing) {
-                    currentEnhanceCost = originalBaseCost * 3; 
-                    if (totalDiscountRate > 0) currentEnhanceCost -= originalBaseCost * totalDiscountRate;
-                    preventInfo = ' (防爆)';
-                    probs.keep += probs.destroy; probs.destroy = 0;
-                } else {
-                    if (totalDiscountRate > 0) currentEnhanceCost = originalBaseCost * (1 - totalDiscountRate);
-                }
-                
-                totalCost += currentEnhanceCost; totalEnhancementCost += currentEnhanceCost;
-                const rand = Math.random();
-                let outcomeClass, outcomeText;
-                
-                if (rand < probs.success) {
-                    currentStars++; outcomeClass = 'log-success'; outcomeText = '成功！';
-                } else if (rand < probs.success + probs.destroy) {
-                    totalDestroys++;
-                    const recStrategy = intervalData.recoveryStrategy || '12';
-                    let traceStar = starBeforeAttempt >= 23 ? 22 : starBeforeAttempt;
-
-                    if (recStrategy === 'full' && traceStar >= 15 && TRACE_RECOVERY_COSTS[traceStar] && getTraceMesos(traceStar, equipLevel) !== Infinity) {
-                        const recData = TRACE_RECOVERY_COSTS[traceStar];
-                        const equipCost = recData.equips * compensationPrice;
-                        const traceMesos = getTraceMesos(traceStar, equipLevel);
-                        const restoreCost = equipCost + traceMesos;
-                        totalCost += restoreCost;
-                        totalDestructionCost += equipCost; // 「裝備」欄只計入設備補償，痕跡楓幣費融入總成本
-                        currentStars = traceStar;
-                        outcomeClass = 'log-fail';
-                        outcomeText = `破壞！(選用完全復原花費 +${restoreCost.toLocaleString()}，維持 ${traceStar}星)`;
-                    } else {
-                        totalCost += compensationPrice;
-                        totalDestructionCost += compensationPrice;
-                        currentStars = 12;
-                        outcomeClass = 'log-fail';
-                        outcomeText = `裝備已破壞！(補償一件裝備 +${compensationPrice.toLocaleString()}，降至 12星)`;
-                    }
-                } else {
-                    outcomeClass = 'log-keep'; outcomeText = '維持星級。';
-                }
-                if (keepLog) log.push(`[${starBeforeAttempt} → ${currentStars}星]...<span class="${outcomeClass}">${outcomeText}</span>${preventInfo} <span class="log-cost">(花費: ${currentEnhanceCost.toLocaleString()})</span> <span class="log-cumulative">(累積: ${totalCost.toLocaleString()})</span>`);
-            }
-        }
-        return { totalCost, totalDestroys, totalEnhancementCost, totalDestructionCost, totalCouponCost, log, aborted: false };
-    }
-
     function calculateStatistics(runs) {
         const costs = runs.costs.sort((a, b) => a - b);
         const destroys = runs.destroys.sort((a, b) => a - b);
@@ -1023,7 +929,6 @@ document.addEventListener('DOMContentLoaded', () => {
         probsHtml += `<p style="margin:4px 0 0; font-size:0.8rem; color:#888;">※ 數值無條件捨去至小數點第二位（同官方習慣）</p>`;
         dom.probsTableContainer.innerHTML = probsHtml;
 
-        // 痕跡完全復原費用表
         dom.traceTableTitle.textContent = `痕跡完全復原費用參考（裝備等級 ${equipLevel}）`;
         const isTraceSupported = getTraceMesos(15, equipLevel) !== Infinity;
         let traceHtml;
@@ -1061,187 +966,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         dom.traceTableContainer.innerHTML = traceHtml;
     }
-    
-    // =====================================================================
-    // 自訂路徑功能（包含雙軌復原）
-    // =====================================================================
-    function calculateIntervalsWithForced(equipLevel, maxStar, compensationPrice, couponPrices, specialCouponPrices, costDiscount, vipDiscount, activeProbabilities, forcedStarMethods, forcedRecoveryMethods, customRecoveryJumpStar, customRecoveryJumpCost) {
-        const K = 0;
-        const originalCosts = enhancementCosts[equipLevel];
-        const intervalResults = [];
-        const memo = {};
-        const equipLevelNum = parseInt(equipLevel, 10);
-        const YI = 100000000;
-
-        for (let n = 0; n < maxStar; n++) {
-            if (n >= originalCosts.length) {
-                intervalResults[n] = { cost: Infinity, varCost: Infinity, score: Infinity, destructions: Infinity, couponCost: Infinity, specialMethod: null, isPreventing: false, recoveryStrategy: '12' };
-                continue;
-            }
-
-            const originalBaseCost = originalCosts[n];
-            const probsOrig = { ...activeProbabilities[n] };
-
-            let totalDiscountRate = 0;
-            if (costDiscount) totalDiscountRate += 0.30;
-            if (n <= 16) totalDiscountRate += vipDiscount;
-
-            let recoveryTotalCost = 0, climbDestructions = 0, climbCouponCost = 0, climbVar = 0;
-            let recoveryStrategy = '12';
-            let expEquipCostForInterval = 0;
-
-            if (probsOrig.destroy > 0 && n >= 12) {
-                // 路線 A：回 12 星
-                let costA = 0, varA = 0, destA = 0, cpnA = 0, equipCostA = 0;
-                if (customRecoveryJumpStar !== null && customRecoveryJumpStar !== undefined && n >= customRecoveryJumpStar) {
-                    costA = compensationPrice + customRecoveryJumpCost;
-                    cpnA = customRecoveryJumpCost;
-                    let segEquipCost = 0;
-                    for (let i = customRecoveryJumpStar; i < n; i++) {
-                        costA += intervalResults[i].cost;
-                        destA += intervalResults[i].destructions;
-                        cpnA += intervalResults[i].couponCost;
-                        varA += intervalResults[i].varCost;
-                        segEquipCost += (intervalResults[i].equipCost ?? 0);
-                    }
-                    equipCostA = (probsOrig.destroy * (compensationPrice + segEquipCost)) / probsOrig.success;
-                } else {
-                    const path12 = findOptimalPath(12, n, intervalResults, couponPrices, memo, K);
-                    costA = compensationPrice + path12.totalCost;
-                    destA = path12.totalDestructions;
-                    cpnA = path12.totalCouponCost;
-                    varA = path12.totalVar;
-                    equipCostA = (probsOrig.destroy * (compensationPrice + (path12.totalEquipCost ?? 0))) / probsOrig.success;
-                }
-                let scoreA = (costA / YI) + K * varA;
-
-                // 路線 B：完全復原
-                let scoreB = Infinity, costB = Infinity, varB = 0, destB = 0, cpnB = 0, equipCostB = 0;
-                let traceStar = n >= 23 ? 22 : n;
-                if (traceStar >= 15 && TRACE_RECOVERY_COSTS[traceStar] && getTraceMesos(traceStar, equipLevel) !== Infinity) {
-                    const recData = TRACE_RECOVERY_COSTS[traceStar];
-                    const restoreCost = (recData.equips * compensationPrice) + getTraceMesos(traceStar, equipLevel);
-                    const pathB_result = findOptimalPath(traceStar, n, intervalResults, couponPrices, memo, K);
-                    costB = restoreCost + pathB_result.totalCost;
-                    destB = pathB_result.totalDestructions;
-                    cpnB = pathB_result.totalCouponCost;
-                    varB = pathB_result.totalVar;
-                    scoreB = (costB / YI) + K * varB;
-                    equipCostB = (probsOrig.destroy * (recData.equips * compensationPrice + (pathB_result.totalEquipCost ?? 0))) / probsOrig.success;
-                }
-
-                let forcedRec = (forcedRecoveryMethods && forcedRecoveryMethods[n]) ? forcedRecoveryMethods[n] : 'auto';
-                if (forcedRec === 'full' && scoreB === Infinity) forcedRec = '12';
-
-                if (forcedRec === 'full') {
-                    recoveryTotalCost = costB; climbVar = varB; climbDestructions = destB; climbCouponCost = cpnB; recoveryStrategy = 'full';
-                    expEquipCostForInterval = equipCostB;
-                } else if (forcedRec === '12') {
-                    recoveryTotalCost = costA; climbVar = varA; climbDestructions = destA; climbCouponCost = cpnA; recoveryStrategy = '12';
-                    expEquipCostForInterval = equipCostA;
-                } else { 
-                    if (scoreB < scoreA) {
-                        recoveryTotalCost = costB; climbVar = varB; climbDestructions = destB; climbCouponCost = cpnB; recoveryStrategy = 'full';
-                        expEquipCostForInterval = equipCostB;
-                    } else {
-                        recoveryTotalCost = costA; climbVar = varA; climbDestructions = destA; climbCouponCost = cpnA; recoveryStrategy = '12';
-                        expEquipCostForInterval = equipCostA;
-                    }
-                }
-            }
-
-            const forced = (forcedStarMethods && forcedStarMethods[n] !== undefined) ? forcedStarMethods[n] : null;
-            let result = null;
-
-            if (forced !== null) {
-                if (forced === 'no_prev') {
-                    let baseCost = totalDiscountRate > 0 ? originalBaseCost * (1 - totalDiscountRate) : originalBaseCost;
-                    let b = baseCost / YI, mu_D = recoveryTotalCost / YI, v_D = climbVar;
-                    let p = probsOrig.success, k = probsOrig.keep, r = probsOrig.destroy;
-                    let mu_n = (b + r * mu_D) / p;
-                    let var_term = r * v_D + p * Math.pow(b - mu_n, 2) + k * Math.pow(b, 2) + r * Math.pow(b + mu_D, 2);
-                    result = {
-                        type: 'sf', isPreventing: false, cost: mu_n * YI, varCost: Math.max(0, var_term / p), score: mu_n,
-                        destructions: (r * (1 + climbDestructions)) / p, couponCost: (r * climbCouponCost) / p,
-                        equipCost: expEquipCostForInterval, specialMethod: null
-                    };
-                } else if (forced === 'prev' && n >= 15 && n <= 17) {
-                    let bcp = originalBaseCost * 3;
-                    if (totalDiscountRate > 0) bcp -= originalBaseCost * totalDiscountRate;
-                    let p = probsOrig.success;
-                    let mu_p = bcp / (p * YI);
-                    let v_p = Math.max(0, (bcp / YI) * (bcp / YI) * (1 - p) / (p * p));
-                    result = {
-                        type: 'sf', isPreventing: true, cost: mu_p * YI, varCost: v_p, score: mu_p,
-                        destructions: 0, couponCost: 0, equipCost: 0, specialMethod: null
-                    };
-                } else if (forced && forced.startsWith('limit_')) {
-                    const ls = parseInt(forced.split('_')[1]);
-                    const price = specialCouponPrices.limit[ls];
-                    if (price !== undefined && n + 1 <= ls) {
-                        result = { type: 'limit', limitStar: ls, cost: price, varCost: 0, score: price / YI, destructions: 0, couponCost: price, equipCost: 0, specialMethod: { type: 'limit', limitStar: ls, cost: price } };
-                    }
-                } else if (forced && forced.startsWith('limit50_')) {
-                    const ls = parseInt(forced.split('_')[1]);
-                    const price = specialCouponPrices.limit50[ls];
-                    if (price !== undefined && n + 1 <= ls) {
-                        const expCost = price / 0.5; const S = price / (0.5 * YI);
-                        result = { type: 'limit50', limitStar: ls, cost: expCost, varCost: S * S * 2 * 0.25, score: expCost / YI, destructions: 0, couponCost: expCost, equipCost: 0, specialMethod: { type: 'limit50', limitStar: ls, cost: expCost } };
-                    }
-                } else if (forced && forced.startsWith('limit30_')) {
-                    const ls = parseInt(forced.split('_')[1]);
-                    const price = specialCouponPrices.limit30[ls];
-                    if (price !== undefined && n + 1 <= ls) {
-                        const expCost = price / 0.3; const S_yi = price / YI;
-                        result = { type: 'limit30', limitStar: ls, cost: expCost, varCost: S_yi * S_yi * (0.7 / 0.09), score: expCost / YI, destructions: 0, couponCost: expCost, equipCost: 0, specialMethod: { type: 'limit30', limitStar: ls, cost: expCost } };
-                    }
-                } else if (forced === 'append') {
-                    const price = specialCouponPrices.append23;
-                    if (price !== null && n + 1 <= 23 && equipLevelNum <= 200) {
-                        const expCost = price / 0.3; const S_yi = price / YI;
-                        result = { type: 'append', cost: expCost, varCost: S_yi * S_yi * (0.7 / 0.09), score: expCost / YI, destructions: 0, couponCost: expCost, equipCost: 0, specialMethod: { type: 'append', limitStar: 23, cost: expCost } };
-                    }
-                }
-            }
-
-            if (!result) {
-                let baseCostNoPrev = totalDiscountRate > 0 ? originalBaseCost * (1 - totalDiscountRate) : originalBaseCost;
-                let b = baseCostNoPrev / YI, mu_D = recoveryTotalCost / YI, v_D = climbVar;
-                let p = probsOrig.success, k = probsOrig.keep, r = probsOrig.destroy;
-                let mu_n = (b + r * mu_D) / p;
-                let var_term = r * v_D + p * Math.pow(b - mu_n, 2) + k * Math.pow(b, 2) + r * Math.pow(b + mu_D, 2);
-                let v_n = Math.max(0, var_term / p);
-
-                let bestMethod = { type: 'sf', isPreventing: false, cost: mu_n * YI, varCost: v_n, score: mu_n + K * v_n, destructions: (r * (1 + climbDestructions)) / p, couponCost: (r * climbCouponCost) / p, equipCost: expEquipCostForInterval };
-
-                if (n >= 15 && n <= 17 && originalBaseCost > 0) {
-                    let bcp = originalBaseCost * 3;
-                    if (totalDiscountRate > 0) bcp -= originalBaseCost * totalDiscountRate;
-                    let mu_p = bcp / (p * YI);
-                    let v_p = Math.max(0, (bcp / YI) * (bcp / YI) * (1 - p) / (p * p));
-                    if (mu_p + K * v_p < bestMethod.score) {
-                        bestMethod = { type: 'sf', isPreventing: true, cost: mu_p * YI, varCost: v_p, score: mu_p + K * v_p, destructions: 0, couponCost: 0, equipCost: 0 };
-                    }
-                }
-
-                const tgt = n + 1;
-                const evalS = (type, limitStar, costTrue, v_s) => {
-                    if (costTrue / YI + K * v_s < bestMethod.score) { bestMethod = { type, limitStar, cost: costTrue, varCost: v_s, score: costTrue / YI + K * v_s, destructions: 0, couponCost: costTrue, equipCost: 0 }; }
-                };
-                for (const [ls, price] of Object.entries(specialCouponPrices.limit)) { if (tgt <= parseInt(ls)) evalS('limit', ls, price, 0); }
-                for (const [ls, price] of Object.entries(specialCouponPrices.limit50)) { if (tgt <= parseInt(ls)) { const S = (price / 0.5) / YI; evalS('limit50', ls, price / 0.5, S * S * 2 * 0.25); } }
-                for (const [ls, price] of Object.entries(specialCouponPrices.limit30)) { if (tgt <= parseInt(ls)) { const S_yi = price / YI; evalS('limit30', ls, price / 0.3, S_yi * S_yi * (0.7 / 0.09)); } }
-                if (specialCouponPrices.append23 !== null && tgt <= 23 && equipLevelNum <= 200) { const S_yi = specialCouponPrices.append23 / YI; evalS('append', 23, specialCouponPrices.append23 / 0.3, S_yi * S_yi * (0.7 / 0.09)); }
-                result = bestMethod;
-            }
-
-            intervalResults[n] = result;
-            intervalResults[n].specialMethod = result.type !== 'sf' ? (result.specialMethod || result) : null;
-            intervalResults[n].isPreventing = result.type === 'sf' ? !!result.isPreventing : false;
-            intervalResults[n].recoveryStrategy = recoveryStrategy;
-        }
-        return intervalResults;
-    }
 
     function buildCustomPathTable() {
         const equipLevel = dom.equipLevelSelect.value;
@@ -1261,7 +985,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const n = parseInt(sel.id.replace('custom-rec-', ''));
             if (!isNaN(n)) savedRecoveryMethods[n] = sel.value;
         });
-        // 若 DOM 中尚無動態選單（第一次建表），從載入的設定中取回
         if (g_savedCustomPath && Object.keys(savedStarMethods).length === 0) {
             Object.assign(savedStarMethods, g_savedCustomPath.starMethods || {});
         }
@@ -1323,7 +1046,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (specialCouponPrices.append23 !== null && tgt <= 23 && equipLevelNum <= 200) {
                 options.push({ value: 'append', label: `追加1星 30%（23星）` });
             }
-            // 15★以上有炸裝風險，即使強化方式只有一種，仍需顯示「破壞復原方式」欄
             if (options.length > 1 || n >= 15) rows.push({ n, options });
         }
 
@@ -1335,7 +1057,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const traceSupported = getTraceMesos(15, equipLevel) !== Infinity;
 
         const buildRecSelect = (n, savedRec) => {
-            // 23★以上炸裝，痕跡完全恢復最高只能恢復至22★（非原星數）
             const fullLabel = n >= 23
                 ? `完全恢復至 22★（補空裝＋痕跡費，恢復至 22★ 後繼續衝）`
                 : `完全恢復至原星數（補空裝＋痕跡費，直接繼續衝）`;
@@ -1458,6 +1179,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const initialJump = initialJumpVal === 'none' ? null : parseInt(initialJumpVal.split('_')[1]);
         const recoveryJump = recoveryJumpVal === 'none' ? null : parseInt(recoveryJumpVal.split('_')[1]);
 
+        const startStar = parseInt(document.getElementById('start-star').value, 10);
+
         const forcedStarMethods = {};
         const forcedRecoveryMethods = {}; 
         document.querySelectorAll('[id^="custom-star-"]').forEach(sel => {
@@ -1469,9 +1192,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!isNaN(n)) forcedRecoveryMethods[n] = sel.value;
         });
 
-        return { initialJump, recoveryJump, forcedStarMethods, forcedRecoveryMethods };
+        return { startStar, initialJump, recoveryJump, forcedStarMethods, forcedRecoveryMethods };
     }
-    // =====================================================================
 
     window.openModal = function(index, titleOverride) {
         if (!g_allScenarioResults || !g_allScenarioResults[index]) return;
@@ -1674,7 +1396,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 const couponPart = finalResult.totalCouponCost;
-                const destructionPart = finalResult.totalEquipCost ?? (finalResult.totalDestructions * result.compensationPrice);
+                const destructionPart = finalResult.totalEquipCost;
                 const enhancementPart = finalResult.totalCost - couponPart - destructionPart;
                 const costBreakdown = `<div class="cost-breakdown">(券: ${formatCost(couponPart, exchangeRate)}<br>強化: ${formatCost(enhancementPart, exchangeRate)}<br><span title="空裝補償估算（不含痕跡修復楓幣費）" style="cursor:help;text-decoration:underline dotted #aaa;">裝備</span>: ${formatCost(destructionPart, exchangeRate)})</div>`;
                 
@@ -1701,7 +1423,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
         } else {
-            dom.legendNote.innerHTML = `上方為模擬值 <span class="theoretical-value">(綠字) 為理論期望值</span>`;
+            dom.legendNote.innerHTML = `上方為模擬值 <span class="theoretical-value">(綠字) 為理論期望值</span><br><br><span style="background-color: #f1f8ff; padding: 4px 8px; border-radius: 4px; font-size: 0.95em; color: #2c3e50; border-left: 3px solid #3498db; display: inline-block;">💡 <strong>提示：</strong>當「面臨爆裝風險且手動強化的星數」小於「炸裝後設定的跳躍券星數」時，舊版理論值會產生誤差。本計算機已全面升級為 <strong>全域動態規劃 (MDP)</strong> 模型，現在不論任何跨星跳躍策略，理論期望值皆保證絕對精準無死角！</span>`;
             dom.resultsTitle.textContent = "模擬與理論成本統計";
             tableHeaders = `
                 <thead>
@@ -1734,7 +1456,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const simCostBreakdown = `<span class="cost-breakdown sim-cost-breakdown">(券: ${formatCost(simCouponPart, exchangeRate)} 強化: ${formatCost(simEnhancementPart, exchangeRate)} <span title="爆裝次數 × 空裝補償價格（不含痕跡修復楓幣費）" style="cursor:help;text-decoration:underline dotted #aaa;">裝備</span>: ${formatCost(simDestructionPart, exchangeRate)})</span>`;
 
                 const theoryCouponPart = theoretical.totalCouponCost;
-                const theoryDestructionPart = theoretical.totalEquipCost ?? (theoretical.totalDestructions * result.compensationPrice);
+                const theoryDestructionPart = theoretical.totalEquipCost;
                 const theoryEnhancementPart = theoretical.totalCost - theoryCouponPart - theoryDestructionPart;
                 const theoryCostBreakdown = `<span class="cost-breakdown">(券: ${formatCost(theoryCouponPart, exchangeRate)} 強化: ${formatCost(theoryEnhancementPart, exchangeRate)} <span title="空裝補償估算（不含痕跡修復楓幣費）" style="cursor:help;text-decoration:underline dotted #aaa;">裝備</span>: ${formatCost(theoryDestructionPart, exchangeRate)})</span>`;
 
@@ -1860,45 +1582,38 @@ document.addEventListener('DOMContentLoaded', () => {
 
         g_allScenarioResults = [];
         const SIMULATION_TIMEOUT = 10000;
+        const YI = 100000000;
 
         for (let i = 0; i < strategies.length; i++) {
             await new Promise(resolve => setTimeout(resolve, 10));
             const strategy = strategies[i];
             dom.startButton.textContent = `處理中 (${i+1}/${strategies.length}): 運算中...`;
 
-            let bestGlobalPath = null;
-            let bestGlobalIntervals = null;
+            let bestGlobalMDP = null;
             let minGlobalZScore = Infinity;
-            let bestK = 0;
 
             for (let K of K_VALUES) {
-                const intervals = calculateTheoreticalIntervals(equipLevel, enhancementCosts[equipLevel].length, compensationPrice, couponPrices, specialCouponPrices, costDiscount, vipDiscount, activeProbabilities, K);
-                const memo = {};
-                const path = findOptimalPath(startStar, targetStar, intervals, couponPrices, memo, K);
+                const mdp = solveMDPExact(targetStar, equipLevel, compensationPrice, couponPrices, specialCouponPrices, costDiscount, vipDiscount, activeProbabilities, K);
                 
-                const YI = 100000000;
-                let trueMu = path.totalCost / YI;
-                let trueVar = path.totalVar;
-                let currentZScore = trueMu + strategy.Z * Math.sqrt(trueVar);
+                let safeVar = Math.max(0, mdp.Var[startStar]);
+                let currentZScore = (mdp.V[startStar] / YI) + strategy.Z * Math.sqrt(safeVar);
 
                 if (currentZScore < minGlobalZScore) {
                     minGlobalZScore = currentZScore;
-                    bestGlobalPath = path;
-                    bestGlobalIntervals = intervals;
-                    bestK = K;
+                    bestGlobalMDP = mdp;
                 }
             }
+            
+            if (!bestGlobalMDP) {
+                console.error("MDP 求解失敗");
+                continue;
+            }
 
-            const theoreticalIntervals = bestGlobalIntervals;
-            const theoreticalResult = bestGlobalPath;
-            
-            const memo2 = {};
-            const recoverResult = findOptimalPath(12, targetStar, theoreticalIntervals, couponPrices, memo2, bestK);
-            
-            const strategyGuide = {
-                0: theoreticalResult, 
-                initialStart: startStar, 
-                12: recoverResult
+            const theoreticalResult = {
+                totalCost: bestGlobalMDP.V[startStar],
+                totalDestructions: bestGlobalMDP.D[startStar],
+                totalCouponCost: bestGlobalMDP.CPN[startStar],
+                totalEquipCost: bestGlobalMDP.EQ[startStar]
             };
             
             let simulationStats = null;
@@ -1926,7 +1641,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
 
                     const keepLog = (j === 0);
-                    const result = simulateTrial(equipLevel, targetStar, compensationPrice, strategyGuide, costDiscount, vipDiscount, activeProbabilities, theoreticalIntervals, keepLog);
+                    const result = simulateTrialMDP(equipLevel, targetStar, compensationPrice, bestGlobalMDP.Policy, costDiscount, vipDiscount, activeProbabilities, startStar, keepLog);
                     
                     if (result.aborted) {
                         g_simulationAborted = true; 
@@ -1955,13 +1670,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
             
-            const initPathDesc = generatePathDescription(startStar, targetStar, theoreticalIntervals, theoreticalResult.strategyText, activeProbabilities);
+            const initPathDesc = generatePathDescriptionMDP(startStar, targetStar, bestGlobalMDP.Policy);
             const traceAvailable = getTraceMesos(15, equipLevel) !== Infinity;
             const recoverNote = traceAvailable
                 ? "(系統已為各星等自動評估並選用最優復原策略：完全復原 或 降回12星)"
                 : "(此裝備等級不支援痕跡完全復原，若破壞固定降回 12 星)";
             const recoverPathDesc = targetStar > 12 
-                ? generatePathDescription(12, targetStar, theoreticalIntervals, recoverResult.strategyText, activeProbabilities) + `<br><span style='color:#e67e22; font-size:0.85em; font-weight:bold; margin-top:5px; display:block;'>${recoverNote}</span>`
+                ? generatePathDescriptionMDP(12, targetStar, bestGlobalMDP.Policy) + `<br><span style='color:#e67e22; font-size:0.85em; font-weight:bold; margin-top:5px; display:block;'>${recoverNote}</span>`
                 : "無破壞風險";
 
             g_allScenarioResults.push({ 
@@ -1971,7 +1686,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 stats: simulationStats,
                 allCosts: simulationCosts,
                 allDestroys: simulationDestroys,
-                strategyGuide: strategyGuide,
+                strategyGuide: bestGlobalMDP.Policy, 
                 firstRunRawLog: firstRunRawLog,
                 compensationPrice: compensationPrice,
                 startStar: startStar,
@@ -1987,46 +1702,18 @@ document.addEventListener('DOMContentLoaded', () => {
             const customData = getCustomPathData();
 
             if (customData) {
-                const { initialJump, recoveryJump, forcedStarMethods, forcedRecoveryMethods } = customData;
+                const { startStar, forcedStarMethods, forcedRecoveryMethods } = customData;
 
-                const recoveryJumpStarForCalc = recoveryJump || null;
-                const recoveryJumpCostForCalc = recoveryJump ? (couponPrices[recoveryJump] || 0) : 0;
-                
-                const customIntervals = calculateIntervalsWithForced(
-                    equipLevel, enhancementCosts[equipLevel].length,
-                    compensationPrice, couponPrices, specialCouponPrices,
-                    costDiscount, vipDiscount, activeProbabilities,
-                    forcedStarMethods, forcedRecoveryMethods,
-                    recoveryJumpStarForCalc, recoveryJumpCostForCalc
+                const customMDP = solveMDPExact(
+                    targetStar, equipLevel, compensationPrice, couponPrices, specialCouponPrices,
+                    costDiscount, vipDiscount, activeProbabilities, 0, customData
                 );
 
-                const buildPathStrategy = (effectiveStart, jumpCouponStar) => {
-                    const stratText = jumpCouponStar ? `使用${jumpCouponStar}星券` : `從${effectiveStart}星強化`;
-                    const jumpCost = jumpCouponStar ? (couponPrices[jumpCouponStar] || 0) : 0;
-                    let totalCost = jumpCost, totalDestructions = 0, totalCouponCost = jumpCost, totalVar = 0, totalEquipCost = 0;
-                    for (let i = effectiveStart; i < targetStar; i++) {
-                        totalCost += customIntervals[i].cost;
-                        totalDestructions += customIntervals[i].destructions;
-                        totalCouponCost += customIntervals[i].couponCost;
-                        totalVar += customIntervals[i].varCost;
-                        totalEquipCost += (customIntervals[i].equipCost ?? 0);
-                    }
-                    return { strategyText: stratText, startStar: effectiveStart, couponCost: jumpCost, totalCost, totalDestructions, totalCouponCost, totalVar, totalEquipCost };
-                };
-
-                const customInitialStrategy = buildPathStrategy(
-                    initialJump || startStar,
-                    initialJump || null
-                );
-                const customRecoveryStrategy = buildPathStrategy(
-                    recoveryJump || 12,
-                    recoveryJump || null
-                );
-
-                const customStrategyGuide = {
-                    0: customInitialStrategy,
-                    initialStart: startStar,
-                    12: customRecoveryStrategy
+                const theoreticalResult = {
+                    totalCost: customMDP.V[startStar],
+                    totalDestructions: customMDP.D[startStar],
+                    totalCouponCost: customMDP.CPN[startStar],
+                    totalEquipCost: customMDP.EQ[startStar]
                 };
 
                 let customStats = null, customFirstRunLog = null, customAllCosts = null, customAllDestroys = null;
@@ -2038,7 +1725,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (g_simulationAborted || (Date.now() - customSimStart) > SIMULATION_TIMEOUT) break;
                         if (j > 0 && j % 200 === 0) await new Promise(resolve => setTimeout(resolve, 0));
                         const keepLog = (j === 0);
-                        const result = simulateTrial(equipLevel, targetStar, compensationPrice, customStrategyGuide, costDiscount, vipDiscount, activeProbabilities, customIntervals, keepLog);
+                        const result = simulateTrialMDP(equipLevel, targetStar, compensationPrice, customMDP.Policy, costDiscount, vipDiscount, activeProbabilities, startStar, keepLog);
                         if (result.aborted) break;
                         customRuns.costs.push(result.totalCost);
                         customRuns.destroys.push(result.totalDestroys);
@@ -2054,19 +1741,19 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
 
-                const customInitPathDesc = generatePathDescription(startStar, targetStar, customIntervals, customInitialStrategy.strategyText, activeProbabilities);
+                const customInitPathDesc = generatePathDescriptionMDP(startStar, targetStar, customMDP.Policy);
                 const customRecoverPathDesc = targetStar > 12
-                    ? generatePathDescription(12, targetStar, customIntervals, customRecoveryStrategy.strategyText, activeProbabilities)
+                    ? generatePathDescriptionMDP(12, targetStar, customMDP.Policy)
                     : '無破壞風險';
 
                 g_allScenarioResults.push({
                     name: '自訂路徑',
                     desc: '您手動指定的強化策略（自選跳躍方式與各星等強化方式）。',
-                    theoreticalResult: customInitialStrategy,
+                    theoreticalResult: theoreticalResult,
                     stats: customStats,
                     allCosts: customAllCosts,
                     allDestroys: customAllDestroys,
-                    strategyGuide: customStrategyGuide,
+                    strategyGuide: customMDP.Policy,
                     firstRunRawLog: customFirstRunLog,
                     compensationPrice: compensationPrice,
                     startStar: startStar,
@@ -2212,7 +1899,7 @@ document.addEventListener('DOMContentLoaded', () => {
         input.addEventListener('input', debouncedRebuild);
     });
     
-        if (dom.shareBtn) {
+    if (dom.shareBtn) {
         dom.shareBtn.addEventListener('click', () => {
             const settings = getSettingsObject();
             const base64Str = btoa(encodeURIComponent(JSON.stringify(settings)));
@@ -2269,7 +1956,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     updateTargetStarOptions();
     if (initialSettings?.targetStar !== undefined) {
-        // 直接代入；若超出可選範圍，瀏覽器會忽略並保留 updateTargetStarOptions 設定的預設值
         dom.targetStarSelect.value = initialSettings.targetStar;
         updateStartStarOptions();
         if (initialSettings.startStar !== undefined) dom.startStarSelect.value = initialSettings.startStar;
