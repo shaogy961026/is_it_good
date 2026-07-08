@@ -969,12 +969,14 @@ document.addEventListener('DOMContentLoaded', () => {
         costsHtml += '</tbody></table>';
         dom.costsTableContainer.innerHTML = costsHtml;
 
+        const floorTo2 = v => (Math.floor(v * 10000) / 100).toFixed(2);
         let probsHtml = '<table class="data-table"><thead><tr><th>星等</th><th>成功</th><th>維持</th><th>破壞</th></tr></thead><tbody>';
         activeProbabilities.forEach((p, n) => {
             if (n >= maxStar) return;
-            probsHtml += `<tr><td>${n} → ${n+1}</td><td>${(p.success * 100).toFixed(2)}%</td><td>${(p.keep * 100).toFixed(2)}%</td><td>${(p.destroy * 100).toFixed(2)}%</td></tr>`;
+            probsHtml += `<tr><td>${n} → ${n+1}</td><td>${floorTo2(p.success)}%</td><td>${floorTo2(p.keep)}%</td><td>${floorTo2(p.destroy)}%</td></tr>`;
         });
         probsHtml += '</tbody></table>';
+        probsHtml += `<p style="margin:4px 0 0; font-size:0.8rem; color:#888;">※ 數值無條件捨去至小數點第二位（同官方習慣）</p>`;
         dom.probsTableContainer.innerHTML = probsHtml;
 
         // 痕跡完全復原費用表
