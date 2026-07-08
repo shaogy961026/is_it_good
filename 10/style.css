@@ -118,7 +118,6 @@ table { width: 100%; border-collapse: collapse; white-space: nowrap; }
 th, td { border: 1px solid #ddd; padding: 10px 12px; text-align: center; vertical-align: middle; }
 th { position: sticky; background-color: #ecf0f1; color: #34495e; z-index: 20; }
 thead tr:first-child th { top: 0; }
-thead tr:nth-child(2) th { top: 47px; z-index: 20; }
 td:first-child, th:first-child { position: sticky; left: 0; font-weight: bold; z-index: 30; }
 td:first-child { background-color: #eaf2f8; }
 thead th:first-child { z-index: 40; }
@@ -171,7 +170,6 @@ input[type="checkbox"]:disabled + .slider { cursor: not-allowed; background-colo
 .data-table-wrapper table { font-size: 0.9em; }
 .data-table-wrapper th, .data-table-wrapper td { padding: 6px 8px; }
 .cost-breakdown { font-style: italic; font-size: 0.85em; text-align: right; }
-.sim-cost-breakdown .breakdown-item, .theoretical-value .breakdown-item { display: block; }
 .sim-cost-breakdown { color: #7f8c8d; }
 .theoretical-value { color: #28a745; font-weight: bold; font-size: 0.9em; display: block; margin-top: 4px; }
 .theoretical-value .cost-breakdown { color: #28a745; }
@@ -186,73 +184,21 @@ input[type="checkbox"]:disabled + .slider { cursor: not-allowed; background-colo
     list-style: none;
 }
 .settings-summary::-webkit-details-marker { display: none; }
-.path-info {
-    font-size: 0.85em;
-    color: #555;
-    text-align: left;
-    display: block;
-    line-height: 1.4;
-    white-space: normal; /* 允許換行 */
-}
-.path-info span { display: block; }
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
 ::-webkit-scrollbar-thumb { background: #ccc; border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: #aaa; }
 
-/* 副標題專用樣式 */
-.subtitle-container {
-    max-width: 800px;
-    margin: -10px auto 25px auto; /* 稍微往上拉，靠近標題 */
-    text-align: center;
-    background-color: #f8f9fa;
-    border: 1px solid #e9ecef;
-    border-radius: 8px;
-    padding: 15px 20px;
+/* 自訂路徑跳躍設定雙欄 grid */
+.custom-jump-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 14px;
 }
-
-.subtitle-main {
-    font-size: 1.1em;
-    color: #2c3e50;
-    margin-bottom: 10px;
-}
-
-.subtitle-main strong {
-    color: #e74c3c; /* 強調重點色 */
-}
-
-.subtitle-features {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 15px;
-}
-
-.subtitle-features li {
-    font-size: 0.9em;
-    color: #555;
-    background: #fff;
-    padding: 5px 12px;
-    border-radius: 15px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    border: 1px solid #dee2e6;
-}
-
-/* 手機版調整：讓列表變成直排比較好閱讀 */
 @media (max-width: 600px) {
-    .subtitle-features {
-        flex-direction: column;
-        gap: 8px;
-        align-items: flex-start; /* 靠左對齊 */
-        text-align: left;
-        padding-left: 10px;
-    }
-    .subtitle-features li {
-        width: 100%;
-        box-sizing: border-box;
+    .custom-jump-grid {
+        grid-template-columns: 1fr;
     }
 }
 

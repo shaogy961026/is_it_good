@@ -1,7 +1,8 @@
 // --- 全域變數 ---
 let g_allScenarioResults = null;
 let g_simulationAborted = false; 
-let g_isPreviewMode = false; 
+let g_isPreviewMode = false;
+let g_savedCustomPath = null; 
 
 // 屬性與攻擊力累積表
 const STAR_STATS = {
@@ -123,6 +124,24 @@ function getSettingsObject() {
         const input = document.getElementById(`sp-coupon-${id}`);
         if(input) settings.specialCoupons[id] = input.value;
     });
+
+    const customPath = {
+        enabled: document.getElementById('enable-custom-path')?.checked || false,
+        initialJump: document.getElementById('custom-initial-jump')?.value || 'none',
+        recoveryJump: document.getElementById('custom-recovery-jump')?.value || 'none',
+        starMethods: {},
+        recMethods: {}
+    };
+    document.querySelectorAll('[id^="custom-star-"]').forEach(sel => {
+        const n = parseInt(sel.id.replace('custom-star-', ''));
+        if (!isNaN(n)) customPath.starMethods[n] = sel.value;
+    });
+    document.querySelectorAll('[id^="custom-rec-"]').forEach(sel => {
+        const n = parseInt(sel.id.replace('custom-rec-', ''));
+        if (!isNaN(n)) customPath.recMethods[n] = sel.value;
+    });
+    settings.customPath = customPath;
+
     return settings;
 }
 
@@ -168,6 +187,12 @@ function applySettingsToUI(settings, dom) {
             const input = document.getElementById(`sp-coupon-${id}`);
             if (input && settings.specialCoupons[id] !== undefined) input.value = settings.specialCoupons[id];
         });
+    }
+
+    if (settings.customPath) {
+        g_savedCustomPath = settings.customPath;
+        const enableCb = document.getElementById('enable-custom-path');
+        if (enableCb) enableCb.checked = settings.customPath.enabled;
     }
 }
 
@@ -495,6 +520,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // 復原成本計算 (比較：回 12 星 vs 完全復原)
             let recoveryTotalCost = 0, climbDestructions = 0, climbCouponCost = 0, climbVar = 0;
             let recoveryStrategy = '12';
+            let expEquipCostForInterval = 0;
 
             if (probsNoPrev.destroy > 0 && n >= 12) {
                 // 路線 A：降回 12 星
@@ -507,7 +533,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 let scoreB = Infinity, costB = Infinity, varB = 0, pathB = null;
                 let traceStar = n >= 23 ? 22 : n;
 
-                if (traceStar >= 15 && TRACE_RECOVERY_COSTS[traceStar]) {
+                if (traceStar >= 15 && TRACE_RECOVERY_COSTS[traceStar] && getTraceMesos(traceStar, equipLevel) !== Infinity) {
                     const recData = TRACE_RECOVERY_COSTS[traceStar];
                     const restoreCost = (recData.equips * compensationPrice) + getTraceMesos(traceStar, equipLevel);
                     pathB = findOptimalPath(traceStar, n, intervalResults, couponPrices, memo, K);
@@ -523,12 +549,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     climbDestructions = pathB.totalDestructions;
                     climbCouponCost = pathB.totalCouponCost;
                     recoveryStrategy = 'full';
+                    // 路線B：每次炸裝主要花 equips 件空裝，加上從 traceStar 爬回的裝備成本
+                    const traceStar_eq = n >= 23 ? 22 : n;
+                    const recData_eq = TRACE_RECOVERY_COSTS[traceStar_eq];
+                    expEquipCostForInterval = (probsNoPrev.destroy * (recData_eq.equips * compensationPrice + (pathB.totalEquipCost ?? 0))) / probsNoPrev.success;
                 } else {
                     recoveryTotalCost = costA;
                     climbVar = varA;
                     climbDestructions = path12.totalDestructions;
                     climbCouponCost = path12.totalCouponCost;
                     recoveryStrategy = '12';
+                    // 路線A：每次炸裝花 1 件空裝，加上從 12 星爬回的裝備成本
+                    expEquipCostForInterval = (probsNoPrev.destroy * (compensationPrice + (path12.totalEquipCost ?? 0))) / probsNoPrev.success;
                 }
             }
 
@@ -552,7 +584,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const expDestNoPrev = (probsNoPrev.destroy * (1 + climbDestructions)) / probsNoPrev.success;
             const expCpnNoPrev = (probsNoPrev.destroy * climbCouponCost) / probsNoPrev.success;
             
-            let bestMethod = { type: 'sf', isPreventing: false, cost: expCostNoPrev, varCost: v_n, score: scoreNoPrev, destructions: expDestNoPrev, couponCost: expCpnNoPrev };
+            let bestMethod = { type: 'sf', isPreventing: false, cost: expCostNoPrev, varCost: v_n, score: scoreNoPrev, destructions: expDestNoPrev, couponCost: expCpnNoPrev, equipCost: expEquipCostForInterval };
 
             if (n >= 15 && n <= 17 && originalBaseCost > 0) {
                 let baseCostPrev = originalBaseCost * 3;
@@ -567,7 +599,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 let scorePrev = mu_prev + K * v_prev;
                 if (scorePrev < bestMethod.score) {
-                    bestMethod = { type: 'sf', isPreventing: true, cost: mu_prev * YI, varCost: v_prev, score: scorePrev, destructions: 0, couponCost: 0 };
+                    bestMethod = { type: 'sf', isPreventing: true, cost: mu_prev * YI, varCost: v_prev, score: scorePrev, destructions: 0, couponCost: 0, equipCost: 0 };
                 }
             }
 
@@ -577,7 +609,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 let mu_scroll = costTrue / YI;
                 let score_scroll = mu_scroll + K * v_scroll;
                 if (score_scroll < bestMethod.score) {
-                    bestMethod = { type: type, limitStar: limitStar, cost: costTrue, varCost: v_scroll, score: score_scroll, destructions: 0, couponCost: costTrue };
+                    bestMethod = { type: type, limitStar: limitStar, cost: costTrue, varCost: v_scroll, score: score_scroll, destructions: 0, couponCost: costTrue, equipCost: 0 };
                 }
             };
 
@@ -619,19 +651,20 @@ document.addEventListener('DOMContentLoaded', () => {
         const candidatePaths = [];
         const YI = 100000000;
         
-        let enhancementCost = 0, enhancementDestructions = 0, enhancementCouponCost = 0, enhancementVar = 0; 
+        let enhancementCost = 0, enhancementDestructions = 0, enhancementCouponCost = 0, enhancementVar = 0, enhancementEquipCost = 0; 
         for (let i = startStar; i < endStar; i++) {
             enhancementCost += theoreticalIntervals[i].cost;
             enhancementDestructions += theoreticalIntervals[i].destructions;
             enhancementCouponCost += theoreticalIntervals[i].couponCost;
             enhancementVar += theoreticalIntervals[i].varCost;
+            enhancementEquipCost += (theoreticalIntervals[i].equipCost ?? 0);
         }
         
         let sfScore = (enhancementCost / YI) + K * enhancementVar;
         candidatePaths.push({
             strategyText: `從${startStar}星強化`, startStar: startStar, couponCost: 0,
             totalCost: enhancementCost, totalDestructions: enhancementDestructions, totalCouponCost: enhancementCouponCost,
-            totalVar: enhancementVar, score: sfScore
+            totalVar: enhancementVar, totalEquipCost: enhancementEquipCost, score: sfScore
         });
         
         if (!disableCoupons) {
@@ -641,7 +674,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 let pathCost = couponPrices[couponStar] || 0;
                 let pathDestructions = 0;
                 let pathCouponCost = pathCost;
-                let pathVar = 0; 
+                let pathVar = 0;
+                let pathEquipCost = 0;
                 
                 if (couponStar < endStar) {
                     for (let i = couponStar; i < endStar; i++) {
@@ -649,6 +683,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         pathDestructions += theoreticalIntervals[i].destructions;
                         pathCouponCost += theoreticalIntervals[i].couponCost;
                         pathVar += theoreticalIntervals[i].varCost;
+                        pathEquipCost += (theoreticalIntervals[i].equipCost ?? 0);
                     }
                 }
                 
@@ -656,7 +691,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 candidatePaths.push({
                     strategyText: `使用${couponStar}星券`, startStar: couponStar, couponCost: couponPrices[couponStar] || 0,
                     totalCost: pathCost, totalDestructions: pathDestructions, totalCouponCost: pathCouponCost,
-                    totalVar: pathVar, score: cpnScore
+                    totalVar: pathVar, totalEquipCost: pathEquipCost, score: cpnScore
                 });
             }
         }
@@ -844,11 +879,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     const recStrategy = intervalData.recoveryStrategy || '12';
                     let traceStar = starBeforeAttempt >= 23 ? 22 : starBeforeAttempt;
 
-                    if (recStrategy === 'full' && traceStar >= 15 && TRACE_RECOVERY_COSTS[traceStar]) {
+                    if (recStrategy === 'full' && traceStar >= 15 && TRACE_RECOVERY_COSTS[traceStar] && getTraceMesos(traceStar, equipLevel) !== Infinity) {
                         const recData = TRACE_RECOVERY_COSTS[traceStar];
-                        const restoreCost = (recData.equips * compensationPrice) + getTraceMesos(traceStar, equipLevel);
+                        const equipCost = recData.equips * compensationPrice;
+                        const traceMesos = getTraceMesos(traceStar, equipLevel);
+                        const restoreCost = equipCost + traceMesos;
                         totalCost += restoreCost;
-                        totalDestructionCost += restoreCost;
+                        totalDestructionCost += equipCost; // 「裝備」欄只計入設備補償，痕跡楓幣費融入總成本
                         currentStars = traceStar;
                         outcomeClass = 'log-fail';
                         outcomeText = `破壞！(選用完全復原花費 +${restoreCost.toLocaleString()}，維持 ${traceStar}星)`;
@@ -903,8 +940,20 @@ document.addEventListener('DOMContentLoaded', () => {
     function displayDataTables(equipLevel, costDiscount, vipDiscount, activeProbabilities, compensationPrice) {
         const maxStar = enhancementCosts[equipLevel].length;
         dom.dataTablesTitle.textContent = "基礎數據參考 (基於當前設定)";
-        dom.costsTableTitle.textContent = "單次強化成本表 (含套用活動/VIP折扣)";
-        dom.probsTableTitle.textContent = "成功/維持/破壞機率表 (含套用活動效果)";
+
+        const costsMods = [];
+        if (costDiscount) costsMods.push('活動30%折扣');
+        if (vipDiscount > 0) costsMods.push(`VIP ${Math.round(vipDiscount * 100)}%折扣`);
+        dom.costsTableTitle.textContent = costsMods.length > 0
+            ? `單次強化成本表（套用：${costsMods.join('、')}）`
+            : '單次強化成本表';
+
+        const probsMods = [];
+        if (dom.guaranteedSuccessCheckbox.checked) probsMods.push('5/10/15星必過');
+        if (dom.reduceDestructionCheckbox.checked) probsMods.push('破壞機率-30%');
+        dom.probsTableTitle.textContent = probsMods.length > 0
+            ? `成功/維持/破壞機率表（套用：${probsMods.join('、')}）`
+            : '成功/維持/破壞機率表';
         let costsHtml = '<table class="data-table"><thead><tr><th>星等</th><th>強化費用(楓幣)</th></tr></thead><tbody>';
         for(let n = 0; n < maxStar; n++) {
             const originalBaseCost = enhancementCosts[equipLevel][n];
@@ -962,6 +1011,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 </tr>`;
             }
             traceHtml += '</tbody></table>';
+            traceHtml += `<p style="margin:6px 0 0; font-size:0.8rem; color:#888; line-height:1.5;">※ 23★ 以上破壞時，痕跡完全復原費用以 22★ 計算（恢復至 22★）；亦可選擇降回 12★ 重爬——系統會依當下最優路線自動評估，您也可在自訂路徑中手動指定。</p>`;
         }
         dom.traceTableContainer.innerHTML = traceHtml;
     }
@@ -992,42 +1042,46 @@ document.addEventListener('DOMContentLoaded', () => {
 
             let recoveryTotalCost = 0, climbDestructions = 0, climbCouponCost = 0, climbVar = 0;
             let recoveryStrategy = '12';
+            let expEquipCostForInterval = 0;
 
             if (probsOrig.destroy > 0 && n >= 12) {
                 // 路線 A：回 12 星
-                let costA = 0, varA = 0, destA = 0, cpnA = 0;
+                let costA = 0, varA = 0, destA = 0, cpnA = 0, equipCostA = 0;
                 if (customRecoveryJumpStar !== null && customRecoveryJumpStar !== undefined && n >= customRecoveryJumpStar) {
                     costA = compensationPrice + customRecoveryJumpCost;
                     cpnA = customRecoveryJumpCost;
+                    let segEquipCost = 0;
                     for (let i = customRecoveryJumpStar; i < n; i++) {
                         costA += intervalResults[i].cost;
                         destA += intervalResults[i].destructions;
                         cpnA += intervalResults[i].couponCost;
                         varA += intervalResults[i].varCost;
+                        segEquipCost += (intervalResults[i].equipCost ?? 0);
                     }
+                    equipCostA = (probsOrig.destroy * (compensationPrice + segEquipCost)) / probsOrig.success;
                 } else {
-                    const path12 = findOptimalPath(12, n, intervalResults, {}, memo, K);
+                    const path12 = findOptimalPath(12, n, intervalResults, couponPrices, memo, K);
                     costA = compensationPrice + path12.totalCost;
                     destA = path12.totalDestructions;
                     cpnA = path12.totalCouponCost;
                     varA = path12.totalVar;
+                    equipCostA = (probsOrig.destroy * (compensationPrice + (path12.totalEquipCost ?? 0))) / probsOrig.success;
                 }
                 let scoreA = (costA / YI) + K * varA;
 
                 // 路線 B：完全復原
-                let scoreB = Infinity, costB = Infinity, varB = 0, destB = 0, cpnB = 0;
+                let scoreB = Infinity, costB = Infinity, varB = 0, destB = 0, cpnB = 0, equipCostB = 0;
                 let traceStar = n >= 23 ? 22 : n;
-                if (traceStar >= 15 && TRACE_RECOVERY_COSTS[traceStar]) {
+                if (traceStar >= 15 && TRACE_RECOVERY_COSTS[traceStar] && getTraceMesos(traceStar, equipLevel) !== Infinity) {
                     const recData = TRACE_RECOVERY_COSTS[traceStar];
                     const restoreCost = (recData.equips * compensationPrice) + getTraceMesos(traceStar, equipLevel);
-                    costB = restoreCost;
-                    for(let i = traceStar; i < n; i++) {
-                        costB += intervalResults[i].cost;
-                        destB += intervalResults[i].destructions;
-                        cpnB += intervalResults[i].couponCost;
-                        varB += intervalResults[i].varCost;
-                    }
+                    const pathB_result = findOptimalPath(traceStar, n, intervalResults, couponPrices, memo, K);
+                    costB = restoreCost + pathB_result.totalCost;
+                    destB = pathB_result.totalDestructions;
+                    cpnB = pathB_result.totalCouponCost;
+                    varB = pathB_result.totalVar;
                     scoreB = (costB / YI) + K * varB;
+                    equipCostB = (probsOrig.destroy * (recData.equips * compensationPrice + (pathB_result.totalEquipCost ?? 0))) / probsOrig.success;
                 }
 
                 let forcedRec = (forcedRecoveryMethods && forcedRecoveryMethods[n]) ? forcedRecoveryMethods[n] : 'auto';
@@ -1035,13 +1089,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (forcedRec === 'full') {
                     recoveryTotalCost = costB; climbVar = varB; climbDestructions = destB; climbCouponCost = cpnB; recoveryStrategy = 'full';
+                    expEquipCostForInterval = equipCostB;
                 } else if (forcedRec === '12') {
                     recoveryTotalCost = costA; climbVar = varA; climbDestructions = destA; climbCouponCost = cpnA; recoveryStrategy = '12';
+                    expEquipCostForInterval = equipCostA;
                 } else { 
                     if (scoreB < scoreA) {
                         recoveryTotalCost = costB; climbVar = varB; climbDestructions = destB; climbCouponCost = cpnB; recoveryStrategy = 'full';
+                        expEquipCostForInterval = equipCostB;
                     } else {
                         recoveryTotalCost = costA; climbVar = varA; climbDestructions = destA; climbCouponCost = cpnA; recoveryStrategy = '12';
+                        expEquipCostForInterval = equipCostA;
                     }
                 }
             }
@@ -1058,7 +1116,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     let var_term = r * v_D + p * Math.pow(b - mu_n, 2) + k * Math.pow(b, 2) + r * Math.pow(b + mu_D, 2);
                     result = {
                         type: 'sf', isPreventing: false, cost: mu_n * YI, varCost: Math.max(0, var_term / p), score: mu_n,
-                        destructions: (r * (1 + climbDestructions)) / p, couponCost: (r * climbCouponCost) / p, specialMethod: null
+                        destructions: (r * (1 + climbDestructions)) / p, couponCost: (r * climbCouponCost) / p,
+                        equipCost: expEquipCostForInterval, specialMethod: null
                     };
                 } else if (forced === 'prev' && n >= 15 && n <= 17) {
                     let bcp = originalBaseCost * 3;
@@ -1068,33 +1127,33 @@ document.addEventListener('DOMContentLoaded', () => {
                     let v_p = Math.max(0, (bcp / YI) * (bcp / YI) * (1 - p) / (p * p));
                     result = {
                         type: 'sf', isPreventing: true, cost: mu_p * YI, varCost: v_p, score: mu_p,
-                        destructions: 0, couponCost: 0, specialMethod: null
+                        destructions: 0, couponCost: 0, equipCost: 0, specialMethod: null
                     };
                 } else if (forced && forced.startsWith('limit_')) {
                     const ls = parseInt(forced.split('_')[1]);
                     const price = specialCouponPrices.limit[ls];
                     if (price !== undefined && n + 1 <= ls) {
-                        result = { type: 'limit', limitStar: ls, cost: price, varCost: 0, score: price / YI, destructions: 0, couponCost: price, specialMethod: { type: 'limit', limitStar: ls, cost: price } };
+                        result = { type: 'limit', limitStar: ls, cost: price, varCost: 0, score: price / YI, destructions: 0, couponCost: price, equipCost: 0, specialMethod: { type: 'limit', limitStar: ls, cost: price } };
                     }
                 } else if (forced && forced.startsWith('limit50_')) {
                     const ls = parseInt(forced.split('_')[1]);
                     const price = specialCouponPrices.limit50[ls];
                     if (price !== undefined && n + 1 <= ls) {
                         const expCost = price / 0.5; const S = price / (0.5 * YI);
-                        result = { type: 'limit50', limitStar: ls, cost: expCost, varCost: S * S * 2 * 0.25, score: expCost / YI, destructions: 0, couponCost: expCost, specialMethod: { type: 'limit50', limitStar: ls, cost: expCost } };
+                        result = { type: 'limit50', limitStar: ls, cost: expCost, varCost: S * S * 2 * 0.25, score: expCost / YI, destructions: 0, couponCost: expCost, equipCost: 0, specialMethod: { type: 'limit50', limitStar: ls, cost: expCost } };
                     }
                 } else if (forced && forced.startsWith('limit30_')) {
                     const ls = parseInt(forced.split('_')[1]);
                     const price = specialCouponPrices.limit30[ls];
                     if (price !== undefined && n + 1 <= ls) {
                         const expCost = price / 0.3; const S_yi = price / YI;
-                        result = { type: 'limit30', limitStar: ls, cost: expCost, varCost: S_yi * S_yi * (0.7 / 0.09), score: expCost / YI, destructions: 0, couponCost: expCost, specialMethod: { type: 'limit30', limitStar: ls, cost: expCost } };
+                        result = { type: 'limit30', limitStar: ls, cost: expCost, varCost: S_yi * S_yi * (0.7 / 0.09), score: expCost / YI, destructions: 0, couponCost: expCost, equipCost: 0, specialMethod: { type: 'limit30', limitStar: ls, cost: expCost } };
                     }
                 } else if (forced === 'append') {
                     const price = specialCouponPrices.append23;
                     if (price !== null && n + 1 <= 23 && equipLevelNum <= 200) {
                         const expCost = price / 0.3; const S_yi = price / YI;
-                        result = { type: 'append', cost: expCost, varCost: S_yi * S_yi * (0.7 / 0.09), score: expCost / YI, destructions: 0, couponCost: expCost, specialMethod: { type: 'append', limitStar: 23, cost: expCost } };
+                        result = { type: 'append', cost: expCost, varCost: S_yi * S_yi * (0.7 / 0.09), score: expCost / YI, destructions: 0, couponCost: expCost, equipCost: 0, specialMethod: { type: 'append', limitStar: 23, cost: expCost } };
                     }
                 }
             }
@@ -1107,7 +1166,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 let var_term = r * v_D + p * Math.pow(b - mu_n, 2) + k * Math.pow(b, 2) + r * Math.pow(b + mu_D, 2);
                 let v_n = Math.max(0, var_term / p);
 
-                let bestMethod = { type: 'sf', isPreventing: false, cost: mu_n * YI, varCost: v_n, score: mu_n + K * v_n, destructions: (r * (1 + climbDestructions)) / p, couponCost: (r * climbCouponCost) / p };
+                let bestMethod = { type: 'sf', isPreventing: false, cost: mu_n * YI, varCost: v_n, score: mu_n + K * v_n, destructions: (r * (1 + climbDestructions)) / p, couponCost: (r * climbCouponCost) / p, equipCost: expEquipCostForInterval };
 
                 if (n >= 15 && n <= 17 && originalBaseCost > 0) {
                     let bcp = originalBaseCost * 3;
@@ -1115,13 +1174,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     let mu_p = bcp / (p * YI);
                     let v_p = Math.max(0, (bcp / YI) * (bcp / YI) * (1 - p) / (p * p));
                     if (mu_p + K * v_p < bestMethod.score) {
-                        bestMethod = { type: 'sf', isPreventing: true, cost: mu_p * YI, varCost: v_p, score: mu_p + K * v_p, destructions: 0, couponCost: 0 };
+                        bestMethod = { type: 'sf', isPreventing: true, cost: mu_p * YI, varCost: v_p, score: mu_p + K * v_p, destructions: 0, couponCost: 0, equipCost: 0 };
                     }
                 }
 
                 const tgt = n + 1;
                 const evalS = (type, limitStar, costTrue, v_s) => {
-                    if (costTrue / YI + K * v_s < bestMethod.score) { bestMethod = { type, limitStar, cost: costTrue, varCost: v_s, score: costTrue / YI + K * v_s, destructions: 0, couponCost: costTrue }; }
+                    if (costTrue / YI + K * v_s < bestMethod.score) { bestMethod = { type, limitStar, cost: costTrue, varCost: v_s, score: costTrue / YI + K * v_s, destructions: 0, couponCost: costTrue, equipCost: 0 }; }
                 };
                 for (const [ls, price] of Object.entries(specialCouponPrices.limit)) { if (tgt <= parseInt(ls)) evalS('limit', ls, price, 0); }
                 for (const [ls, price] of Object.entries(specialCouponPrices.limit50)) { if (tgt <= parseInt(ls)) { const S = (price / 0.5) / YI; evalS('limit50', ls, price / 0.5, S * S * 2 * 0.25); } }
@@ -1156,11 +1215,18 @@ document.addEventListener('DOMContentLoaded', () => {
             const n = parseInt(sel.id.replace('custom-rec-', ''));
             if (!isNaN(n)) savedRecoveryMethods[n] = sel.value;
         });
+        // 若 DOM 中尚無動態選單（第一次建表），從載入的設定中取回
+        if (g_savedCustomPath && Object.keys(savedStarMethods).length === 0) {
+            Object.assign(savedStarMethods, g_savedCustomPath.starMethods || {});
+        }
+        if (g_savedCustomPath && Object.keys(savedRecoveryMethods).length === 0) {
+            Object.assign(savedRecoveryMethods, g_savedCustomPath.recMethods || {});
+        }
 
         const initialJumpSel = document.getElementById('custom-initial-jump');
         const recoveryJumpSel = document.getElementById('custom-recovery-jump');
-        const savedInitial = initialJumpSel ? initialJumpSel.value : 'none';
-        const savedRecovery = recoveryJumpSel ? recoveryJumpSel.value : 'none';
+        const savedInitial = (initialJumpSel?.value) || (g_savedCustomPath?.initialJump) || 'none';
+        const savedRecovery = (recoveryJumpSel?.value) || (g_savedCustomPath?.recoveryJump) || 'none';
 
         if (initialJumpSel) {
             initialJumpSel.innerHTML = `<option value="none">不跳躍，從 ${startStar} 星開始直接強化</option>`;
@@ -1559,13 +1625,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (item.showBadge) {
                     badge = item.badgeType === 'tie'
                         ? `<span class="best-choice-badge" style="background-color:#f39c12;">★ 並列最低</span>` 
-                        : `<span class="best-choice-badge">★ 平均最省</span>`;
+                        : `<span class="best-choice-badge">★ 理論平均最省</span>`;
                 }
 
                 const couponPart = finalResult.totalCouponCost;
-                const destructionPart = finalResult.totalDestructions * result.compensationPrice;
+                const destructionPart = finalResult.totalEquipCost ?? (finalResult.totalDestructions * result.compensationPrice);
                 const enhancementPart = finalResult.totalCost - couponPart - destructionPart;
-                const costBreakdown = `<div class="cost-breakdown">(券: ${formatCost(couponPart, exchangeRate)}<br>強化: ${formatCost(enhancementPart, exchangeRate)}<br>裝備: ${formatCost(destructionPart, exchangeRate)})</div>`;
+                const costBreakdown = `<div class="cost-breakdown">(券: ${formatCost(couponPart, exchangeRate)}<br>強化: ${formatCost(enhancementPart, exchangeRate)}<br><span title="空裝補償估算（不含痕跡修復楓幣費）" style="cursor:help;text-decoration:underline dotted #aaa;">裝備</span>: ${formatCost(destructionPart, exchangeRate)})</div>`;
                 
                 let stratNameHtml = `
                     <span style="display: flex; align-items: center; justify-content: flex-start;">
@@ -1582,7 +1648,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <td style="text-align:left; line-height: 1.4;">${stratNameHtml}${badge ? '<div style="margin-top:4px;">' + badge + '</div>' : ''}</td>
                         <td style="text-align:left;">
                             <strong>建議配置（初始衝裝）：</strong><br>${result.pathDescription.init}<br>
-                            <div style="margin-top:5px;"><strong>建議配置（炸裝後，降回 12★ 時適用）：</strong><br>${result.pathDescription.recover}</div>
+                            <div style="margin-top:5px;"><strong>炸裝後恢復路徑（如有降至 12★）：</strong><br>${result.pathDescription.recover}</div>
                         </td>
                         <td class="cost">${formatCost(finalResult.totalCost, exchangeRate)} ${costBreakdown}</td>
                         <td class="destroy">${finalResult.totalDestructions.toFixed(4)}</td>
@@ -1614,18 +1680,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (item.showBadge) {
                     badge = item.badgeType === 'tie'
                         ? `<span class="best-choice-badge" style="background-color:#f39c12;">★ 並列最低</span>` 
-                        : `<span class="best-choice-badge">★ 平均最省</span>`;
+                        : `<span class="best-choice-badge">★ 理論平均最省</span>`;
                 }
                 
                 const simCouponPart = stats.avgCouponCost;
                 const simDestructionPart = stats.avgDestroyCost;
                 const simEnhancementPart = stats.avgCost - simCouponPart - simDestructionPart;
-                const simCostBreakdown = `<span class="cost-breakdown sim-cost-breakdown">(券: ${formatCost(simCouponPart, exchangeRate)} 強化: ${formatCost(simEnhancementPart, exchangeRate)} 裝備: ${formatCost(simDestructionPart, exchangeRate)})</span>`;
+                const simCostBreakdown = `<span class="cost-breakdown sim-cost-breakdown">(券: ${formatCost(simCouponPart, exchangeRate)} 強化: ${formatCost(simEnhancementPart, exchangeRate)} <span title="爆裝次數 × 空裝補償價格（不含痕跡修復楓幣費）" style="cursor:help;text-decoration:underline dotted #aaa;">裝備</span>: ${formatCost(simDestructionPart, exchangeRate)})</span>`;
 
                 const theoryCouponPart = theoretical.totalCouponCost;
-                const theoryDestructionPart = theoretical.totalDestructions * result.compensationPrice;
+                const theoryDestructionPart = theoretical.totalEquipCost ?? (theoretical.totalDestructions * result.compensationPrice);
                 const theoryEnhancementPart = theoretical.totalCost - theoryCouponPart - theoryDestructionPart;
-                const theoryCostBreakdown = `<span class="cost-breakdown">(券: ${formatCost(theoryCouponPart, exchangeRate)} 強化: ${formatCost(theoryEnhancementPart, exchangeRate)} 裝備: ${formatCost(theoryDestructionPart, exchangeRate)})</span>`;
+                const theoryCostBreakdown = `<span class="cost-breakdown">(券: ${formatCost(theoryCouponPart, exchangeRate)} 強化: ${formatCost(theoryEnhancementPart, exchangeRate)} <span title="空裝補償估算（不含痕跡修復楓幣費）" style="cursor:help;text-decoration:underline dotted #aaa;">裝備</span>: ${formatCost(theoryDestructionPart, exchangeRate)})</span>`;
 
                 const avgCostDisplay = `<div>${formatCost(stats.avgCost, exchangeRate)} ${simCostBreakdown}</div> <div class="theoretical-value">(${formatCost(theoretical.totalCost, exchangeRate)}) ${theoryCostBreakdown}</div>`;
                 const avgDestroysDisplay = `<div>${stats.avgDestroys.toFixed(2)}</div> <div class="theoretical-value">(${theoretical.totalDestructions.toFixed(2)})</div>`;
@@ -1647,7 +1713,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <td style="text-align:left; line-height:1.4;">${stratNameHtml}${badge ? '<div style="margin-top:4px;">' + badge + '</div>' : ''}</td>
                         <td style="text-align:left; font-size: 0.9em; line-height:1.4;">
                              <strong>建議配置（初始衝裝）：</strong><br>${result.pathDescription.init}<br>
-                             <div style="margin-top:5px;"><strong>建議配置（炸裝後，降回 12★ 時適用）：</strong><br>${result.pathDescription.recover}</div>
+                             <div style="margin-top:5px;"><strong>炸裝後恢復路徑（如有降至 12★）：</strong><br>${result.pathDescription.recover}</div>
                         </td>
                         <td class="cost">${avgCostDisplay}</td>
                         <td class="destroy">${avgDestroysDisplay}</td>
@@ -1845,8 +1911,12 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             
             const initPathDesc = generatePathDescription(startStar, targetStar, theoreticalIntervals, theoreticalResult.strategyText, activeProbabilities);
+            const traceAvailable = getTraceMesos(15, equipLevel) !== Infinity;
+            const recoverNote = traceAvailable
+                ? "(系統已為各星等自動評估並選用最優復原策略：完全復原 或 降回12星)"
+                : "(此裝備等級不支援痕跡完全復原，若破壞固定降回 12 星)";
             const recoverPathDesc = targetStar > 12 
-                ? generatePathDescription(12, targetStar, theoreticalIntervals, recoverResult.strategyText, activeProbabilities) + "<br><span style='color:#e67e22; font-size:0.85em; font-weight:bold; margin-top:5px; display:block;'>(系統已為各星等自動評估並選用最優復原策略：完全復原 或 降回12星)</span>"
+                ? generatePathDescription(12, targetStar, theoreticalIntervals, recoverResult.strategyText, activeProbabilities) + `<br><span style='color:#e67e22; font-size:0.85em; font-weight:bold; margin-top:5px; display:block;'>${recoverNote}</span>`
                 : "無破壞風險";
 
             g_allScenarioResults.push({ 
@@ -1869,7 +1939,6 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const enableCustomPathCheckbox = document.getElementById('enable-custom-path');
         if (enableCustomPathCheckbox && enableCustomPathCheckbox.checked) {
-            buildCustomPathTable();
             const customData = getCustomPathData();
 
             if (customData) {
@@ -1889,14 +1958,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 const buildPathStrategy = (effectiveStart, jumpCouponStar) => {
                     const stratText = jumpCouponStar ? `使用${jumpCouponStar}星券` : `從${effectiveStart}星強化`;
                     const jumpCost = jumpCouponStar ? (couponPrices[jumpCouponStar] || 0) : 0;
-                    let totalCost = jumpCost, totalDestructions = 0, totalCouponCost = jumpCost, totalVar = 0;
+                    let totalCost = jumpCost, totalDestructions = 0, totalCouponCost = jumpCost, totalVar = 0, totalEquipCost = 0;
                     for (let i = effectiveStart; i < targetStar; i++) {
                         totalCost += customIntervals[i].cost;
                         totalDestructions += customIntervals[i].destructions;
                         totalCouponCost += customIntervals[i].couponCost;
                         totalVar += customIntervals[i].varCost;
+                        totalEquipCost += (customIntervals[i].equipCost ?? 0);
                     }
-                    return { strategyText: stratText, startStar: effectiveStart, couponCost: jumpCost, totalCost, totalDestructions, totalCouponCost, totalVar };
+                    return { strategyText: stratText, startStar: effectiveStart, couponCost: jumpCost, totalCost, totalDestructions, totalCouponCost, totalVar, totalEquipCost };
                 };
 
                 const customInitialStrategy = buildPathStrategy(
@@ -1918,7 +1988,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (!g_simulationAborted) {
                     const customRuns = { costs: [], destroys: [], enhanceCosts: [], destroyCosts: [], couponCosts: [] };
+                    const customSimStart = Date.now();
                     for (let j = 0; j < numSimulations; j++) {
+                        if (g_simulationAborted || (Date.now() - customSimStart) > SIMULATION_TIMEOUT) break;
+                        if (j > 0 && j % 200 === 0) await new Promise(resolve => setTimeout(resolve, 0));
                         const keepLog = (j === 0);
                         const result = simulateTrial(equipLevel, targetStar, compensationPrice, customStrategyGuide, costDiscount, vipDiscount, activeProbabilities, customIntervals, keepLog);
                         if (result.aborted) break;
@@ -2094,14 +2167,22 @@ document.addEventListener('DOMContentLoaded', () => {
         input.addEventListener('input', debouncedRebuild);
     });
     
-    if (dom.shareBtn) {
+        if (dom.shareBtn) {
         dom.shareBtn.addEventListener('click', () => {
             const settings = getSettingsObject();
             const base64Str = btoa(encodeURIComponent(JSON.stringify(settings)));
             const url = new URL(window.location.href);
             url.searchParams.set('share', base64Str);
-            
-            navigator.clipboard.writeText(url.toString()).then(() => {
+            const urlStr = url.toString();
+
+            if (urlStr.length > 4000) {
+                const proceed = confirm(
+                    `⚠️ 分享連結長度為 ${urlStr.length} 字元，超過建議上限（4000 字元）。\n\n部分瀏覽器或平台（如 LINE）可能無法正確解析過長的連結。\n\n建議：可先取消勾選「自訂路徑」再分享，連結會短很多。\n\n是否仍要複製此連結？`
+                );
+                if (!proceed) return;
+            }
+
+            navigator.clipboard.writeText(urlStr).then(() => {
                 alert('已經複製分享連結！您可以將此連結直接貼給其他人。');
             }).catch(err => {
                 prompt('複製失敗，請手動複製以下連結：', url.toString());
@@ -2142,18 +2223,18 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     updateTargetStarOptions();
-    if (initialSettings && initialSettings.targetStar) {
-        if (Array.from(dom.targetStarSelect.options).some(opt => opt.value == initialSettings.targetStar)) {
-            dom.targetStarSelect.value = initialSettings.targetStar;
-        } else {
-             updateTargetStarOptions();
-             dom.targetStarSelect.value = Math.min(25, enhancementCosts[dom.equipLevelSelect.value].length);
-        }
+    if (initialSettings?.targetStar !== undefined) {
+        // 直接代入；若超出可選範圍，瀏覽器會忽略並保留 updateTargetStarOptions 設定的預設值
+        dom.targetStarSelect.value = initialSettings.targetStar;
         updateStartStarOptions();
-        if (initialSettings.startStar) {
-             dom.startStarSelect.value = initialSettings.startStar;
-        }
+        if (initialSettings.startStar !== undefined) dom.startStarSelect.value = initialSettings.startStar;
     }
+    if (g_savedCustomPath?.enabled && enableCustomPathCheckbox && customPathSettings) {
+        enableCustomPathCheckbox.checked = true;
+        customPathSettings.style.display = 'block';
+        buildCustomPathTable();
+    }
+
     toggleCouponInputs();
     setupNumberFormatting();
     
