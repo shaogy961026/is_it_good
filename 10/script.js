@@ -1581,8 +1581,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     <tr class="${rowClass}">
                         <td style="text-align:left; line-height: 1.4;">${stratNameHtml}${badge ? '<div style="margin-top:4px;">' + badge + '</div>' : ''}</td>
                         <td style="text-align:left;">
-                            <strong>初始:</strong><br>${result.pathDescription.init}<br>
-                            <div style="margin-top:5px;"><strong>修復:</strong><br>${result.pathDescription.recover}</div>
+                            <strong>建議配置（初始衝裝）：</strong><br>${result.pathDescription.init}<br>
+                            <div style="margin-top:5px;"><strong>建議配置（炸裝後，降回 12★ 時適用）：</strong><br>${result.pathDescription.recover}</div>
                         </td>
                         <td class="cost">${formatCost(finalResult.totalCost, exchangeRate)} ${costBreakdown}</td>
                         <td class="destroy">${finalResult.totalDestructions.toFixed(4)}</td>
@@ -1646,8 +1646,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     <tr class="${rowClass}">
                         <td style="text-align:left; line-height:1.4;">${stratNameHtml}${badge ? '<div style="margin-top:4px;">' + badge + '</div>' : ''}</td>
                         <td style="text-align:left; font-size: 0.9em; line-height:1.4;">
-                             <strong>初始:</strong><br>${result.pathDescription.init}<br>
-                             <div style="margin-top:5px;"><strong>修復:</strong><br>${result.pathDescription.recover}</div>
+                             <strong>建議配置（初始衝裝）：</strong><br>${result.pathDescription.init}<br>
+                             <div style="margin-top:5px;"><strong>建議配置（炸裝後，降回 12★ 時適用）：</strong><br>${result.pathDescription.recover}</div>
                         </td>
                         <td class="cost">${avgCostDisplay}</td>
                         <td class="destroy">${avgDestroysDisplay}</td>
