@@ -1423,7 +1423,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
         } else {
-            dom.legendNote.innerHTML = `上方為模擬值 <span class="theoretical-value">(綠字) 為理論期望值</span><br><br>`;
+            dom.legendNote.innerHTML = `上方為模擬值 <span class="theoretical-value">(綠字) 為理論期望值</span>`;
             dom.resultsTitle.textContent = "模擬與理論成本統計";
             tableHeaders = `
                 <thead>
