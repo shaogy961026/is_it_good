@@ -45,18 +45,18 @@ const starProbabilities = baseStarProbabilities.map(p => {
     };
 });
 
-// 痕跡完全修復費用表
+// 痕跡完全修復費用表（官方公告數值，2026/07）
 // mesos 依【被破壞的星數】×【裝備等級】二維查表；equips 不受裝備等級影響
-// 注意：目前官網資料與遊戲內數值不符，以下為暫時佔位值，待官方公告後更新
+// 130 等級裝備不支援痕跡完全復原，故不列入
 const TRACE_RECOVERY_COSTS = {
-    15: { equips: 1, mesos: { 130: 900000000,    140: 900000000,    150: 900000000,    160: 900000000,    200: 900000000,    250: 900000000    } },
-    16: { equips: 1, mesos: { 130: 10000000000,  140: 10000000000,  150: 10000000000,  160: 10000000000,  200: 10000000000,  250: 10000000000  } },
-    17: { equips: 1, mesos: { 130: 10000000000,  140: 10000000000,  150: 10000000000,  160: 10000000000,  200: 10000000000,  250: 10000000000  } },
-    18: { equips: 1, mesos: { 130: 100000000000, 140: 100000000000, 150: 100000000000, 160: 100000000000, 200: 100000000000, 250: 100000000000 } },
-    19: { equips: 2, mesos: { 130: 100000000000, 140: 100000000000, 150: 100000000000, 160: 100000000000, 200: 100000000000, 250: 100000000000 } },
-    20: { equips: 2, mesos: { 130: 100000000000, 140: 100000000000, 150: 100000000000, 160: 100000000000, 200: 100000000000, 250: 100000000000 } },
-    21: { equips: 3, mesos: { 130: 100000000000, 140: 100000000000, 150: 100000000000, 160: 100000000000, 200: 100000000000, 250: 100000000000 } },
-    22: { equips: 4, mesos: { 130: 100000000000, 140: 100000000000, 150: 100000000000, 160: 100000000000, 200: 100000000000, 250: 100000000000 } },
+    15: { equips: 1, mesos: { 140: 149000000,   150: 183000000,   160: 222000000,   200: 433000000,   250: 846000000   } },
+    16: { equips: 1, mesos: { 140: 484000000,   150: 596000000,   160: 723000000,   200: 1420000000,  250: 2760000000  } },
+    17: { equips: 1, mesos: { 140: 896000000,   150: 1110000000,  160: 1340000000,  200: 2620000000,  250: 5100000000  } },
+    18: { equips: 1, mesos: { 140: 1950000000,  150: 2400000000,  160: 2910000000,  200: 5670000000,  250: 11100000000 } },
+    19: { equips: 2, mesos: { 140: 3790000000,  150: 4660000000,  160: 5650000000,  200: 11100000000, 250: 21600000000 } },
+    20: { equips: 2, mesos: { 140: 8030000000,  150: 9880000000,  160: 12000000000, 200: 23500000000, 250: 45800000000 } },
+    21: { equips: 3, mesos: { 140: 10100000000, 150: 12400000000, 160: 15000000000, 200: 29200000000, 250: 57100000000 } },
+    22: { equips: 4, mesos: { 140: 14100000000, 150: 17300000000, 160: 21000000000, 200: 41000000000, 250: 80100000000 } },
 };
 
 /**
@@ -69,10 +69,11 @@ function getTraceMesos(traceStar, equipLevel) {
     const entry = TRACE_RECOVERY_COSTS[traceStar];
     if (!entry) return Infinity;
     const levelKey = String(equipLevel);
-    // 若此等級尚無對應資料，取所有等級中最接近（且不超過）的數值作為保守估算
     if (entry.mesos[levelKey] !== undefined) return entry.mesos[levelKey];
     const keys = Object.keys(entry.mesos).map(Number).sort((a, b) => a - b);
     const lvl = parseInt(levelKey, 10);
+    // 低於最小支援等級（如 130）視為不支援，不做 fallback
+    if (lvl < keys[0]) return Infinity;
     const fallback = keys.filter(k => k <= lvl).at(-1) ?? keys[0];
     return entry.mesos[fallback];
 }
@@ -929,35 +930,39 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 痕跡完全復原費用表
         dom.traceTableTitle.textContent = `痕跡完全復原費用參考（裝備等級 ${equipLevel}）`;
-        let traceHtml = `
-            <p style="margin:0 0 8px; font-size:0.82rem; color:#c0392b; line-height:1.6;">
-                ⚠️ 目前官網公布的費用與遊戲中<strong>不符</strong>，下方數值為計算機實際套用的暫時參考值，待官方更正後更新。<br>
-                合計 = 需備用裝備數 × 裝備補償價格（${compensationPrice.toLocaleString()} 楓幣）＋ 痕跡楓幣費
-            </p>
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>破壞時的星數</th>
-                        <th>需備用裝備數</th>
-                        <th>痕跡楓幣費</th>
-                        <th>合計估算</th>
-                    </tr>
-                </thead>
-                <tbody>`;
-        for (let star = 15; star <= 22; star++) {
-            const entry = TRACE_RECOVERY_COSTS[star];
-            if (!entry) continue;
-            const mesos = getTraceMesos(star, equipLevel);
-            const total = entry.equips * compensationPrice + mesos;
-            const displayStar = star >= 23 ? '≥23（以22★計）' : `${star}★`;
-            traceHtml += `<tr>
-                <td>${displayStar}</td>
-                <td>${entry.equips} 件</td>
-                <td>${mesos.toLocaleString()}</td>
-                <td>${total.toLocaleString()}</td>
-            </tr>`;
+        const isTraceSupported = getTraceMesos(15, equipLevel) !== Infinity;
+        let traceHtml;
+        if (!isTraceSupported) {
+            traceHtml = `<p style="margin:0; font-size:0.85rem; color:#888;">此裝備等級（${equipLevel}）不支援痕跡完全復原功能，計算機不會將其納入策略比較。</p>`;
+        } else {
+            traceHtml = `
+                <p style="margin:0 0 8px; font-size:0.82rem; color:#555; line-height:1.6;">
+                    數值來源：官方公告（2026/07）。合計 = 需備用裝備數 × 裝備補償價格（${compensationPrice.toLocaleString()} 楓幣）＋ 痕跡楓幣費
+                </p>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>破壞時的星數</th>
+                            <th>需備用裝備數</th>
+                            <th>痕跡楓幣費</th>
+                            <th>合計估算</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+            for (let star = 15; star <= 22; star++) {
+                const entry = TRACE_RECOVERY_COSTS[star];
+                if (!entry) continue;
+                const mesos = getTraceMesos(star, equipLevel);
+                const total = entry.equips * compensationPrice + mesos;
+                traceHtml += `<tr>
+                    <td>${star}★</td>
+                    <td>${entry.equips} 件</td>
+                    <td>${mesos.toLocaleString()}</td>
+                    <td>${total.toLocaleString()}</td>
+                </tr>`;
+            }
+            traceHtml += '</tbody></table>';
         }
-        traceHtml += '</tbody></table>';
         dom.traceTableContainer.innerHTML = traceHtml;
     }
     
