@@ -1802,10 +1802,38 @@ document.addEventListener('DOMContentLoaded', () => {
             if (customData) {
                 const { startStar, forcedStarMethods, forcedRecoveryMethods } = customData;
 
-                const customMDP = solveMDPExact(
-                    targetStar, equipLevel, compensationPrice, couponPrices, specialCouponPrices,
-                    costDiscount, vipDiscount, activeProbabilities, 0, customData
-                );
+                // T >= 29：與主策略相同，先精確解 T=28 再外推，避免數值嚴重偏低
+                let customMDP;
+                if (targetStar >= 29) {
+                    const customData28 = { ...customData, initialJump: null };
+                    const base28 = solveMDPExact(
+                        28, equipLevel, compensationPrice, couponPrices, specialCouponPrices,
+                        costDiscount, vipDiscount, activeProbabilities, 0, customData28
+                    );
+                    customMDP = extrapolateMDPStep(base28, 28, equipLevel, compensationPrice, activeProbabilities, 0);
+                    if (targetStar >= 30) {
+                        customMDP = extrapolateMDPStep(customMDP, 29, equipLevel, compensationPrice, activeProbabilities, 0);
+                    }
+                    if (customData.initialJump) {
+                        const jt = customData.initialJump;
+                        const jc = couponPrices[jt] || 0;
+                        const ss = customData.startStar;
+                        customMDP.V[ss]   = jc + customMDP.V[jt];
+                        customMDP.Var[ss] = customMDP.Var[jt];
+                        customMDP.D[ss]   = customMDP.D[jt];
+                        customMDP.CPN[ss] = jc + customMDP.CPN[jt];
+                        customMDP.EQ[ss]  = customMDP.EQ[jt];
+                        customMDP.Policy[ss] = { type: 'coupon', target: jt, cost: jc, name: `使用${jt}星券` };
+                    }
+                    customMDP.recoveryJump = customData.recoveryJump
+                        ? { target: customData.recoveryJump, cost: couponPrices[customData.recoveryJump] || 0 }
+                        : null;
+                } else {
+                    customMDP = solveMDPExact(
+                        targetStar, equipLevel, compensationPrice, couponPrices, specialCouponPrices,
+                        costDiscount, vipDiscount, activeProbabilities, 0, customData
+                    );
+                }
 
                 const theoreticalResult = {
                     totalCost: customMDP.V[startStar],
