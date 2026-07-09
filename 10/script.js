@@ -242,7 +242,7 @@ function loadSettings(dom) {
 // 終極絕對精準動態規劃引擎 (Exact MDP Solver) - 防記憶體洩漏與卡死優化版
 // ============================================================================
 function solveMDPExact(targetStar, equipLevel, compensationPrice, couponPrices, specialCouponPrices, costDiscount, vipDiscount, activeProbabilities, K, forcedPath = null) {
-    const MAX_STATES = 30;
+    const MAX_STATES = 31;
     let V = new Array(MAX_STATES).fill(0);
     let Var = new Array(MAX_STATES).fill(0);
     let D = new Array(MAX_STATES).fill(0);
