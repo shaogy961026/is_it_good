@@ -253,12 +253,12 @@ function solveMDPExact(targetStar, equipLevel, compensationPrice, couponPrices, 
     const equipLevelNum = parseInt(equipLevel);
     const originalCosts = enhancementCosts[equipLevel];
 
-    for (let iter = 0; iter < 5000; iter++) {
+    for (let iter = 0; iter < 500; iter++) {
         let maxDiff = 0;
         for (let n = targetStar - 1; n >= 0; n--) {
             if (n >= originalCosts.length) continue;
             
-            let oldScore = (V[n] / YI) + K * Var[n];
+            let oldScore = V[n] + K * Var[n];
             let bestScore = Infinity;
             let bestV = Infinity, bestVar = 0, bestD = 0, bestCPN = 0, bestEQ = 0;
             let bestType = null, bestName = null, bestLimitStar = null, bestRecChoice = null, bestActionCost = 0;
@@ -325,35 +325,7 @@ function solveMDPExact(targetStar, equipLevel, compensationPrice, couponPrices, 
                 d_cpn = CPN[traceStar]; d_d = 1 + D[traceStar];
             }
 
-            // 當完全復原目標與當前星等相同時（n=15~22），Bellman 方程出現自我參照：
-            // V[n] = (c + p*V[n+1] + r*(traceCost+V[n])) / (1-k)
-            // 代數化簡後得封閉式：V[n] = (c + p*V[n+1] + r*traceCost) / (1-k-r)
-            // 同理 Var[n]、D[n]、CPN[n]、EQ[n] 均有對應封閉式，
-            // 使用封閉式可讓此狀態一步收斂，大幅加速高星等目標的整體收斂。
-            const selfRecovery = useFull && (traceStar === n);
-
             const evalTransition = (type, actionCost, p, k, r, actionName, limitStar=null) => {
-                // 對直接強化且觸發自我參照時，使用封閉式解
-                if (selfRecovery && r > 0 && (type === 'sf' || type === 'sf_prev')) {
-                    const denom = 1 - k - r; // = success probability p_n
-                    if (denom <= 0) return;
-                    const expV = (actionCost + p * V[n+1] + r * traceCost) / denom;
-                    const term1 = p * Math.pow(V[n+1] - expV, 2);
-                    // 固定點時 d_v - expV = traceCost（proof: d_v = traceCost+V[n]=traceCost+expV）
-                    const term2 = r * Math.pow(traceCost, 2);
-                    const expVar = (term1 + term2 + p * Var[n+1]) / denom;
-                    const score = (expV / YI) + K * expVar;
-                    if (score < bestScore) {
-                        bestScore = score; bestV = expV; bestVar = expVar;
-                        // 對 D/CPN/EQ 同樣代入封閉式（自我參照項消去）
-                        bestCPN = p * CPN[n+1] / denom;
-                        bestEQ = (p * EQ[n+1] + r * traceEquipCount * compensationPrice) / denom;
-                        bestD = (p * D[n+1] + r) / denom;
-                        bestType = type; bestName = actionName; bestLimitStar = null;
-                        bestRecChoice = recChoice; bestActionCost = actionCost;
-                    }
-                    return;
-                }
                 if (1 - k <= 0) return;
                 let expV = (actionCost + p * V[n+1] + r * d_v) / (1 - k);
                 let term1 = p * Math.pow(V[n+1] - expV, 2);
