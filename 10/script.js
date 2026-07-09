@@ -253,12 +253,16 @@ function solveMDPExact(targetStar, equipLevel, compensationPrice, couponPrices, 
     const equipLevelNum = parseInt(equipLevel);
     const originalCosts = enhancementCosts[equipLevel];
 
-    for (let iter = 0; iter < 500; iter++) {
+    // T=28 需要 ~21000 次才收斂；T≥29 已由呼叫端用外推法處理，不應直接傳入此函式
+    const MAX_ITER = targetStar === 28 ? 25000 : targetStar >= 26 ? 5000 : 500;
+    // target < 26 維持舊版行為（跑滿 500 次），target >= 26 才啟用正確的收斂判定
+    const useConvergenceCheck = targetStar >= 26;
+    for (let iter = 0; iter < MAX_ITER; iter++) {
         let maxDiff = 0;
         for (let n = targetStar - 1; n >= 0; n--) {
             if (n >= originalCosts.length) continue;
             
-            let oldScore = V[n] + K * Var[n];
+            let oldScore = useConvergenceCheck ? (V[n] / YI) + K * Var[n] : V[n] + K * Var[n];
             let bestScore = Infinity;
             let bestV = Infinity, bestVar = 0, bestD = 0, bestCPN = 0, bestEQ = 0;
             let bestType = null, bestName = null, bestLimitStar = null, bestRecChoice = null, bestActionCost = 0;
@@ -416,6 +420,76 @@ function solveMDPExact(targetStar, equipLevel, compensationPrice, couponPrices, 
         ? { target: forcedPath.recoveryJump, cost: couponPrices[forcedPath.recoveryJump] || 0 }
         : null;
     return { V, Var, D, CPN, EQ, Policy, recoveryJump };
+}
+
+// 從 baseMDP（已精確解至 T-1 = n）外推一步至 T = n+1
+// 用閉合公式：V_extra[n]×p = c + r×(恢復即時費 + V_base[恢復星])
+// 適用於 T=29(n=28)、T=30(n=29)，呼叫前需確保 baseMDP 已收斂
+function extrapolateMDPStep(baseMDP, n, equipLevel, compensationPrice, activeProbabilities, K) {
+    const YI = 100000000;
+    const V   = [...baseMDP.V];
+    const Var = [...baseMDP.Var];
+    const D   = [...baseMDP.D];
+    const CPN = [...baseMDP.CPN];
+    const EQ  = [...baseMDP.EQ];
+    const Policy = [...baseMDP.Policy];
+
+    const probs = activeProbabilities[n];
+    const p = probs.success, k = probs.keep, r = probs.destroy;
+    const c = enhancementCosts[equipLevel][n];
+
+    // n >= 23，恢復目標固定為 22★
+    const ts = 22;
+    const recData22 = TRACE_RECOVERY_COSTS[ts];
+    const traceMesos22 = getTraceMesos(ts, equipLevel);
+    const traceCost22 = (recData22 && traceMesos22 !== Infinity)
+        ? recData22.equips * compensationPrice + traceMesos22
+        : Infinity;
+
+    // 與原 solveMDPExact 相同的恢復方式評分邏輯
+    const scoreFullRec = traceCost22 !== Infinity
+        ? (traceCost22 + V[ts]) / YI + K * Var[ts]
+        : Infinity;
+    const score12Rec = (compensationPrice + V[12]) / YI + K * Var[12];
+    const useFull = traceCost22 !== Infinity && scoreFullRec < score12Rec;
+
+    const R_immediate = useFull ? traceCost22 : compensationPrice;
+    const R_v   = useFull ? V[ts]   : V[12];
+    const R_var = useFull ? Var[ts] : Var[12];
+    const R_d   = useFull ? (1 + D[ts])   : (1 + D[12]);
+    const R_cpn = useFull ? CPN[ts]        : CPN[12];
+    const R_eq  = useFull
+        ? (recData22 ? recData22.equips * compensationPrice : 0) + EQ[ts]
+        : compensationPrice + EQ[12];
+
+    // 閉合公式（消去 keep 自迴圈後）：V_extra × p = c + r × (R_immediate + R_v)
+    const R_total = R_immediate + R_v;
+    const V_extra   = (c + r * R_total) / p;
+    const D_extra   = r * R_d / p;
+    const CPN_extra = r * R_cpn / p;
+    const EQ_extra  = r * R_eq / p;
+    // 方差近似（T≥29 本身即為近似解，此精度已足夠）
+    const Var_extra = (p * V_extra * V_extra + r * R_total * R_total + r * R_var) / p;
+
+    // 狀態 0..n-1：期望費用均加上此額外步驟的成本
+    for (let i = 0; i < n; i++) {
+        V[i]   += V_extra;
+        D[i]   += D_extra;
+        CPN[i] += CPN_extra;
+        EQ[i]  += EQ_extra;
+        Var[i] += Var_extra;
+    }
+    // 狀態 n 本身的費用（從 n★ 到 n+1★）
+    V[n]   = V_extra;
+    Var[n] = Var_extra;
+    D[n]   = D_extra;
+    CPN[n] = CPN_extra;
+    EQ[n]  = EQ_extra;
+
+    // Policy：直接強化（不防爆），記錄恢復方式
+    Policy[n] = { type: 'sf', name: '直接強化(不防爆)', recChoice: useFull ? 'full' : '12', cost: c };
+
+    return { V, Var, D, CPN, EQ, Policy, recoveryJump: baseMDP.recoveryJump };
 }
 
 // 根據 MDP Policy 產生文字說明
@@ -1375,8 +1449,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const getDetailBtn = (index, title) => `<button class="btn-details" onclick="openModal(${index}, '${title}')">查看模擬過程</button>`;
         const getAllDataBtn = (index, title) => `<button class="btn-details" onclick="openAllDataModal(${index}, '${title}')">查看分布與列表</button>`;
 
+        const displayTargetStar = parseInt(dom.targetStarSelect.value, 10);
+        const highStarApproxNote = displayTargetStar >= 29
+            ? `<span style="color:#e67e22; font-weight:bold; margin-left:8px;">⚠️ ${displayTargetStar}★ 目標：理論值為近似值，因演算法在高星數下難以完全收斂，僅供參考。</span>`
+            : '';
+
         if (g_simulationAborted) {
-            dom.legendNote.innerHTML = `<span style="color: #e74c3c; font-weight: bold;">(注意：本次計算因運算時間過長，已自動切換為僅顯示理論值)</span>`;
+            dom.legendNote.innerHTML = `<span style="color: #e74c3c; font-weight: bold;">(注意：本次計算因運算時間過長，已自動切換為僅顯示理論值)</span>${highStarApproxNote}`;
             dom.resultsTitle.textContent = "理論期望成本統計 (模擬已略過)";
             tableHeaders = `
                 <thead>
@@ -1428,7 +1507,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
         } else {
-            dom.legendNote.innerHTML = `上方為模擬值 <span class="theoretical-value">(綠字) 為理論期望值</span>`;
+            dom.legendNote.innerHTML = `上方為模擬值 <span class="theoretical-value">(綠字) 為理論期望值</span>${highStarApproxNote}`;
             dom.resultsTitle.textContent = "模擬與理論成本統計";
             tableHeaders = `
                 <thead>
@@ -1597,15 +1676,29 @@ document.addEventListener('DOMContentLoaded', () => {
             let bestGlobalMDP = null;
             let minGlobalZScore = Infinity;
 
-            for (let K of K_VALUES) {
-                const mdp = solveMDPExact(targetStar, equipLevel, compensationPrice, couponPrices, specialCouponPrices, costDiscount, vipDiscount, activeProbabilities, K);
-                
-                let safeVar = Math.max(0, mdp.Var[startStar]);
-                let currentZScore = (mdp.V[startStar] / YI) + strategy.Z * Math.sqrt(safeVar);
+            // T >= 28：券最高到 20★，高星段無券可選，K 值對策略無影響
+            // 使用 K=0 單次求解 T=28（精確），再用閉合公式外推 T=29/30，避免瀏覽器卡頓
+            const effectiveSolveStar = Math.min(targetStar, 28);
+            const effectiveKValues = targetStar >= 28 ? [0] : K_VALUES;
+
+            for (let K of effectiveKValues) {
+                const mdp = solveMDPExact(effectiveSolveStar, equipLevel, compensationPrice, couponPrices, specialCouponPrices, costDiscount, vipDiscount, activeProbabilities, K);
+
+                // 外推至實際目標星數（T=29 加一步，T=30 加兩步）
+                let finalMDP = mdp;
+                if (targetStar >= 29) {
+                    finalMDP = extrapolateMDPStep(mdp, 28, equipLevel, compensationPrice, activeProbabilities, K);
+                    if (targetStar >= 30) {
+                        finalMDP = extrapolateMDPStep(finalMDP, 29, equipLevel, compensationPrice, activeProbabilities, K);
+                    }
+                }
+
+                let safeVar = Math.max(0, finalMDP.Var[startStar]);
+                let currentZScore = (finalMDP.V[startStar] / YI) + strategy.Z * Math.sqrt(safeVar);
 
                 if (currentZScore < minGlobalZScore) {
                     minGlobalZScore = currentZScore;
-                    bestGlobalMDP = mdp;
+                    bestGlobalMDP = finalMDP;
                 }
             }
             
