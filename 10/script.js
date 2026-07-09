@@ -425,7 +425,7 @@ function solveMDPExact(targetStar, equipLevel, compensationPrice, couponPrices, 
 // 從 baseMDP（已精確解至 T-1 = n）外推一步至 T = n+1
 // 用閉合公式：V_extra[n]×p = c + r×(恢復即時費 + V_base[恢復星])
 // 適用於 T=29(n=28)、T=30(n=29)，呼叫前需確保 baseMDP 已收斂
-function extrapolateMDPStep(baseMDP, n, equipLevel, compensationPrice, activeProbabilities, K) {
+function extrapolateMDPStep(baseMDP, n, equipLevel, compensationPrice, activeProbabilities, K, costDiscount = false) {
     const YI = 100000000;
     const V   = [...baseMDP.V];
     const Var = [...baseMDP.Var];
@@ -435,8 +435,9 @@ function extrapolateMDPStep(baseMDP, n, equipLevel, compensationPrice, activePro
     const Policy = [...baseMDP.Policy];
 
     const probs = activeProbabilities[n];
-    const p = probs.success, k = probs.keep, r = probs.destroy;
-    const c = enhancementCosts[equipLevel][n];
+    const p = probs.success, r = probs.destroy;
+    const rawC = enhancementCosts[equipLevel][n];
+    const c = costDiscount ? rawC * 0.7 : rawC;
 
     // n >= 23，恢復目標固定為 22★
     const ts = 22;
@@ -1687,9 +1688,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 // 外推至實際目標星數（T=29 加一步，T=30 加兩步）
                 let finalMDP = mdp;
                 if (targetStar >= 29) {
-                    finalMDP = extrapolateMDPStep(mdp, 28, equipLevel, compensationPrice, activeProbabilities, K);
+                    finalMDP = extrapolateMDPStep(mdp, 28, equipLevel, compensationPrice, activeProbabilities, K, costDiscount);
                     if (targetStar >= 30) {
-                        finalMDP = extrapolateMDPStep(finalMDP, 29, equipLevel, compensationPrice, activeProbabilities, K);
+                        finalMDP = extrapolateMDPStep(finalMDP, 29, equipLevel, compensationPrice, activeProbabilities, K, costDiscount);
                     }
                 }
 
@@ -1810,9 +1811,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         28, equipLevel, compensationPrice, couponPrices, specialCouponPrices,
                         costDiscount, vipDiscount, activeProbabilities, 0, customData28
                     );
-                    customMDP = extrapolateMDPStep(base28, 28, equipLevel, compensationPrice, activeProbabilities, 0);
+                    customMDP = extrapolateMDPStep(base28, 28, equipLevel, compensationPrice, activeProbabilities, 0, costDiscount);
                     if (targetStar >= 30) {
-                        customMDP = extrapolateMDPStep(customMDP, 29, equipLevel, compensationPrice, activeProbabilities, 0);
+                        customMDP = extrapolateMDPStep(customMDP, 29, equipLevel, compensationPrice, activeProbabilities, 0, costDiscount);
                     }
                     if (customData.initialJump) {
                         const jt = customData.initialJump;
