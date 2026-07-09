@@ -392,11 +392,6 @@ function solveMDPExact(targetStar, equipLevel, compensationPrice, couponPrices, 
                 Policy[n] = null;
             }
             
-            if (forcedPath && forcedPath.recoveryJump && n === 12) {
-                let jumpTarget = forcedPath.recoveryJump;
-                Policy[12] = { type: 'coupon', target: jumpTarget, cost: couponPrices[jumpTarget] || 0, name: `使用${jumpTarget}星券` };
-            }
-
             if (isFinite(bestScore) && isFinite(oldScore)) {
                 maxDiff = Math.max(maxDiff, Math.abs(bestScore - oldScore));
             }
@@ -417,7 +412,10 @@ function solveMDPExact(targetStar, equipLevel, compensationPrice, couponPrices, 
         Policy[startStar] = { type: 'coupon', target: jumpTarget, cost: jumpCost, name: `使用${jumpTarget}星券` };
     }
 
-    return { V, Var, D, CPN, EQ, Policy };
+    const recoveryJump = (forcedPath && forcedPath.recoveryJump)
+        ? { target: forcedPath.recoveryJump, cost: couponPrices[forcedPath.recoveryJump] || 0 }
+        : null;
+    return { V, Var, D, CPN, EQ, Policy, recoveryJump };
 }
 
 // 根據 MDP Policy 產生文字說明
@@ -476,7 +474,7 @@ function generatePathDescriptionMDP(start, target, policyArray) {
 }
 
 // 根據 MDP Policy 進行單次模擬
-function simulateTrialMDP(equipLevel, targetStar, compensationPrice, policyArray, costDiscount, vipDiscount, activeProbabilities, startStar, keepLog = false) {
+function simulateTrialMDP(equipLevel, targetStar, compensationPrice, policyArray, costDiscount, vipDiscount, activeProbabilities, startStar, keepLog = false, recoveryJump = null) {
     let currentStars = startStar;
     let totalCost = 0, totalDestroys = 0, totalEnhancementCost = 0, totalDestructionCost = 0, totalCouponCost = 0;
     const log = [];
@@ -553,7 +551,14 @@ function simulateTrialMDP(equipLevel, targetStar, compensationPrice, policyArray
                 totalDestructionCost += compensationPrice;
                 currentStars = 12;
                 outcomeClass = 'log-fail';
-                outcomeText = `裝備已破壞！(補償一件裝備 +${compensationPrice.toLocaleString()}，降至 12星)`;
+                let recText = `補償一件裝備 +${compensationPrice.toLocaleString()}，降至 12星`;
+                if (recoveryJump) {
+                    totalCost += recoveryJump.cost;
+                    totalCouponCost += recoveryJump.cost;
+                    currentStars = recoveryJump.target;
+                    recText += `；使用${recoveryJump.target}★券跳至 ${recoveryJump.target}星 +${recoveryJump.cost.toLocaleString()}`;
+                }
+                outcomeText = `裝備已破壞！(${recText})`;
             }
         } else {
             outcomeClass = 'log-keep'; outcomeText = '維持星級。';
@@ -1725,7 +1730,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (g_simulationAborted || (Date.now() - customSimStart) > SIMULATION_TIMEOUT) break;
                         if (j > 0 && j % 200 === 0) await new Promise(resolve => setTimeout(resolve, 0));
                         const keepLog = (j === 0);
-                        const result = simulateTrialMDP(equipLevel, targetStar, compensationPrice, customMDP.Policy, costDiscount, vipDiscount, activeProbabilities, startStar, keepLog);
+                        const result = simulateTrialMDP(equipLevel, targetStar, compensationPrice, customMDP.Policy, costDiscount, vipDiscount, activeProbabilities, startStar, keepLog, customMDP.recoveryJump);
                         if (result.aborted) break;
                         customRuns.costs.push(result.totalCost);
                         customRuns.destroys.push(result.totalDestroys);
@@ -1742,8 +1747,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 const customInitPathDesc = generatePathDescriptionMDP(startStar, targetStar, customMDP.Policy);
+                let recoveryPolicyForDesc = customMDP.Policy;
+                if (customMDP.recoveryJump) {
+                    recoveryPolicyForDesc = [...customMDP.Policy];
+                    const rj = customMDP.recoveryJump;
+                    recoveryPolicyForDesc[12] = { type: 'coupon', target: rj.target, cost: rj.cost, name: `使用${rj.target}星券` };
+                }
                 const customRecoverPathDesc = targetStar > 12
-                    ? generatePathDescriptionMDP(12, targetStar, customMDP.Policy)
+                    ? generatePathDescriptionMDP(12, targetStar, recoveryPolicyForDesc)
                     : '無破壞風險';
 
                 g_allScenarioResults.push({
