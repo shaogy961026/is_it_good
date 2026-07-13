@@ -262,7 +262,7 @@ function solveMDPExact(targetStar, equipLevel, compensationPrice, couponPrices, 
         for (let n = targetStar - 1; n >= 0; n--) {
             if (n >= originalCosts.length) continue;
             
-            let oldScore = useConvergenceCheck ? (V[n] / YI) + K * Var[n] : V[n] + K * Var[n];
+            let oldScore = (V[n] + K * Math.sqrt(Math.max(0, Var[n]))) / YI;
             let bestScore = Infinity;
             let bestV = Infinity, bestVar = 0, bestD = 0, bestCPN = 0, bestEQ = 0;
             let bestType = null, bestName = null, bestLimitStar = null, bestRecChoice = null, bestActionCost = 0;
@@ -278,7 +278,7 @@ function solveMDPExact(targetStar, equipLevel, compensationPrice, couponPrices, 
                         let cost = price;
                         let v_new = cost + V[s];
                         let var_new = Var[s]; 
-                        let score_new = (v_new / YI) + K * var_new;
+                        let score_new = (v_new + K * Math.sqrt(var_new)) / YI;
                         if (score_new < bestScore) {
                             bestScore = score_new; bestV = v_new; bestVar = var_new; 
                             bestD = D[s]; bestCPN = cost + CPN[s]; bestEQ = EQ[s]; 
@@ -306,11 +306,11 @@ function solveMDPExact(targetStar, equipLevel, compensationPrice, couponPrices, 
 
             let costDest12 = jumpCost + V[jumpTarget];
             let varDest12 = Var[jumpTarget];
-            let scoreDest12 = (costDest12 / YI) + K * varDest12;
+            let scoreDest12 = (costDest12 + K * Math.sqrt(Math.max(0, varDest12))) / YI;
 
             let costDestFull = traceCost + V[traceStar];
             let varDestFull = Var[traceStar];
-            let scoreDestFull = (costDestFull / YI) + K * varDestFull;
+            let scoreDestFull = (costDestFull + K * Math.sqrt(Math.max(0, varDestFull))) / YI;
 
             let recChoice = '12';
             let d_v = costDest12, d_var = varDest12, d_equip = compensationPrice + EQ[jumpTarget];
@@ -335,7 +335,7 @@ function solveMDPExact(targetStar, equipLevel, compensationPrice, couponPrices, 
                 let term1 = p * Math.pow(V[n+1] - expV, 2);
                 let term2 = r * Math.pow(d_v - expV, 2);
                 let expVar = (term1 + term2 + p * Var[n+1] + r * d_var) / (1 - k);
-                let score = (expV / YI) + K * expVar;
+                let score = (expV + K * Math.sqrt(Math.max(0, expVar))) / YI;
                 
                 if (score < bestScore) {
                     bestScore = score; bestV = expV; bestVar = expVar;
@@ -400,7 +400,7 @@ function solveMDPExact(targetStar, equipLevel, compensationPrice, couponPrices, 
                 maxDiff = Math.max(maxDiff, Math.abs(bestScore - oldScore));
             }
         }
-        if (maxDiff < 1e-6) break;
+        if (useConvergenceCheck && maxDiff < 1e-6) break;
     }
 
     if (forcedPath && forcedPath.initialJump) {
@@ -449,9 +449,9 @@ function extrapolateMDPStep(baseMDP, n, equipLevel, compensationPrice, activePro
 
     // 與原 solveMDPExact 相同的恢復方式評分邏輯
     const scoreFullRec = traceCost22 !== Infinity
-        ? (traceCost22 + V[ts]) / YI + K * Var[ts]
+        ? (traceCost22 + V[ts] + K * Math.sqrt(Math.max(0, Var[ts]))) / YI
         : Infinity;
-    const score12Rec = (compensationPrice + V[12]) / YI + K * Var[12];
+    const score12Rec = (compensationPrice + V[12] + K * Math.sqrt(Math.max(0, Var[12]))) / YI;
     const useFull = traceCost22 !== Infinity && scoreFullRec < score12Rec;
 
     const R_immediate = useFull ? traceCost22 : compensationPrice;
@@ -1695,7 +1695,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 let safeVar = Math.max(0, finalMDP.Var[startStar]);
-                let currentZScore = (finalMDP.V[startStar] / YI) + strategy.Z * Math.sqrt(safeVar);
+                let currentZScore = (finalMDP.V[startStar] + strategy.Z * Math.sqrt(safeVar)) / YI;
 
                 if (currentZScore < minGlobalZScore) {
                     minGlobalZScore = currentZScore;
