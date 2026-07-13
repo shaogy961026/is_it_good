@@ -254,10 +254,11 @@ function solveMDPExact(targetStar, equipLevel, compensationPrice, couponPrices, 
     const originalCosts = enhancementCosts[equipLevel];
 
     // T=28 需要 ~21000 次才收斂；T≥29 已由呼叫端用外推法處理，不應直接傳入此函式
-    const MAX_ITER = targetStar === 28 ? 25000 : targetStar >= 26 ? 5000 : 500;
-    // target < 26 維持舊版行為（跑滿 500 次），target >= 26 才啟用正確的收斂判定
-    const useConvergenceCheck = targetStar >= 26;
-    for (let iter = 0; iter < MAX_ITER; iter++) {
+    // MIN_ITER：保證至少跑這麼多次，之後每輪檢查收斂，收斂即停
+    // BUG_CAP：數學上 MDP 必然收斂，此上限僅防止程式碼 bug 導致瀏覽器卡死
+    const MIN_ITER = targetStar === 28 ? 25000 : targetStar >= 26 ? 5000 : 500;
+    const BUG_CAP  = 200000;
+    for (let iter = 0; iter < BUG_CAP; iter++) {
         let maxDiff = 0;
         for (let n = targetStar - 1; n >= 0; n--) {
             if (n >= originalCosts.length) continue;
@@ -331,10 +332,12 @@ function solveMDPExact(targetStar, equipLevel, compensationPrice, couponPrices, 
 
             const evalTransition = (type, actionCost, p, k, r, actionName, limitStar=null) => {
                 if (1 - k <= 0) return;
-                let expV = (actionCost + p * V[n+1] + r * d_v) / (1 - k);
-                let term1 = p * Math.pow(V[n+1] - expV, 2);
-                let term2 = r * Math.pow(d_v - expV, 2);
-                let expVar = (term1 + term2 + p * Var[n+1] + r * d_var) / (1 - k);
+                const q = 1 - k;
+                let expV = (actionCost + p * V[n+1] + r * d_v) / q;
+                // 正確方差推導（全方差定理）：
+                //   Var(C_n) = c²k/q²  +  pr·(V[n+1]-d_v)²/q²  +  (p·Var[n+1] + r·d_var)/q
+                // 等價寫法（乘 q² 後再除）：
+                let expVar = (actionCost * actionCost * k + p * r * Math.pow(V[n+1] - d_v, 2) + (p * Var[n+1] + r * d_var) * q) / (q * q);
                 let score = (expV + K * Math.sqrt(Math.max(0, expVar))) / YI;
                 
                 if (score < bestScore) {
@@ -400,7 +403,10 @@ function solveMDPExact(targetStar, equipLevel, compensationPrice, couponPrices, 
                 maxDiff = Math.max(maxDiff, Math.abs(bestScore - oldScore));
             }
         }
-        if (useConvergenceCheck && maxDiff < 1e-6) break;
+        if (iter >= MIN_ITER - 1 && maxDiff < 1e-6) break;
+        if (iter === BUG_CAP - 1) {
+            console.error(`[MDP BUG] T=${targetStar} 在 ${BUG_CAP} 次後仍未收斂，maxDiff=${maxDiff.toExponential(2)}，結果可能有誤`);
+        }
     }
 
     if (forcedPath && forcedPath.initialJump) {
@@ -463,14 +469,17 @@ function extrapolateMDPStep(baseMDP, n, equipLevel, compensationPrice, activePro
         ? (recData22 ? recData22.equips * compensationPrice : 0) + EQ[ts]
         : compensationPrice + EQ[12];
 
-    // 閉合公式（消去 keep 自迴圈後）：V_extra × p = c + r × (R_immediate + R_v)
+    // 閉合公式（消去 keep 自迴圈後）：keep 與 destroy 皆回到 n★ 重試
+    //   V_extra × p = c + r × (R_immediate + R_v)
     const R_total = R_immediate + R_v;
     const V_extra   = (c + r * R_total) / p;
     const D_extra   = r * R_d / p;
     const CPN_extra = r * R_cpn / p;
     const EQ_extra  = r * R_eq / p;
-    // 方差近似（T≥29 本身即為近似解，此精度已足夠）
-    const Var_extra = (p * V_extra * V_extra + r * R_total * R_total + r * R_var) / p;
+    // 正確方差推導（全方差定理，兩種非成功結果均回到 n★ 繼續）：
+    //   Var_extra = [p·(c-V_extra)² + k·c² + r·(c+R_total)² + r·R_var] / p
+    const k_prob = 1 - p - r;
+    const Var_extra = (p * Math.pow(c - V_extra, 2) + k_prob * c * c + r * Math.pow(c + R_total, 2) + r * R_var) / p;
 
     // 狀態 0..n-1：期望費用均加上此額外步驟的成本
     for (let i = 0; i < n; i++) {
