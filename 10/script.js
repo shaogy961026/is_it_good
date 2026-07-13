@@ -1677,10 +1677,10 @@ document.addEventListener('DOMContentLoaded', () => {
             let bestGlobalMDP = null;
             let minGlobalZScore = Infinity;
 
-            // T >= 28：券最高到 20★，高星段無券可選，K 值對策略無影響
-            // 使用 K=0 單次求解 T=28（精確），再用閉合公式外推 T=29/30，避免瀏覽器卡頓
+            // T=29/30：外推步驟（28→29、29→30）無券可選，K 值不影響外推策略，固定 K=0 以避免瀏覽器卡頓
+            // T=28：標準券最高到 21★，K 值影響 21★ 券的避險使用時機，保留全 K 搜尋
             const effectiveSolveStar = Math.min(targetStar, 28);
-            const effectiveKValues = targetStar >= 28 ? [0] : K_VALUES;
+            const effectiveKValues = targetStar > 28 ? [0] : K_VALUES;
 
             for (let K of effectiveKValues) {
                 const mdp = solveMDPExact(effectiveSolveStar, equipLevel, compensationPrice, couponPrices, specialCouponPrices, costDiscount, vipDiscount, activeProbabilities, K);
