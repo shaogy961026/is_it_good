@@ -1650,22 +1650,22 @@ document.addEventListener('DOMContentLoaded', () => {
             { 
                 name: '極致省錢', 
                 Z: 0,
-                desc: '<strong style="color:#f1c40f;">【設定 Z = 0】</strong>\\n<strong>公式：</strong>決策分數 = 總期望成本\\n\\n系統完全不考慮波動風險與爆裝懲罰，純粹以「大樣本下平均最便宜」為唯一標準。適合預算極深、準備大量衝裝來攤平機率的玩家。'
+                desc: '<strong style="color:#f1c40f;">【設定 Z = 0】</strong>\\n<strong>公式：</strong>決策分數 = 總期望成本'
             },
             { 
                 name: '微幅避險', 
                 Z: 0.67,
-                desc: '<strong style="color:#f1c40f;">【設定 Z = 0.67】</strong>\\n<strong>公式：</strong>決策分數 = 總期望成本 + 0.67 × 總標準差\\n\\n涵蓋約前 75% 玩家的運氣。當全局路徑的波動(標準差)開始變大時，系統會稍微傾向使用防爆或卷軸，幫你擋掉普通程度的衰運。'
+                desc: '<strong style="color:#f1c40f;">【設定 Z = 0.67】</strong>\\n<strong>公式：</strong>決策分數 = 總期望成本 + 0.67 × 總標準差'
             },
             { 
                 name: '重度避險', 
                 Z: 1.28,
-                desc: '<strong style="color:#f1c40f;">【設定 Z = 1.28】</strong>\\n<strong>公式：</strong>決策分數 = 總期望成本 + 1.28 × 總標準差\\n\\n涵蓋約前 90% 玩家的運氣。強烈排斥會導致成本大幅波動的風險。若卷軸價格合理，會優先建議使用卷軸鎖死花費上限。'
+                desc: '<strong style="color:#f1c40f;">【設定 Z = 1.28】</strong>\\n<strong>公式：</strong>決策分數 = 總期望成本 + 1.28 × 總標準差'
             },
             { 
                 name: '極致保底', 
                 Z: 2.33,
-                desc: '<strong style="color:#f1c40f;">【設定 Z = 2.33】</strong>\\n<strong>公式：</strong>決策分數 = 總期望成本 + 2.33 × 總標準差\\n\\n涵蓋約前 99% 玩家的運氣 (防禦極端衰鬼)。對不確定性極度厭惡，強烈依賴必過卷軸。\\n\\n<span style="color:#e74c3c; font-weight:bold;">※ 全局防盤子機制：</span>\\n如果 100% 卷軸賣得超級貴，而 50% 卷軸非常便宜，導致 50% 卷軸即使「衰到連續失敗的極端情況」總花費依然低於直接買 100% 卷軸，系統就會為了防範你當盤子，自動降級推薦 50% 卷軸！這正是全局數學預測的強大之處。'
+                desc: '<strong style="color:#f1c40f;">【設定 Z = 2.33】</strong>\\n<strong>公式：</strong>決策分數 = 總期望成本 + 2.33 × 總標準差'
             }
         ];
 
