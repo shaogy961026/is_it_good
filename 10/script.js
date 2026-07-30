@@ -1176,9 +1176,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 </th>
             </tr></thead><tbody>`;
             
+        const hasNoDestroy = v => v === 'prev' || v.startsWith('limit') || v === 'append';
+
         for (const { n, options } of rows) {
             const savedVal = savedStarMethods[n] !== undefined ? savedStarMethods[n] : 'no_prev';
-            const isPrev = savedVal === 'prev';
             html += `<tr style="border-bottom:1px solid #eee;">
                 <td style="padding:6px 10px;font-weight:bold;white-space:nowrap;">${n} → ${n+1}★</td>
                 <td style="padding:4px 8px;"><select id="custom-star-${n}" style="width:100%;font-size:0.88em;padding:4px;">`;
@@ -1190,8 +1191,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             html += `<td style="padding:4px 8px;" id="custom-rec-cell-${n}">`;
             if (n >= 15) {
-                if (isPrev) {
-                    html += `<span style="color:#aaa;font-size:0.85em;padding-left:4px;">選防爆則不會破壞，無需選擇</span>`;
+                if (hasNoDestroy(savedVal)) {
+                    html += `<span style="color:#aaa;font-size:0.85em;padding-left:4px;">此方式無爆裝風險，無需選擇</span>`;
                 } else {
                     html += buildRecSelect(n, savedRecoveryMethods[n] || 'auto');
                 }
@@ -1210,8 +1211,8 @@ document.addEventListener('DOMContentLoaded', () => {
             starSel.addEventListener('change', () => {
                 const cell = document.getElementById(`custom-rec-cell-${n}`);
                 if (!cell) return;
-                if (starSel.value === 'prev') {
-                    cell.innerHTML = `<span style="color:#aaa;font-size:0.85em;padding-left:4px;">選防爆則不會破壞，無需選擇</span>`;
+                if (hasNoDestroy(starSel.value)) {
+                    cell.innerHTML = `<span style="color:#aaa;font-size:0.85em;padding-left:4px;">此方式無爆裝風險，無需選擇</span>`;
                 } else {
                     cell.innerHTML = buildRecSelect(n, 'auto');
                     document.getElementById(`custom-rec-${n}`)?.addEventListener('change', updateRecoveryJumpState);
