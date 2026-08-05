@@ -238,6 +238,32 @@
             return Math.max(0, Math.min(1, 1 - pFail));
         }
 
+        // 精確計算「部位 j 最終覺醒」的機率（Markov chain 遞迴，O(2^n) 時間）
+        // isMissing=true  → j 目前缺少（空槽），回傳 h(M\j)
+        // isMissing=false → j 已持有N版（nChecked），回傳 f(missing, N)
+        function computeExactPAwakened(pAj, pNj, pj, missTotals, isMissing) {
+            const n = missTotals.length;
+            if (n === 0) return isMissing ? pAj / pj : 0.0;
+            const size = 1 << n;
+            const fN = new Float64Array(size); // fN[0]=0 by default
+            const h  = isMissing ? new Float64Array(size) : null;
+            if (isMissing) h[0] = pAj / pj;
+            for (let mask = 1; mask < size; mask++) {
+                let PS = 0, sumFN = 0, sumH = 0;
+                for (let bit = 0; bit < n; bit++) {
+                    if (mask >> bit & 1) {
+                        const pm = missTotals[bit], sub = mask ^ (1 << bit);
+                        PS += pm; sumFN += pm * fN[sub];
+                        if (isMissing) sumH += pm * h[sub];
+                    }
+                }
+                fN[mask] = (pAj + sumFN) / (pAj + PS);
+                if (isMissing) h[mask] = (pAj + pNj * fN[mask] + sumH) / (pAj + pNj + PS);
+            }
+            const full = size - 1;
+            return isMissing ? h[full] : fN[full];
+        }
+
         function calculateExpectedValue() {
             const target = document.getElementById('target').value;
             let missingIndices = [];
@@ -285,11 +311,9 @@
 
             let grossBoxes = calculateInclusionExclusion(missingIndices, targetProbs);
 
-            // 統一第二迴圈：用 1-(1-pA)^grossBoxes 計算最終覺醒機率
-            // 此公式同時適用於「已持有一般版」與「缺少部位」：
-            //   - 缺少部位：抽到N後仍可在後續開箱中升覺醒，最終P(覺醒)≈1-(1-pA)^grossBoxes
-            //   - 已持有N版：同樣在 grossBoxes 次開箱中等待升覺醒
-            //   - 已持有A版：P=1，不受 grossBoxes 影響
+            // 精確計算各部位最終覺醒機率（Markov chain，無 Jensen 不等式誤差）
+            const missTotals = missingIndices.map(mi => targetProbs[mi - 1]);
+
             let expectedPieceAtk = 0;
             let expectedAwakenedCount = 0;
             let extraFragsFromUpgrades = 0;
@@ -306,17 +330,18 @@
                         expectedAwakenedCount += 1;
                         expectedPieceAtk += atkAwakened[idx];
                     } else {
-                        let pU = 1 - Math.pow(1 - probAwakened[idx], grossBoxes);
-                        expectedAwakenedCount += pU;
-                        expectedPieceAtk += pU * atkAwakened[idx] + (1 - pU) * atkNormal[idx];
+                        const pAj = probAwakened[idx], pNj = probNormal[idx], pj = pAj + pNj;
+                        let pU;
                         if (nChecked) {
-                            // 持有N → 升覺醒：分解舊N(+2.05)，保留A(-2.25)，淨 -0.20/次
+                            pU = computeExactPAwakened(pAj, pNj, pj, missTotals, false);
                             extraFragsFromUpgrades += pU * (2.05 - 2.25);
                         } else if (isMissing) {
-                            // 缺少部位：E_K修正（實際最終比first-drop預估多出更多A版，E_K需上修）
-                            let pU_old = probAwakened[idx] / (probNormal[idx] + probAwakened[idx]);
-                            extraFragsFromUpgrades -= (pU - pU_old) * 0.20;
-                        }
+                            const M_j = missTotals.filter((_, k) => missingIndices[k] !== i);
+                            pU = computeExactPAwakened(pAj, pNj, pj, M_j, true);
+                            extraFragsFromUpgrades -= (pU - pAj / pj) * 0.20;
+                        } else { pU = 0; }
+                        expectedAwakenedCount += pU;
+                        expectedPieceAtk += pU * atkAwakened[idx] + (1 - pU) * atkNormal[idx];
                     }
                 } else if (target === "2") {
                     expectedAwakenedCount += 1;
@@ -326,15 +351,18 @@
                         expectedAwakenedCount += 1;
                         expectedPieceAtk += atkTrueAwakened[idx];
                     } else {
-                        let pU = 1 - Math.pow(1 - probTrueAwakened[idx], grossBoxes);
-                        expectedAwakenedCount += pU;
-                        expectedPieceAtk += pU * atkTrueAwakened[idx] + (1 - pU) * atkTrue[idx];
+                        const pAj = probTrueAwakened[idx], pNj = probTrue[idx], pj = pAj + pNj;
+                        let pU;
                         if (tChecked) {
+                            pU = computeExactPAwakened(pAj, pNj, pj, missTotals, false);
                             extraFragsFromUpgrades += pU * (2.05 - 2.25);
                         } else if (isMissing) {
-                            let pU_old = probTrueAwakened[idx] / (probTrue[idx] + probTrueAwakened[idx]);
-                            extraFragsFromUpgrades -= (pU - pU_old) * 0.20;
-                        }
+                            const M_j = missTotals.filter((_, k) => missingIndices[k] !== i);
+                            pU = computeExactPAwakened(pAj, pNj, pj, M_j, true);
+                            extraFragsFromUpgrades -= (pU - pAj / pj) * 0.20;
+                        } else { pU = 0; }
+                        expectedAwakenedCount += pU;
+                        expectedPieceAtk += pU * atkTrueAwakened[idx] + (1 - pU) * atkTrue[idx];
                     }
                 } else if (target === "4") {
                     expectedAwakenedCount += 1;

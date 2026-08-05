@@ -20,16 +20,19 @@ atk_a  = [2, 0, 2, 0, 1, 0, 3, 0, 2, 0, 2, 0]
 atk_t  = [3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 3]
 atk_ta = [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5]
 
-FRAG_N = 2.05   # 一般版 / 真版 分解碎片期望值
-FRAG_A = 2.25   # 覺醒版 分解碎片期望值
+# ── 分解碎片機率分布（來自網頁機率表）────────────────────────────────────
+FRAG_VALS     = np.array([1, 2, 3, 4, 5], dtype=np.int32)
+FRAG_N_PROBS  = np.array([0.40, 0.35, 0.10, 0.10, 0.05])  # 一般版 / 真版
+FRAG_A_PROBS  = np.array([0.30, 0.35, 0.20, 0.10, 0.05])  # 覺醒版
 
 
-def run_simulation(target: int, n_sims: int = 2000000) -> dict:
+def run_simulation(target: int, n_sims: int = 20000) -> dict:
     """
     模擬指定目標開箱過程（全部空白開始）
 
     State: 0=空, 1=持有一般版, 2=持有覺醒版
     優先保留覺醒：持有一般版時若抽到覺醒版 → 升級（分解舊一般版）
+    碎片依實際機率分布抽取，非固定期望值。
     """
     if target in (1, 2):
         probs = np.array(prob_n + prob_a, dtype=float)
@@ -48,11 +51,13 @@ def run_simulation(target: int, n_sims: int = 2000000) -> dict:
     BATCH = 3000  # 預先產生隨機結果批次，減少 Python 呼叫開銷
 
     for sim in range(n_sims):
-        state  = [0] * 12
-        boxes  = 0
-        frags  = 0.0
-        buf    = rng.choice(24, size=BATCH, p=probs)
-        buf_i  = 0
+        state   = [0] * 12
+        boxes   = 0
+        frags   = 0
+        buf     = rng.choice(24, size=BATCH, p=probs)
+        fn_buf  = rng.choice(FRAG_VALS, size=BATCH, p=FRAG_N_PROBS)
+        fa_buf  = rng.choice(FRAG_VALS, size=BATCH, p=FRAG_A_PROBS)
+        buf_i   = 0
 
         while True:
             if target in (1, 3) and all(s > 0 for s in state):
@@ -61,10 +66,12 @@ def run_simulation(target: int, n_sims: int = 2000000) -> dict:
                 break
 
             if buf_i >= BATCH:
-                buf   = rng.choice(24, size=BATCH, p=probs)
-                buf_i = 0
+                buf    = rng.choice(24, size=BATCH, p=probs)
+                fn_buf = rng.choice(FRAG_VALS, size=BATCH, p=FRAG_N_PROBS)
+                fa_buf = rng.choice(FRAG_VALS, size=BATCH, p=FRAG_A_PROBS)
+                buf_i  = 0
 
-            drop     = int(buf[buf_i]); buf_i += 1
+            drop     = int(buf[buf_i])
             piece    = drop % 12
             is_awak  = drop >= 12
             boxes   += 1
@@ -75,17 +82,15 @@ def run_simulation(target: int, n_sims: int = 2000000) -> dict:
                 state[piece] = 2 if is_awak else 1
 
             elif cur == 1 and is_awak:
-                # 持有一般版 → 抽到覺醒版 → 升級
-                # 分解舊一般版：+FRAG_N
-                # 保留新覺醒版（原計算中被當作 +FRAG_A 的那份消失）
-                # 淨效果 = +FRAG_N - FRAG_A = +2.05 - 2.25 = -0.20
-                frags += FRAG_N  # 分解舊 N
-                # 注意：A 被保留，所以不加 FRAG_A（base 計算中的 FRAG_A 那份需要被修正）
+                # 持有一般版 → 抽到覺醒版 → 升級，分解舊一般版
+                frags += int(fn_buf[buf_i])
                 state[piece] = 2
 
             else:
                 # 重複或同類 → 直接分解
-                frags += FRAG_A if is_awak else FRAG_N
+                frags += int(fa_buf[buf_i]) if is_awak else int(fn_buf[buf_i])
+
+            buf_i += 1
 
         awakened = sum(1 for s in state if s == 2)
         atk = sum(atk_awak[i] if state[i] == 2 else atk_norm[i] for i in range(12)) + set_bonus
@@ -115,7 +120,7 @@ NAMES = {
 
 BOX_TYPE = {1: "藍箱", 2: "藍箱", 3: "紫箱", 4: "紫箱"}
 
-N_SIMS = 2000000
+N_SIMS = 20000
 
 print("=" * 65)
 print(f"  殺人鯨拼圖開箱模擬驗證  ｜  每目標 {N_SIMS:,} 次模擬")
