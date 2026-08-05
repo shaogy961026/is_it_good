@@ -44,10 +44,10 @@
         <div class="target-selector">
             <label for="target"><strong>1. 請先選擇目標：</strong></label>
             <select id="target" onchange="updateGridVisibility()">
-                <option value="1">湊齊 殺人鯨拼圖 1-12，不限覺醒與否 (計算 殺人鯨拼圖隨機箱 期望值)</option>
-                <option value="2">湊齊 覺醒殺人鯨拼圖 1-12，全都要覺醒 (計算 殺人鯨拼圖隨機箱 期望值)</option>
-                <option value="3">湊齊 真殺人鯨拼圖 1-12，不限覺醒與否 (計算 真殺人鯨拼圖隨機箱 或 殺人鯨拼圖隨機箱 期望值)</option>
-                <option value="4">湊齊 真覺醒殺人鯨拼圖 1-12，全都要覺醒 (計算 真殺人鯨拼圖隨機箱 或 殺人鯨拼圖隨機箱 期望值)</option>
+                <option value="1">湊齊 殺人鯨拼圖（不限覺醒與否但優先保留覺醒）</option>
+                <option value="2">湊齊 覺醒殺人鯨拼圖</option>
+                <option value="3">湊齊 真殺人鯨拼圖（不限覺醒與否但優先保留覺醒）</option>
+                <option value="4">湊齊 真覺醒殺人鯨拼圖</option>
             </select>
         </div>
 
@@ -103,11 +103,47 @@
         </table>
     </div>
 
+    <div class="card">
+        <h3>殺人鯨拼圖系列 各部位攻擊力(魔力)加成對照表</h3>
+        <p style="font-size: 13px; color: #d97706; font-weight: bold;">官網並無公開此數據，以下資料來自社群網友提供，僅供參考。</p>
+        <table>
+            <tr>
+                <th>部位</th>
+                <th>殺人鯨拼圖</th>
+                <th>覺醒殺人鯨拼圖</th>
+                <th>真殺人鯨拼圖</th>
+                <th>覺醒真殺人鯨拼圖</th>
+            </tr>
+            <tr><td>1</td><td>+1</td><td>+2</td><td>+3</td><td>+5</td></tr>
+            <tr><td>2</td><td>0</td><td>0</td><td>+2</td><td>+5</td></tr>
+            <tr><td>3</td><td>+1</td><td>+2</td><td>+3</td><td>+5</td></tr>
+            <tr><td>4</td><td>0</td><td>0</td><td>+2</td><td>+5</td></tr>
+            <tr><td>5</td><td>+1</td><td>+1</td><td>+3</td><td>+5</td></tr>
+            <tr><td>6</td><td>0</td><td>0</td><td>+2</td><td>+5</td></tr>
+            <tr><td>7</td><td>+1</td><td>+3</td><td>+3</td><td>+5</td></tr>
+            <tr><td>8</td><td>0</td><td>0</td><td>+2</td><td>+5</td></tr>
+            <tr><td>9</td><td>+1</td><td>+2</td><td>+3</td><td>+5</td></tr>
+            <tr><td>10</td><td>0</td><td>0</td><td>+2</td><td>+5</td></tr>
+            <tr><td>11</td><td>+1</td><td>+2</td><td>+3</td><td>+5</td></tr>
+            <tr><td>12</td><td>0</td><td>0</td><td>+3</td><td>+5</td></tr>
+            <tr style="background: #e2e8f0;"><td><strong>套裝效果</strong></td><td><strong>+25</strong></td><td><strong>+25</strong></td><td><strong>+40</strong></td><td><strong>+40</strong></td></tr>
+            <tr style="background: #fef9c3;"><td><strong>合計</strong></td><td><strong>+31</strong></td><td><strong>+37</strong></td><td><strong>+71</strong></td><td><strong>+100</strong></td></tr>
+        </table>
+    </div>
+
     <script>
         const probNormal = [0.04, 0.04, 0.02, 0.06, 0.05, 0.06, 0.02, 0.06, 0.05, 0.06, 0.02, 0.06];
         const probAwakened = [0.02, 0.06, 0.02, 0.04, 0.02, 0.06, 0.04, 0.04, 0.04, 0.06, 0.04, 0.02];
         const probTrue = [0.10, 0.12, 0.01, 0.08, 0.10, 0.12, 0.015, 0.10, 0.06, 0.07, 0.01, 0.10];
         const probTrueAwakened = [0.005, 0.015, 0.005, 0.01, 0.005, 0.015, 0.01, 0.01, 0.01, 0.015, 0.01, 0.005];
+
+        // 各部位攻擊力加成（社群提供，官網未公開）
+        const atkNormal =        [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0];
+        const atkAwakened =      [2, 0, 2, 0, 1, 0, 3, 0, 2, 0, 2, 0];
+        const atkTrue =          [3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 3];
+        const atkTrueAwakened =  [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5];
+        const SET_BONUS_BLUE   = 25; // 殺人鯨 / 覺醒殺人鯨 套裝攻擊力
+        const SET_BONUS_PURPLE = 40; // 真殺人鯨 / 覺醒真殺人鯨 套裝攻擊力
 
         // 碎片回收常數
         const E_FRAG_BLUE = 0.54 * 2.05 + 0.46 * 2.25; 
@@ -205,23 +241,25 @@
             let missingIndices = [];
             let targetProbs = [];
             
+            // 第一迴圈：只計算缺少部位清單與機率（攻擊力/覺醒數移至 grossBoxes 後統一計算）
             for (let i = 1; i <= 12; i++) {
                 let nChecked = document.getElementById(`n_${i}`).checked;
                 let aChecked = document.getElementById(`a_${i}`).checked;
                 let tChecked = document.getElementById(`t_${i}`).checked;
                 let taChecked = document.getElementById(`ta_${i}`).checked;
+                let idx = i - 1;
                 if (target === "1") {
                     if (!nChecked && !aChecked) missingIndices.push(i);
-                    targetProbs.push(probNormal[i-1] + probAwakened[i-1]);
+                    targetProbs.push(probNormal[idx] + probAwakened[idx]);
                 } else if (target === "2") {
                     if (!aChecked) missingIndices.push(i);
-                    targetProbs.push(probAwakened[i-1]);
+                    targetProbs.push(probAwakened[idx]);
                 } else if (target === "3") {
                     if (!tChecked && !taChecked) missingIndices.push(i);
-                    targetProbs.push(probTrue[i-1] + probTrueAwakened[i-1]);
+                    targetProbs.push(probTrue[idx] + probTrueAwakened[idx]);
                 } else if (target === "4") {
                     if (!taChecked) missingIndices.push(i);
-                    targetProbs.push(probTrueAwakened[i-1]);
+                    targetProbs.push(probTrueAwakened[idx]);
                 }
             }
 
@@ -244,9 +282,79 @@
             // --------------------------------------------------
 
             let grossBoxes = calculateInclusionExclusion(missingIndices, targetProbs);
+
+            // 統一第二迴圈：用 1-(1-pA)^grossBoxes 計算最終覺醒機率
+            // 此公式同時適用於「已持有一般版」與「缺少部位」：
+            //   - 缺少部位：抽到N後仍可在後續開箱中升覺醒，最終P(覺醒)≈1-(1-pA)^grossBoxes
+            //   - 已持有N版：同樣在 grossBoxes 次開箱中等待升覺醒
+            //   - 已持有A版：P=1，不受 grossBoxes 影響
+            let expectedPieceAtk = 0;
+            let expectedAwakenedCount = 0;
+            let extraFragsFromUpgrades = 0;
+            for (let i = 1; i <= 12; i++) {
+                let nChecked = document.getElementById(`n_${i}`).checked;
+                let aChecked = document.getElementById(`a_${i}`).checked;
+                let tChecked = document.getElementById(`t_${i}`).checked;
+                let taChecked = document.getElementById(`ta_${i}`).checked;
+                let idx = i - 1;
+                let isMissing = missingIndices.includes(i);
+
+                if (target === "1") {
+                    if (aChecked) {
+                        expectedAwakenedCount += 1;
+                        expectedPieceAtk += atkAwakened[idx];
+                    } else {
+                        let pU = 1 - Math.pow(1 - probAwakened[idx], grossBoxes);
+                        expectedAwakenedCount += pU;
+                        expectedPieceAtk += pU * atkAwakened[idx] + (1 - pU) * atkNormal[idx];
+                        if (nChecked) {
+                            // 持有N → 升覺醒：分解舊N(+2.05)，保留A(-2.25)，淨 -0.20/次
+                            extraFragsFromUpgrades += pU * (2.05 - 2.25);
+                        } else if (isMissing) {
+                            // 缺少部位：E_K修正（實際最終比first-drop預估多出更多A版，E_K需上修）
+                            let pU_old = probAwakened[idx] / (probNormal[idx] + probAwakened[idx]);
+                            extraFragsFromUpgrades -= (pU - pU_old) * 0.20;
+                        }
+                    }
+                } else if (target === "2") {
+                    expectedAwakenedCount += 1;
+                    expectedPieceAtk += atkAwakened[idx];
+                } else if (target === "3") {
+                    if (taChecked) {
+                        expectedAwakenedCount += 1;
+                        expectedPieceAtk += atkTrueAwakened[idx];
+                    } else {
+                        let pU = 1 - Math.pow(1 - probTrueAwakened[idx], grossBoxes);
+                        expectedAwakenedCount += pU;
+                        expectedPieceAtk += pU * atkTrueAwakened[idx] + (1 - pU) * atkTrue[idx];
+                        if (tChecked) {
+                            extraFragsFromUpgrades += pU * (2.05 - 2.25);
+                        } else if (isMissing) {
+                            let pU_old = probTrueAwakened[idx] / (probTrue[idx] + probTrueAwakened[idx]);
+                            extraFragsFromUpgrades -= (pU - pU_old) * 0.20;
+                        }
+                    }
+                } else if (target === "4") {
+                    expectedAwakenedCount += 1;
+                    expectedPieceAtk += atkTrueAwakened[idx];
+                }
+            }
+            let atkSetBonus = (target === "1" || target === "2") ? SET_BONUS_BLUE : SET_BONUS_PURPLE;
+            let totalExpectedAtk = expectedPieceAtk + atkSetBonus;
+
             if (grossBoxes === 0) {
                 document.getElementById('result-area').style.display = 'block';
-                document.getElementById('result-area').innerHTML = "您已經達成目標了，不需要再開任何箱子！";
+                document.getElementById('result-area').innerHTML = `
+                    <p>您已經達成目標了，不需要再開任何箱子！</p>
+                    <hr style="border: 0; border-top: 1px dashed #ccc; margin: 15px 0;">
+                    <p><strong>目前套裝攻擊力(魔力)加成：</strong></p>
+                    <ul>
+                        ${(target === "1" || target === "3") ? `<li>目前持有 <span class="highlight">${expectedAwakenedCount.toFixed(0)}</span> 個覺醒拼圖、<span class="highlight">${(12 - expectedAwakenedCount).toFixed(0)}</span> 個非覺醒拼圖</li>` : ''}
+                        <li>各部位攻擊力(魔力)加成合計：<span class="highlight">+${expectedPieceAtk.toFixed(1)}</span></li>
+                        <li>套裝效果攻擊力(魔力)：<span class="highlight">+${atkSetBonus}</span></li>
+                        <li><strong>合計攻擊力(魔力)：<span class="highlight">+${totalExpectedAtk.toFixed(1)}</span></strong></li>
+                    </ul>
+                `;
                 document.getElementById('chart-section').style.display = 'none';
                 return;
             }
@@ -269,7 +377,7 @@
             let resultHTML = "";
             let E_fpb = (target === "1" || target === "2") ? E_FRAG_BLUE : E_FRAG_PURPLE;
             let E_TotalF = grossBoxes * E_fpb;
-            let E_DismantledF = Math.max(0, E_TotalF - E_K); // 實際可供分解的期望碎片總數
+            let E_DismantledF = Math.max(0, E_TotalF - E_K + extraFragsFromUpgrades); // 含升覺醒後淨碎片修正（保留A捨棄N：淨 -0.20/次）
 
             if (target === "1" || target === "2") {
                 // 目標 1 & 2：扣除藍碎片期望餘數(2.5)後除以6，直接視為副產物
@@ -294,7 +402,7 @@
                 resultHTML = `
                     <h3>計算結果與分布分析</h3>
                     <p>要達成此目標，<strong>理論平均需要開啟的 真殺人鯨拼圖隨機箱(紫箱) 總數為：<span class="highlight">${grossBoxes.toFixed(2)}</span> 箱</strong></p>
-                    <p style="font-size: 13px; color: #666;">💡 <strong>開啟數量 ≠ 購買數量：</strong>開啟數量是指「購買的箱子」加上「多餘拼圖分解碎片後兌換回來的箱子」合計全部開完的總數；購買數量則是實際需要花錢購入的箱數。</p>
+                    <p style="font-size: 13px; color: #666;"><strong>開啟數量 ≠ 購買數量：</strong>開啟數量是指「購買的箱子」加上「多餘拼圖分解碎片後兌換回來的箱子」合計全部開完的總數；購買數量則是實際需要花錢購入的箱數。</p>
                     <hr style="border: 0; border-top: 1px dashed #ccc; margin: 15px 0;">
                     <p><strong>方案 A：購買 真殺人鯨拼圖隨機箱 (紫箱)</strong></p>
                     <ul>
@@ -333,6 +441,14 @@
                     ${getListItemHTML(80, '#16a34a', percentiles[80])}
                     ${getListItemHTML(90, '#d97706', percentiles[90])}
                     ${getListItemHTML(99, '#dc2626', percentiles[99])}
+                </ul>
+                <hr style="border: 0; border-top: 1px dashed #ccc; margin: 15px 0;">
+                <p><strong>湊齊後預估攻擊力(魔力)加成：</strong></p>
+                <ul>
+                    ${(target === "1" || target === "3") ? `<li>預估最終保留 <span class="highlight">${expectedAwakenedCount.toFixed(1)}</span> 個覺醒拼圖、<span class="highlight">${(12 - expectedAwakenedCount).toFixed(1)}</span> 個非覺醒拼圖</li>` : ''}
+                    <li>預估各部位攻擊力(魔力)加成合計：<span class="highlight">+${expectedPieceAtk.toFixed(1)}</span></li>
+                    <li>套裝效果攻擊力(魔力)：<span class="highlight">+${atkSetBonus}</span></li>
+                    <li><strong>預估合計攻擊力(魔力)：<span class="highlight">+${totalExpectedAtk.toFixed(1)}</span></strong></li>
                 </ul>
             `;
 
