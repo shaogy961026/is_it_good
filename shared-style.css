@@ -1,0 +1,235 @@
+/* =============================================
+   數位楓水研究室 — 全站共用設計系統
+   ============================================= */
+
+/* Google Fonts: Noto Sans TC */
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600;700&display=swap');
+
+/* ── CSS 設計變數 ─────────────────────────────── */
+:root {
+    /* 品牌色 */
+    --clr-primary:        #1E40AF;
+    --clr-primary-hover:  #1d4ed8;
+    --clr-primary-light:  #EFF6FF;
+    --clr-secondary:      #3B82F6;
+    --clr-accent:         #D97706;
+    --clr-accent-hover:   #b45309;
+
+    /* 語義色 */
+    --clr-success:        #16a34a;
+    --clr-success-bg:     #f0fdf4;
+    --clr-success-border: #bbf7d0;
+    --clr-danger:         #dc2626;
+    --clr-danger-bg:      #fef2f2;
+    --clr-warning:        #d97706;
+    --clr-warning-bg:     #fffbeb;
+    --clr-info:           #3B82F6;
+
+    /* 中性色 */
+    --clr-bg:             #F8FAFC;
+    --clr-card:           #ffffff;
+    --clr-text:           #1e293b;
+    --clr-text-muted:     #64748b;
+    --clr-text-light:     #94a3b8;
+    --clr-border:         #e2e8f0;
+    --clr-border-focus:   #1E40AF;
+    --clr-muted-bg:       #f1f5f9;
+
+    /* 圓角 */
+    --radius-sm:  5px;
+    --radius-md:  8px;
+    --radius-lg:  12px;
+    --radius-xl:  18px;
+    --radius-pill:9999px;
+
+    /* 陰影 */
+    --shadow-sm:  0 1px 3px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-md:  0 4px 12px rgba(0,0,0,0.08);
+    --shadow-lg:  0 8px 24px rgba(0,0,0,0.10);
+    --shadow-card:0 2px 8px rgba(0,0,0,0.06);
+    --shadow-card-hover: 0 6px 20px rgba(30,64,175,0.14);
+
+    /* 動畫 */
+    --transition-fast: 0.15s ease;
+    --transition-base: 0.2s ease;
+
+    /* 字型 */
+    --font-sans: 'Noto Sans TC', 'Microsoft JhengHei', 'PingFang TC', sans-serif;
+    --font-mono: 'Courier New', 'Noto Sans Mono', monospace;
+
+    /* 間距 */
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-5: 20px;
+    --space-6: 24px;
+    --space-8: 32px;
+}
+
+/* ── 全域 Reset / Base ───────────────────────── */
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+body {
+    font-family: var(--font-sans);
+    color: var(--clr-text);
+    background-color: var(--clr-bg);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── 文字選取色 ──────────────────────────────── */
+::selection {
+    background: #bfdbfe;
+    color: var(--clr-primary);
+}
+
+/* ── Focus 鍵盤指示器 ────────────────────────── */
+:focus-visible {
+    outline: 2px solid var(--clr-primary);
+    outline-offset: 2px;
+    border-radius: 3px;
+}
+
+/* ── 捲軸美化 ────────────────────────────────── */
+::-webkit-scrollbar        { width: 7px; height: 7px; }
+::-webkit-scrollbar-track  { background: #f1f5f9; border-radius: 4px; }
+::-webkit-scrollbar-thumb  { background: #cbd5e1; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+/* ── 連結 ────────────────────────────────────── */
+a {
+    color: var(--clr-secondary);
+    text-decoration: none;
+    transition: color var(--transition-fast);
+}
+a:hover { color: var(--clr-primary); }
+
+/* ── 共用工具標題區 (#tool-subtitle) ──────────── */
+#tool-subtitle {
+    font-family: var(--font-sans) !important;
+}
+
+/* ── 全域 Button 美化 ─────────────────────────── */
+button:not([class*="nav"]):not(.close-modal):not(.btn-details):not(.log-clear) {
+    font-family: var(--font-sans);
+    font-weight: 600;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: background-color var(--transition-base),
+                box-shadow var(--transition-base),
+                opacity var(--transition-fast),
+                transform var(--transition-fast);
+}
+
+button:not([class*="nav"]):not(.close-modal):not(.btn-details):not(.log-clear):active:not(:disabled) {
+    transform: translateY(1px);
+}
+
+/* ── 全域 Input / Select 美化 ───────────────────── */
+input[type="text"],
+input[type="number"],
+input[type="email"],
+select,
+textarea {
+    font-family: var(--font-sans);
+    border: 1.5px solid var(--clr-border);
+    border-radius: var(--radius-md);
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+    background-color: #fff;
+    color: var(--clr-text);
+}
+
+input[type="text"]:focus,
+input[type="number"]:focus,
+input[type="email"]:focus,
+select:focus,
+textarea:focus {
+    outline: none;
+    border-color: var(--clr-primary);
+    box-shadow: 0 0 0 3px rgba(30,64,175,0.12);
+}
+
+input:disabled,
+select:disabled {
+    background-color: var(--clr-muted-bg);
+    color: var(--clr-text-muted);
+    cursor: not-allowed;
+    opacity: 0.75;
+}
+
+/* ── Label 統一字重 ──────────────────────────── */
+label {
+    font-family: var(--font-sans);
+    font-weight: 600;
+    color: var(--clr-text-muted);
+    font-size: 0.875rem;
+}
+
+/* ── Table 全域美化 ──────────────────────────── */
+table {
+    font-family: var(--font-sans);
+    border-collapse: collapse;
+    width: 100%;
+}
+
+th {
+    background-color: #eef2fb;
+    color: var(--clr-primary);
+    font-weight: 600;
+    font-size: 0.88rem;
+    letter-spacing: 0.02em;
+}
+
+th, td {
+    border: 1px solid #dde3ef;
+    padding: 10px 14px;
+    text-align: center;
+    vertical-align: middle;
+}
+
+tr:hover td {
+    background-color: #f5f8ff !important;
+    transition: background-color 0.12s ease;
+}
+
+tr:nth-child(even) td {
+    background-color: #fafbff;
+}
+
+/* ── Kbd 鍵盤按鍵標示 ────────────────────────── */
+kbd {
+    background: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: 0.8rem;
+    font-family: var(--font-mono);
+    color: var(--clr-text);
+    box-shadow: 0 1px 0 #cbd5e1;
+}
+
+/* ── details / summary 美化 ─────────────────── */
+details {
+    border-radius: var(--radius-md);
+}
+summary {
+    cursor: pointer;
+    user-select: none;
+    font-family: var(--font-sans);
+}
+summary::-webkit-details-marker { display: none; }
+
+/* ── 全頁 Modal 遮罩 ─────────────────────────── */
+.modal-content {
+    border-radius: var(--radius-lg) !important;
+    border: none !important;
+    box-shadow: var(--shadow-lg) !important;
+}
+
+/* ── 頁尾字型 ────────────────────────────────── */
+#global-footer {
+    font-family: var(--font-sans) !important;
+}

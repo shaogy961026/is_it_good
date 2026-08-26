@@ -7,10 +7,9 @@
     <script src="shared-nav.js"></script>
     <style>
         body {
-            font-family: 'Microsoft JhengHei', sans-serif;
             margin: 0;
             padding: 0;
-            background-color: #f4f6f9;
+            background-color: var(--clr-bg, #F8FAFC);
         }
 
         /* ── 歡迎區塊 ─────────────────── */
@@ -18,32 +17,45 @@
             max-width: 860px;
             margin: 50px auto 0 auto;
             text-align: center;
-            background: #fff;
+            background: var(--clr-card, #fff);
             padding: 40px 30px 30px;
-            border-radius: 14px;
-            box-shadow: 0 4px 14px rgba(0,0,0,0.06);
+            border-radius: var(--radius-lg, 14px);
+            box-shadow: var(--shadow-card, 0 2px 8px rgba(0,0,0,0.06));
+            border: 1px solid var(--clr-border, #e2e8f0);
         }
-        .welcome-container h1 { color: #2c3e50; margin-bottom: 14px; font-size: 1.7rem; }
-        .welcome-container p  { color: #666; line-height: 1.8; font-size: 15px; margin: 0; }
+        .welcome-container h1 {
+            color: var(--clr-primary, #1E40AF);
+            margin-bottom: 14px;
+            font-size: 1.75rem;
+            font-weight: 700;
+            letter-spacing: -0.01em;
+        }
+        .welcome-container p {
+            color: var(--clr-text-muted, #64748b);
+            line-height: 1.85;
+            font-size: 15px;
+            margin: 0;
+        }
+        .welcome-container strong { color: var(--clr-text, #1e293b); }
 
         /* ── 工具列表區 ───────────────── */
         #tool-list-section {
             max-width: 860px;
-            margin: 30px auto 60px auto;
+            margin: 32px auto 70px auto;
         }
 
         .category-block {
-            margin-bottom: 28px;
+            margin-bottom: 32px;
         }
         .category-title {
-            font-size: 0.8rem;
+            font-size: 0.75rem;
             font-weight: 700;
-            color: #888;
-            letter-spacing: 0.08em;
+            color: var(--clr-text-light, #94a3b8);
+            letter-spacing: 0.10em;
             text-transform: uppercase;
-            border-bottom: 1px solid #e0e4ea;
-            padding-bottom: 8px;
-            margin-bottom: 14px;
+            border-bottom: 1.5px solid var(--clr-border, #e2e8f0);
+            padding-bottom: 9px;
+            margin-bottom: 16px;
         }
 
         .tool-grid {
@@ -54,40 +66,42 @@
 
         .tool-card {
             display: block;
-            background: #fff;
-            border: 1px solid #e4e8ef;
-            border-radius: 10px;
+            background: var(--clr-card, #fff);
+            border: 1.5px solid var(--clr-border, #e2e8f0);
+            border-radius: var(--radius-lg, 12px);
             padding: 18px 20px;
             text-decoration: none;
             color: inherit;
-            transition: box-shadow 0.18s, border-color 0.18s, transform 0.15s;
+            transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.18s ease;
             cursor: pointer;
         }
         .tool-card:hover {
-            box-shadow: 0 6px 20px rgba(41,128,185,0.13);
-            border-color: #2980b9;
-            transform: translateY(-2px);
+            box-shadow: var(--shadow-card-hover, 0 6px 20px rgba(30,64,175,0.14));
+            border-color: var(--clr-secondary, #3B82F6);
+            transform: translateY(-3px);
         }
 
         .tool-card-title {
-            font-size: 0.97rem;
+            font-size: 0.95rem;
             font-weight: 700;
-            color: #2c3e50;
-            margin-bottom: 8px;
+            color: var(--clr-text, #1e293b);
+            margin-bottom: 9px;
             display: flex;
             align-items: center;
             gap: 6px;
+            line-height: 1.4;
         }
         .tool-card-title::after {
             content: "→";
             font-size: 0.85rem;
-            color: #2980b9;
+            color: var(--clr-primary, #1E40AF);
             margin-left: auto;
             opacity: 0;
-            transition: opacity 0.18s;
+            transition: opacity 0.18s, transform 0.18s;
         }
         .tool-card:hover .tool-card-title::after {
             opacity: 1;
+            transform: translateX(3px);
         }
 
         .tool-card-bullets {
@@ -97,23 +111,23 @@
         }
         .tool-card-bullets li {
             font-size: 0.82rem;
-            color: #666;
+            color: var(--clr-text-muted, #64748b);
             padding: 2px 0;
-            padding-left: 12px;
+            padding-left: 14px;
             position: relative;
-            line-height: 1.5;
+            line-height: 1.6;
         }
         .tool-card-bullets li::before {
             content: "•";
             position: absolute;
             left: 0;
-            color: #2980b9;
+            color: var(--clr-secondary, #3B82F6);
             font-weight: bold;
         }
 
         @media (max-width: 600px) {
             .welcome-container { margin: 20px 14px 0; padding: 28px 18px; }
-            #tool-list-section  { margin: 20px 14px 40px; }
+            #tool-list-section  { margin: 22px 14px 50px; }
             .tool-grid { grid-template-columns: 1fr; }
         }
     </style>

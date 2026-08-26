@@ -32,8 +32,22 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
     // ==========================================
-    // 1. 注入強效 CSS 樣式 (導航與頁尾滿版突破)
+    // 1. 注入共用樣式表 + 導航列樣式
     // ==========================================
+
+    // 注入 shared-style.css（全站設計系統）
+    if (!document.getElementById("global-shared-link")) {
+        const sharedLink = document.createElement("link");
+        sharedLink.id = "global-shared-link";
+        sharedLink.rel = "stylesheet";
+        // basePath 已在後面計算，此處複製相同邏輯取得根路徑
+        const _segs = window.location.pathname.split('/').filter(Boolean);
+        const _isGHP = (_segs[0] === 'is_it_good');
+        const _base = _isGHP ? '/is_it_good/' : '/';
+        sharedLink.href = _base + "shared-style.css";
+        document.head.insertBefore(sharedLink, document.head.firstChild);
+    }
+
     if (!document.getElementById("global-shared-style")) {
         const styleBlock = document.createElement("style");
         styleBlock.id = "global-shared-style";
@@ -46,7 +60,8 @@ document.addEventListener("DOMContentLoaded", function() {
                 left: 50% !important;
                 transform: translateX(-50%) !important;
                 background-color: #fff !important;
-                border-bottom: 1px solid #ddd !important;
+                border-bottom: 1px solid #e2e8f0 !important;
+                box-shadow: 0 1px 4px rgba(30,64,175,0.06) !important;
                 margin-top: 0 !important;
                 margin-bottom: 30px !important;
                 padding-top: 15px !important;
@@ -63,14 +78,14 @@ document.addEventListener("DOMContentLoaded", function() {
                 left: 50% !important;
                 transform: translateX(-50%) !important;
                 background-color: #fff !important;
-                border-top: 1px solid #eee !important;
+                border-top: 1px solid #e2e8f0 !important;
                 margin-top: 60px !important;
                 padding: 40px 20px !important;
                 text-align: center !important;
                 box-sizing: border-box !important;
-                font-family: sans-serif !important;
-                color: #7f8c8d !important;
-                line-height: 1.8 !important;
+                font-family: 'Noto Sans TC', 'Microsoft JhengHei', sans-serif !important;
+                color: #64748b !important;
+                line-height: 1.9 !important;
                 font-size: 0.9em !important;
             }
 
@@ -94,27 +109,30 @@ document.addEventListener("DOMContentLoaded", function() {
             #global-nav a.nav-btn {
                 box-sizing: border-box !important;
                 text-decoration: none !important;
-                padding: 8px 16px !important;
-                border-radius: 20px !important;
-                font-weight: bold !important;
-                font-family: sans-serif !important;
+                padding: 7px 16px !important;
+                border-radius: 9999px !important;
+                font-weight: 600 !important;
+                font-family: 'Noto Sans TC', 'Microsoft JhengHei', sans-serif !important;
                 font-size: 14px !important;
                 line-height: 1.5 !important;
-                transition: all 0.2s !important;
+                transition: all 0.18s ease !important;
                 white-space: nowrap !important;
                 display: block !important;
                 letter-spacing: 0px !important;
                 border: none !important;
             }
             #global-nav a.nav-btn.active {
-                background-color: #007bff !important; color: white !important;
-                box-shadow: 0 2px 4px rgba(0,123,255,0.3) !important;
+                background-color: #1E40AF !important;
+                color: #fff !important;
+                box-shadow: 0 2px 8px rgba(30,64,175,0.28) !important;
             }
             #global-nav a.nav-btn.normal {
-                background-color: #f0f2f5 !important; color: #4b4f56 !important;
+                background-color: #f1f5f9 !important;
+                color: #475569 !important;
             }
             #global-nav a.nav-btn.normal:hover {
-                background-color: #e4e6e9 !important; color: #007bff !important;
+                background-color: #e0e7ff !important;
+                color: #1E40AF !important;
             }
 
             /* 下拉選單容器 */
@@ -128,29 +146,29 @@ document.addEventListener("DOMContentLoaded", function() {
                 display: flex !important;
                 align-items: center !important;
                 gap: 5px !important;
-                padding: 8px 14px !important;
-                border-radius: 20px !important;
-                font-weight: bold !important;
-                font-family: sans-serif !important;
+                padding: 7px 14px !important;
+                border-radius: 9999px !important;
+                font-weight: 600 !important;
+                font-family: 'Noto Sans TC', 'Microsoft JhengHei', sans-serif !important;
                 font-size: 14px !important;
                 line-height: 1.5 !important;
                 white-space: nowrap !important;
                 cursor: pointer !important;
-                background-color: #f0f2f5 !important;
-                color: #4b4f56 !important;
+                background-color: #f1f5f9 !important;
+                color: #475569 !important;
                 border: none !important;
-                transition: all 0.2s !important;
+                transition: all 0.18s ease !important;
                 user-select: none !important;
             }
             #global-nav .nav-cat-btn:hover,
             #global-nav .nav-dropdown.open .nav-cat-btn {
-                background-color: #e4e6e9 !important;
-                color: #007bff !important;
+                background-color: #e0e7ff !important;
+                color: #1E40AF !important;
             }
             #global-nav .nav-cat-btn.has-active {
-                background-color: #007bff !important;
-                color: white !important;
-                box-shadow: 0 2px 4px rgba(0,123,255,0.3) !important;
+                background-color: #1E40AF !important;
+                color: #fff !important;
+                box-shadow: 0 2px 8px rgba(30,64,175,0.28) !important;
             }
             #global-nav .nav-cat-btn .nav-arrow {
                 font-size: 10px !important;
@@ -165,15 +183,15 @@ document.addEventListener("DOMContentLoaded", function() {
             #global-nav .nav-dropdown-menu {
                 display: none !important;
                 position: absolute !important;
-                top: 100% !important;
+                top: calc(100% + 4px) !important;
                 left: 50% !important;
                 transform: translateX(-50%) !important;
-                background: white !important;
-                border: 1px solid #ddd !important;
-                border-radius: 10px !important;
+                background: #fff !important;
+                border: 1px solid #e2e8f0 !important;
+                border-radius: 12px !important;
                 min-width: 210px !important;
                 z-index: 10000 !important;
-                box-shadow: 0 6px 20px rgba(0,0,0,0.1) !important;
+                box-shadow: 0 8px 24px rgba(30,64,175,0.12) !important;
                 padding: 6px 0 !important;
                 list-style: none !important;
                 margin: 0 !important;
@@ -199,33 +217,37 @@ document.addEventListener("DOMContentLoaded", function() {
                 display: block !important;
                 padding: 9px 18px !important;
                 text-decoration: none !important;
-                color: #4b4f56 !important;
+                color: #475569 !important;
                 font-size: 13px !important;
-                font-family: sans-serif !important;
+                font-family: 'Noto Sans TC', 'Microsoft JhengHei', sans-serif !important;
+                font-weight: 500 !important;
                 white-space: nowrap !important;
-                transition: background 0.15s !important;
+                transition: background 0.15s, color 0.15s !important;
                 border: none !important;
             }
             #global-nav .nav-dropdown-menu a:hover {
-                background: #f0f2f5 !important;
-                color: #007bff !important;
+                background: #eff6ff !important;
+                color: #1E40AF !important;
             }
             #global-nav .nav-dropdown-menu a.active {
-                color: #007bff !important;
-                font-weight: bold !important;
-                background: #e8f0fe !important;
+                color: #1E40AF !important;
+                font-weight: 700 !important;
+                background: #dbeafe !important;
             }
 
             /* Logo */
             #global-nav img.nav-logo {
                 height: 55px !important; width: auto !important; object-fit: contain !important;
-                transition: transform 0.2s !important; display: block !important;
+                transition: transform 0.2s, opacity 0.2s !important; display: block !important;
             }
             #global-nav a.nav-logo-link {
                 text-decoration: none !important; display: flex !important;
                 align-items: center !important; margin-bottom: 15px !important;
             }
-            #global-nav a.nav-logo-link:hover img.nav-logo { transform: scale(1.03) !important; }
+            #global-nav a.nav-logo-link:hover img.nav-logo {
+                transform: scale(1.04) !important;
+                opacity: 0.92 !important;
+            }
         `;
         document.head.appendChild(styleBlock);
     }

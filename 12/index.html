@@ -1,24 +1,24 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
     <title>超越等級箱子：隨機性觀察實驗室</title>
     <style>
-        body { font-family: "Microsoft JhengHei", sans-serif; background: #f0f2f5; color: #333; text-align: center; margin: 0; padding: 20px; }
+        body { font-family: 'Noto Sans TC', 'Microsoft JhengHei', sans-serif; background: #F8FAFC; color: #333; text-align: center; margin: 0; padding: 20px; }
         .container { max-width: 900px; margin: auto; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
         .stats-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 25px; background: #eef2f7; padding: 20px; border-radius: 10px; }
         .stat-box { font-size: 0.95em; color: #555; }
         .stat-val { font-size: 1.6em; color: #2980b9; font-weight: bold; }
-        .result-list { background: #f8f9fa; color: #2c3e50; padding: 20px; border-radius: 10px; height: 180px; overflow-y: auto; margin: 20px 0; text-align: left; font-family: monospace; font-size: 1em; border: 1px solid #dee2e6; line-height: 1.6; }
+        .result-list { background: #f1f5f9; color: #2c3e50; padding: 20px; border-radius: 10px; height: 180px; overflow-y: auto; margin: 20px 0; text-align: left; font-family: monospace; font-size: 1em; border: 1px solid #dee2e6; line-height: 1.6; }
         
         button { padding: 12px 28px; font-size: 16px; cursor: pointer; border: none; border-radius: 8px; transition: 0.2s; font-weight: 500; }
-        .btn-draw { background: #3498db; color: white; width: 100%; margin-bottom: 10px; font-size: 18px; }
+        .btn-draw { background: #3B82F6; color: white; width: 100%; margin-bottom: 10px; font-size: 18px; }
         .btn-draw:disabled { background: #bdc3c7; }
         .btn-guess { background: #2ecc71; color: white; flex: 1; }
         .btn-group { display: flex; gap: 15px; margin-top: 10px; }
         
         .history-table { width: 100%; margin-top: 25px; border-collapse: collapse; font-size: 0.85em; }
-        .history-table th { background: #f8f9fa; color: #7f8c8d; padding: 10px; border-bottom: 2px solid #dee2e6; }
+        .history-table th { background: #f1f5f9; color: #7f8c8d; padding: 10px; border-bottom: 2px solid #dee2e6; }
         .history-table td { padding: 10px; border-bottom: 1px solid #eee; }
         .correct { color: #2ecc71; font-weight: bold; }
         .wrong { color: #e74c3c; font-weight: bold; }
