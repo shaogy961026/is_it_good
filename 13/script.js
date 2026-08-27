@@ -432,24 +432,90 @@ function checkCombination(combo, mode, achieved) {
         }
 
     } else if (mode === 'weapon_boss') {
-        let bossSum = 0; let countB40 = 0; let hasAtt13 = false, hasAtt10 = false; let countA13 = 0;
+        let bossSum = 0, attSum = 0;
+        let countB40 = 0, countB35 = 0, countB30 = 0, countAnyB = 0;
+        let countA13 = 0, countAnyA = 0;
         combo.forEach(l => {
-            if (l.id === 'Boss' || l.type === 'B' || l.id.startsWith('Boss')) { bossSum += l.val; if (l.val === 40) countB40++; }
-            if (l.id.startsWith('Att_Pct') || l.type === 'A') { if (l.val >= 13) { hasAtt13 = true; if (l.val === 13) countA13++; } if (l.val >= 10) hasAtt10 = true; }
+            if (l.id.startsWith('Boss')) {
+                bossSum += l.val; countAnyB++;
+                if (l.val === 40) countB40++; else if (l.val === 35) countB35++; else if (l.val === 30) countB30++;
+            }
+            if (l.id.startsWith('Att_Pct')) { attSum += l.val; countAnyA++; if (l.val === 13) countA13++; }
         });
-        
+
+        // 一排目標
+        if (countB40 >= 1) achieved['1L_Boss40'] = true;
+        if (countA13 >= 1) achieved['1L_Att13'] = true;
+        if (countB40 >= 1 || countA13 >= 1) achieved['1L_AnyBA'] = true;
+
+        // 特殊雙排
         if (countB40 >= 2) achieved['2L_Boss40'] = true;
         if (countA13 >= 2) achieved['2L_Att13'] = true;
         if ((countB40 + countA13) >= 2) achieved['2L_Boss40_Att13'] = true;
 
+        // 寬鬆目標
+        if ((countAnyB + countAnyA) >= 3) achieved['3L_BossAtt'] = true;
+        if ((countAnyB + countAnyA) >= 2) achieved['2L_BossAtt'] = true;
+
+        // 純 BOSS 傷害加總
         if(bossSum >= 120) achieved['120B'] = true; if(bossSum >= 115) achieved['115B'] = true;
         if(bossSum >= 110) achieved['110B'] = true; if(bossSum >= 105) achieved['105B'] = true;
         if(bossSum >= 100) achieved['100B'] = true; if(bossSum >= 95) achieved['95B'] = true; if(bossSum >= 90) achieved['90B'] = true;
-        if(bossSum >= 80) { if(hasAtt13) achieved['80B+13A'] = true; if(hasAtt10 || hasAtt13) achieved['80B+10A'] = true; achieved['80B'] = true; }
-        if(bossSum >= 75) { if(hasAtt13) achieved['75B+13A'] = true; if(hasAtt10 || hasAtt13) achieved['75B+10A'] = true; achieved['75B'] = true; }
-        if(bossSum >= 70) { if(hasAtt13) achieved['70B+13A'] = true; if(hasAtt10 || hasAtt13) achieved['70B+10A'] = true; achieved['70B'] = true; }
-        if(bossSum >= 65) { if(hasAtt13) achieved['65B+13A'] = true; if(hasAtt10 || hasAtt13) achieved['65B+10A'] = true; achieved['65B'] = true; }
-        if(bossSum >= 60) { if(hasAtt13) achieved['60B+13A'] = true; if(hasAtt10 || hasAtt13) achieved['60B+10A'] = true; achieved['60B'] = true; }
+        if(bossSum >= 80) achieved['80B'] = true; if(bossSum >= 75) achieved['75B'] = true; if(bossSum >= 70) achieved['70B'] = true;
+        if(bossSum >= 65) achieved['65B'] = true; if(bossSum >= 60) achieved['60B'] = true;
+
+        // 純 物攻 加總
+        if(attSum >= 39) achieved['Att_39'] = true; if(attSum >= 26) achieved['Att_26'] = true;
+        if(attSum >= 23) achieved['Att_23'] = true; if(attSum >= 20) achieved['Att_20'] = true;
+
+        // 混合：2排BOSS + 1排物攻（含以上語意：↑表示該值或更高）
+        const cB35up = countB35 + countB40;
+        if (countB40 >= 2 && countA13 >= 1)                          achieved['M_B40B40_A13']  = true;
+        if (countB40 >= 2 && countAnyA >= 1)                         achieved['M_B40B40_AnyA'] = true;
+        if (countB40 >= 1 && cB35up >= 2 && countA13 >= 1)          achieved['M_B40B35_A13']  = true;
+        if (countB40 >= 1 && cB35up >= 2 && countAnyA >= 1)         achieved['M_B40B35_AnyA'] = true;
+        if (countB40 >= 1 && countAnyB >= 2 && countA13 >= 1)       achieved['M_B40B30_A13']  = true;
+        if (countB40 >= 1 && countAnyB >= 2 && countAnyA >= 1)      achieved['M_B40B30_AnyA'] = true;
+        if (cB35up >= 2 && countA13 >= 1)                            achieved['M_B35B35_A13']  = true;
+        if (cB35up >= 2 && countAnyA >= 1)                           achieved['M_B35B35_AnyA'] = true;
+        if (cB35up >= 1 && countAnyB >= 2 && countA13 >= 1)         achieved['M_B35B30_A13']  = true;
+        if (cB35up >= 1 && countAnyB >= 2 && countAnyA >= 1)        achieved['M_B35B30_AnyA'] = true;
+        if (countAnyB >= 2 && countA13 >= 1)                         achieved['M_B30B30_A13']  = true;
+        if (countAnyB >= 2 && countAnyA >= 1)                        achieved['M_B30B30_AnyA'] = true;
+
+        // BOSS加總+物攻（2排BOSS sum + 1排物攻，以加總為主）
+        if (bossSum >= 80 && countA13 >= 1)  achieved['BS80_A13']  = true;
+        if (bossSum >= 80 && countAnyA >= 1) achieved['BS80_AnyA'] = true;
+        if (bossSum >= 75 && countA13 >= 1)  achieved['BS75_A13']  = true;
+        if (bossSum >= 75 && countAnyA >= 1) achieved['BS75_AnyA'] = true;
+        if (bossSum >= 70 && countA13 >= 1)  achieved['BS70_A13']  = true;
+        if (bossSum >= 70 && countAnyA >= 1) achieved['BS70_AnyA'] = true;
+        if (bossSum >= 65 && countA13 >= 1)  achieved['BS65_A13']  = true;
+        if (bossSum >= 65 && countAnyA >= 1) achieved['BS65_AnyA'] = true;
+        if (bossSum >= 60 && countA13 >= 1)  achieved['BS60_A13']  = true;
+        if (bossSum >= 60 && countAnyA >= 1) achieved['BS60_AnyA'] = true;
+
+        // 物攻加總+BOSS（2排物攻 sum + 1排BOSS，以加總為主）
+        if (attSum >= 26 && countB40 >= 1)   achieved['AS26_B40']  = true;
+        if (attSum >= 26 && cB35up >= 1)     achieved['AS26_B35']  = true;
+        if (attSum >= 26 && countAnyB >= 1)  achieved['AS26_AnyB'] = true;
+        if (attSum >= 23 && countB40 >= 1)   achieved['AS23_B40']  = true;
+        if (attSum >= 23 && cB35up >= 1)     achieved['AS23_B35']  = true;
+        if (attSum >= 23 && countAnyB >= 1)  achieved['AS23_AnyB'] = true;
+        if (attSum >= 20 && countB40 >= 1)   achieved['AS20_B40']  = true;
+        if (attSum >= 20 && cB35up >= 1)     achieved['AS20_B35']  = true;
+        if (attSum >= 20 && countAnyB >= 1)  achieved['AS20_AnyB'] = true;
+
+        // 混合：1排BOSS + 2排物攻（含以上語意，以物攻%為主軸）
+        if (countB40 >= 1 && countA13 >= 2)                           achieved['M_B40_A13A13'] = true;
+        if (countB40 >= 1 && countA13 >= 1 && countAnyA >= 2)        achieved['M_B40_A13Any'] = true;
+        if (countB40 >= 1 && countAnyA >= 2)                          achieved['M_B40_Any2A']  = true;
+        if (cB35up >= 1 && countA13 >= 2)                             achieved['M_B35_A13A13'] = true;
+        if (cB35up >= 1 && countA13 >= 1 && countAnyA >= 2)          achieved['M_B35_A13Any'] = true;
+        if (cB35up >= 1 && countAnyA >= 2)                            achieved['M_B35_Any2A']  = true;
+        if (countAnyB >= 1 && countA13 >= 2)                          achieved['M_B30_A13A13'] = true;
+        if (countAnyB >= 1 && countA13 >= 1 && countAnyA >= 2)       achieved['M_B30_A13Any'] = true;
+        if (countAnyB >= 1 && countAnyA >= 2)                         achieved['M_B30_Any2A']  = true;
 
     } else if (mode === 'emblem_att') {
         let attSum = 0; let maxIgnore = 0; let countA13 = 0; 
@@ -774,23 +840,90 @@ function calcMath_Weapon(useRules, lockedInfo) {
         if (p.name.startsWith('Ignore')) return 5; return null;
     };
     const check3 = (lines, validMap) => {
-        let bSum = 0, hasA13 = false, hasA10 = false, countB40 = 0, countA13 = 0;
+        let bSum = 0, attSum = 0;
+        let countB40 = 0, countB35 = 0, countB30 = 0, countAnyB = 0;
+        let countA13 = 0, countAnyA = 0;
         for(let l of lines) {
-            if(l.type === 'B') { bSum += l.val; if(l.val === 40) countB40++; }
-            if(l.type === 'A') { if(l.val>=13) { hasA13=true; if(l.val === 13) countA13++; } if(l.val>=10) hasA10=true; }
+            if(l.type === 'B') {
+                bSum += l.val; countAnyB++;
+                if(l.val === 40) countB40++; else if(l.val === 35) countB35++; else if(l.val === 30) countB30++;
+            }
+            if(l.type === 'A') { attSum += l.val; countAnyA++; if(l.val === 13) countA13++; }
         }
+
+        // 一排目標
+        if(countB40 >= 1) validMap['1L_Boss40'] = true;
+        if(countA13 >= 1) validMap['1L_Att13'] = true;
+        if(countB40 >= 1 || countA13 >= 1) validMap['1L_AnyBA'] = true;
+
+        // 特殊雙排
         if(countB40 >= 2) validMap['2L_Boss40'] = true;
         if(countA13 >= 2) validMap['2L_Att13'] = true;
         if((countB40 + countA13) >= 2) validMap['2L_Boss40_Att13'] = true;
 
+        // 寬鬆目標
+        if((countAnyB + countAnyA) >= 3) validMap['3L_BossAtt'] = true;
+        if((countAnyB + countAnyA) >= 2) validMap['2L_BossAtt'] = true;
+
+        // 純BOSS加總
         if(bSum >= 120) validMap['120B'] = true; if(bSum >= 115) validMap['115B'] = true;
         if(bSum >= 110) validMap['110B'] = true; if(bSum >= 105) validMap['105B'] = true;
         if(bSum >= 100) validMap['100B'] = true; if(bSum >= 95) validMap['95B'] = true; if(bSum >= 90) validMap['90B'] = true;
-        if(bSum >= 80) { if(hasA13) validMap['80B+13A'] = true; if(hasA13||hasA10) validMap['80B+10A'] = true; validMap['80B'] = true; }
-        if(bSum >= 75) { if(hasA13) validMap['75B+13A'] = true; if(hasA13||hasA10) validMap['75B+10A'] = true; validMap['75B'] = true; }
-        if(bSum >= 70) { if(hasA13) validMap['70B+13A'] = true; if(hasA13||hasA10) validMap['70B+10A'] = true; validMap['70B'] = true; }
-        if(bSum >= 65) { if(hasA13) validMap['65B+13A'] = true; if(hasA13||hasA10) validMap['65B+10A'] = true; validMap['65B'] = true; }
-        if(bSum >= 60) { if(hasA13) validMap['60B+13A'] = true; if(hasA13||hasA10) validMap['60B+10A'] = true; validMap['60B'] = true; }
+        if(bSum >= 80) validMap['80B'] = true; if(bSum >= 75) validMap['75B'] = true; if(bSum >= 70) validMap['70B'] = true;
+        if(bSum >= 65) validMap['65B'] = true; if(bSum >= 60) validMap['60B'] = true;
+
+        // 純物攻加總
+        if(attSum >= 39) validMap['Att_39'] = true; if(attSum >= 26) validMap['Att_26'] = true;
+        if(attSum >= 23) validMap['Att_23'] = true; if(attSum >= 20) validMap['Att_20'] = true;
+
+        // 混合：2排BOSS + 1排物攻（含以上語意：↑表示該值或更高）
+        const cB35up = countB35 + countB40;
+        if(countB40 >= 2 && countA13 >= 1)                         validMap['M_B40B40_A13']  = true;
+        if(countB40 >= 2 && countAnyA >= 1)                        validMap['M_B40B40_AnyA'] = true;
+        if(countB40 >= 1 && cB35up >= 2 && countA13 >= 1)         validMap['M_B40B35_A13']  = true;
+        if(countB40 >= 1 && cB35up >= 2 && countAnyA >= 1)        validMap['M_B40B35_AnyA'] = true;
+        if(countB40 >= 1 && countAnyB >= 2 && countA13 >= 1)      validMap['M_B40B30_A13']  = true;
+        if(countB40 >= 1 && countAnyB >= 2 && countAnyA >= 1)     validMap['M_B40B30_AnyA'] = true;
+        if(cB35up >= 2 && countA13 >= 1)                           validMap['M_B35B35_A13']  = true;
+        if(cB35up >= 2 && countAnyA >= 1)                          validMap['M_B35B35_AnyA'] = true;
+        if(cB35up >= 1 && countAnyB >= 2 && countA13 >= 1)        validMap['M_B35B30_A13']  = true;
+        if(cB35up >= 1 && countAnyB >= 2 && countAnyA >= 1)       validMap['M_B35B30_AnyA'] = true;
+        if(countAnyB >= 2 && countA13 >= 1)                        validMap['M_B30B30_A13']  = true;
+        if(countAnyB >= 2 && countAnyA >= 1)                       validMap['M_B30B30_AnyA'] = true;
+
+        // BOSS加總+物攻（2排BOSS sum + 1排物攻，以加總為主）
+        if(bSum >= 80 && countA13 >= 1)  validMap['BS80_A13']  = true;
+        if(bSum >= 80 && countAnyA >= 1) validMap['BS80_AnyA'] = true;
+        if(bSum >= 75 && countA13 >= 1)  validMap['BS75_A13']  = true;
+        if(bSum >= 75 && countAnyA >= 1) validMap['BS75_AnyA'] = true;
+        if(bSum >= 70 && countA13 >= 1)  validMap['BS70_A13']  = true;
+        if(bSum >= 70 && countAnyA >= 1) validMap['BS70_AnyA'] = true;
+        if(bSum >= 65 && countA13 >= 1)  validMap['BS65_A13']  = true;
+        if(bSum >= 65 && countAnyA >= 1) validMap['BS65_AnyA'] = true;
+        if(bSum >= 60 && countA13 >= 1)  validMap['BS60_A13']  = true;
+        if(bSum >= 60 && countAnyA >= 1) validMap['BS60_AnyA'] = true;
+
+        // 物攻加總+BOSS（2排物攻 sum + 1排BOSS，以加總為主）
+        if(attSum >= 26 && countB40 >= 1)  validMap['AS26_B40']  = true;
+        if(attSum >= 26 && cB35up >= 1)    validMap['AS26_B35']  = true;
+        if(attSum >= 26 && countAnyB >= 1) validMap['AS26_AnyB'] = true;
+        if(attSum >= 23 && countB40 >= 1)  validMap['AS23_B40']  = true;
+        if(attSum >= 23 && cB35up >= 1)    validMap['AS23_B35']  = true;
+        if(attSum >= 23 && countAnyB >= 1) validMap['AS23_AnyB'] = true;
+        if(attSum >= 20 && countB40 >= 1)  validMap['AS20_B40']  = true;
+        if(attSum >= 20 && cB35up >= 1)    validMap['AS20_B35']  = true;
+        if(attSum >= 20 && countAnyB >= 1) validMap['AS20_AnyB'] = true;
+
+        // 混合：1排BOSS + 2排物攻（含以上語意，以物攻%為主軸）
+        if(countB40 >= 1 && countA13 >= 2)                          validMap['M_B40_A13A13'] = true;
+        if(countB40 >= 1 && countA13 >= 1 && countAnyA >= 2)       validMap['M_B40_A13Any'] = true;
+        if(countB40 >= 1 && countAnyA >= 2)                         validMap['M_B40_Any2A']  = true;
+        if(cB35up >= 1 && countA13 >= 2)                            validMap['M_B35_A13A13'] = true;
+        if(cB35up >= 1 && countA13 >= 1 && countAnyA >= 2)         validMap['M_B35_A13Any'] = true;
+        if(cB35up >= 1 && countAnyA >= 2)                           validMap['M_B35_Any2A']  = true;
+        if(countAnyB >= 1 && countA13 >= 2)                         validMap['M_B30_A13A13'] = true;
+        if(countAnyB >= 1 && countA13 >= 1 && countAnyA >= 2)      validMap['M_B30_A13Any'] = true;
+        if(countAnyB >= 1 && countAnyA >= 2)                        validMap['M_B30_Any2A']  = true;
     };
     return runGenericC63('Weapon', config, ID_MAP, check3, useRules, lockedInfo);
 }
@@ -982,10 +1115,11 @@ function renderResults(simRes, mode, mathData) {
             if(mathProb !== null) probHtml += ` <span class="math-group">(<span class="math-val">${fmtPct(mathProb)}</span>)</span>`;
 
             let note = "";
-            if(r.broad) note = `<span class="note-broad">不限屬性</span>`;
-            if(r.both) note = `<span class="note-strict">雙重達標</span>`;
+            if(r.broad)   note = `<span class="note-broad">不限屬性</span>`;
+            if(r.both)    note = `<span class="note-strict">雙重達標</span>`;
+            if(r.triple)  note = `<span class="note-triple">三重達標</span>`;
             if(r.special) note = `<span class="note-special">雙排傳說</span>`;
-            if(r.pos) note = `<span class="note-special">指定排</span>`;
+            if(r.pos)     note = `<span class="note-special">指定排</span>`;
 
             html += `<tr><td class="target-name">${r.label} ${note}</td><td>${cubesHtml}</td><td>${probHtml}</td></tr>`;
         });
@@ -1014,22 +1148,85 @@ function renderResults(simRes, mode, mathData) {
             {key:'Crit2_BaseH', label:`2排↑ 爆傷 + ${st.base}%↑ HP`, both:true}, {key:'Crit2_U1H', label:`2排↑ 爆傷 + ${st.u1}%↑ HP`, both:true} ];
         area.innerHTML = renderTable("手套 (爆傷 & 指定主屬)", r1) + renderTable("手套 (爆傷 & HP)", r2);
     } else if (mode === 'weapon_boss') {
-        let toolTipText = "可能組合 (達標或超越)：\nBOSS傷害+40% + BOSS傷害+40%\n物理攻擊力(魔法攻擊力)+13% + 物理攻擊力(魔法攻擊力)+13%\nBOSS傷害+40% + 物理攻擊力(魔法攻擊力)+13%\nBOSS傷害+40% + BOSS傷害+40% + BOSS傷害+40%\n物理攻擊力(魔法攻擊力)+13% + 物理攻擊力(魔法攻擊力)+13% + 物理攻擊力(魔法攻擊力)+13%\nBOSS傷害+40% + BOSS傷害+40% + 物理攻擊力(魔法攻擊力)+13%\nBOSS傷害+40% + 物理攻擊力(魔法攻擊力)+13% + 物理攻擊力(魔法攻擊力)+13%";
-        let toolTipHtml = ` <div class="tooltip-wrap"><span class="info-icon">ℹ️</span><div class="tooltip-content">${toolTipText}</div></div>`;
-
-        let rows = [ 
+        const wName = "武器,輔助武器";
+        const A = '物理攻擊力(魔法攻擊力)';
+        let rows1 = [
             ...posRows,
-            {key:'2L_Boss40_Att13', label:`任意兩排 物理攻擊力(魔法攻擊力)+13% 或 BOSS傷害+40%${toolTipHtml}`, special:true},
-            {key:'2L_Boss40', label:'雙排 BOSS傷害+40%', special:true}, 
-            {key:'2L_Att13', label:'雙排 物理攻擊力(魔法攻擊力)+13%', special:true}, 
-            {key:'120B', label:'BOSS傷害+120%↑'}, {key:'115B', label:'BOSS傷害+115%↑'}, {key:'110B', label:'BOSS傷害+110%↑'}, {key:'105B', label:'BOSS傷害+105%↑'}, {key:'100B', label:'BOSS傷害+100%↑'}, {key:'95B', label:'BOSS傷害+95%↑'}, {key:'90B', label:'BOSS傷害+90%↑'}, 
-            {key:'80B+13A', label:'BOSS傷害+80%↑ + 物理攻擊力(魔法攻擊力)+13%↑', both:true}, {key:'80B+10A', label:'BOSS傷害+80%↑ + 物理攻擊力(魔法攻擊力)+10%↑', both:true}, {key:'80B', label:'BOSS傷害+80%↑'}, 
-            {key:'75B+13A', label:'BOSS傷害+75%↑ + 物理攻擊力(魔法攻擊力)+13%↑', both:true}, {key:'75B+10A', label:'BOSS傷害+75%↑ + 物理攻擊力(魔法攻擊力)+10%↑', both:true}, {key:'75B', label:'BOSS傷害+75%↑'}, 
-            {key:'70B+13A', label:'BOSS傷害+70%↑ + 物理攻擊力(魔法攻擊力)+13%↑', both:true}, {key:'70B+10A', label:'BOSS傷害+70%↑ + 物理攻擊力(魔法攻擊力)+10%↑', both:true}, {key:'70B', label:'BOSS傷害+70%↑'}, 
-            {key:'65B+13A', label:'BOSS傷害+65%↑ + 物理攻擊力(魔法攻擊力)+13%↑', both:true}, {key:'65B+10A', label:'BOSS傷害+65%↑ + 物理攻擊力(魔法攻擊力)+10%↑', both:true}, {key:'65B', label:'BOSS傷害+65%↑'}, 
-            {key:'60B+13A', label:'BOSS傷害+60%↑ + 物理攻擊力(魔法攻擊力)+13%↑', both:true}, {key:'60B+10A', label:'BOSS傷害+60%↑ + 物理攻擊力(魔法攻擊力)+10%↑', both:true}, {key:'60B', label:'BOSS傷害+60%↑'} 
+            {key:'1L_AnyBA',       label:`任意一排 BOSS傷害+40% 或 ${A}+13%`, broad:true},
+            {key:'1L_Boss40',      label:'一排 BOSS傷害+40%'},
+            {key:'1L_Att13',       label:`一排 ${A}+13%`},
+            {key:'2L_Boss40_Att13',label:`任意兩排 BOSS傷害+40% 或 ${A}+13%（另一排任意）`, special:true},
+            {key:'2L_Boss40',      label:'雙排 BOSS傷害+40%（另一排任意）', special:true},
+            {key:'2L_Att13',       label:`雙排 ${A}+13%（另一排任意）`, special:true},
+            {key:'3L_BossAtt',     label:`三排全為 ${A}% 或 BOSS傷害%（任意值）`, broad:true},
+            {key:'2L_BossAtt',     label:`任意兩排 ${A}% 或 BOSS傷害%（任意值）`, broad:true},
         ];
-        area.innerHTML = renderTable("武器 (BOSS傷害 & 物理攻擊力(魔法攻擊力)%)", rows);
+        let rows2 = [
+            {key:'120B', label:'BOSS傷害 +120%↑'}, {key:'115B', label:'BOSS傷害 +115%↑'},
+            {key:'110B', label:'BOSS傷害 +110%↑'}, {key:'105B', label:'BOSS傷害 +105%↑'},
+            {key:'100B', label:'BOSS傷害 +100%↑'}, {key:'95B',  label:'BOSS傷害 +95%↑'}, {key:'90B', label:'BOSS傷害 +90%↑'},
+            {key:'80B',  label:'BOSS傷害 +80%↑'},  {key:'75B',  label:'BOSS傷害 +75%↑'}, {key:'70B', label:'BOSS傷害 +70%↑'},
+            {key:'65B',  label:'BOSS傷害 +65%↑'},  {key:'60B',  label:'BOSS傷害 +60%↑'},
+            // 以下：BOSS加總 + 1排物攻
+            {key:'BS80_A13',  label:`BOSS傷害加總 +80%↑ + ${A}+13%`,   both:true},
+            {key:'BS80_AnyA', label:`BOSS傷害加總 +80%↑ + ${A}+10%↑`,  both:true},
+            {key:'BS75_A13',  label:`BOSS傷害加總 +75%↑ + ${A}+13%`,   both:true},
+            {key:'BS75_AnyA', label:`BOSS傷害加總 +75%↑ + ${A}+10%↑`,  both:true},
+            {key:'BS70_A13',  label:`BOSS傷害加總 +70%↑ + ${A}+13%`,   both:true},
+            {key:'BS70_AnyA', label:`BOSS傷害加總 +70%↑ + ${A}+10%↑`,  both:true},
+            {key:'BS65_A13',  label:`BOSS傷害加總 +65%↑ + ${A}+13%`,   both:true},
+            {key:'BS65_AnyA', label:`BOSS傷害加總 +65%↑ + ${A}+10%↑`,  both:true},
+            {key:'BS60_A13',  label:`BOSS傷害加總 +60%↑ + ${A}+13%`,   both:true},
+            {key:'BS60_AnyA', label:`BOSS傷害加總 +60%↑ + ${A}+10%↑`,  both:true},
+        ];
+        let rows3 = [
+            {key:'Att_39', label:`${A} +39%↑`},
+            {key:'Att_26', label:`${A} +26%↑`},
+            {key:'Att_23', label:`${A} +23%↑`},
+            {key:'Att_20', label:`${A} +20%↑`},
+            // 以下：物攻加總 + 1排BOSS
+            {key:'AS26_B40',  label:`${A} +26%↑ + BOSS傷害+40%`,   both:true},
+            {key:'AS26_B35',  label:`${A} +26%↑ + BOSS傷害+35%↑`,  both:true},
+            {key:'AS26_AnyB', label:`${A} +26%↑ + BOSS傷害+30%↑`,  both:true},
+            {key:'AS23_B40',  label:`${A} +23%↑ + BOSS傷害+40%`,   both:true},
+            {key:'AS23_B35',  label:`${A} +23%↑ + BOSS傷害+35%↑`,  both:true},
+            {key:'AS23_AnyB', label:`${A} +23%↑ + BOSS傷害+30%↑`,  both:true},
+            {key:'AS20_B40',  label:`${A} +20%↑ + BOSS傷害+40%`,   both:true},
+            {key:'AS20_B35',  label:`${A} +20%↑ + BOSS傷害+35%↑`,  both:true},
+            {key:'AS20_AnyB', label:`${A} +20%↑ + BOSS傷害+30%↑`,  both:true},
+        ];
+        let rows4 = [
+            {key:'M_B40B40_A13',  label:`BOSS傷害+40% + BOSS傷害+40% + ${A}+13%`,   triple:true},
+            {key:'M_B40B40_AnyA', label:`BOSS傷害+40% + BOSS傷害+40% + ${A}+10%↑`,  triple:true},
+            {key:'M_B40B35_A13',  label:`BOSS傷害+40% + BOSS傷害+35%↑ + ${A}+13%`,  triple:true},
+            {key:'M_B40B35_AnyA', label:`BOSS傷害+40% + BOSS傷害+35%↑ + ${A}+10%↑`, triple:true},
+            {key:'M_B40B30_A13',  label:`BOSS傷害+40% + BOSS傷害+30%↑ + ${A}+13%`,  triple:true},
+            {key:'M_B40B30_AnyA', label:`BOSS傷害+40% + BOSS傷害+30%↑ + ${A}+10%↑`, triple:true},
+            {key:'M_B35B35_A13',  label:`BOSS傷害+35%↑ + BOSS傷害+35%↑ + ${A}+13%`,  triple:true},
+            {key:'M_B35B35_AnyA', label:`BOSS傷害+35%↑ + BOSS傷害+35%↑ + ${A}+10%↑`, triple:true},
+            {key:'M_B35B30_A13',  label:`BOSS傷害+35%↑ + BOSS傷害+30%↑ + ${A}+13%`,  triple:true},
+            {key:'M_B35B30_AnyA', label:`BOSS傷害+35%↑ + BOSS傷害+30%↑ + ${A}+10%↑`, triple:true},
+            {key:'M_B30B30_A13',  label:`BOSS傷害+30%↑ + BOSS傷害+30%↑ + ${A}+13%`,  triple:true},
+            {key:'M_B30B30_AnyA', label:`BOSS傷害+30%↑ + BOSS傷害+30%↑ + ${A}+10%↑`, triple:true},
+        ];
+        let rows5 = [
+            {key:'M_B40_A13A13', label:`${A}+13% + ${A}+13% + BOSS傷害+40%`,   triple:true},
+            {key:'M_B35_A13A13', label:`${A}+13% + ${A}+13% + BOSS傷害+35%↑`,  triple:true},
+            {key:'M_B30_A13A13', label:`${A}+13% + ${A}+13% + BOSS傷害+30%↑`,  triple:true},
+            {key:'M_B40_A13Any', label:`${A}+13% + ${A}+10%↑ + BOSS傷害+40%`,  triple:true},
+            {key:'M_B35_A13Any', label:`${A}+13% + ${A}+10%↑ + BOSS傷害+35%↑`, triple:true},
+            {key:'M_B30_A13Any', label:`${A}+13% + ${A}+10%↑ + BOSS傷害+30%↑`, triple:true},
+            {key:'M_B40_Any2A',  label:`${A}+10%↑ + ${A}+10%↑ + BOSS傷害+40%`,  triple:true},
+            {key:'M_B35_Any2A',  label:`${A}+10%↑ + ${A}+10%↑ + BOSS傷害+35%↑`, triple:true},
+            {key:'M_B30_Any2A',  label:`${A}+10%↑ + ${A}+10%↑ + BOSS傷害+30%↑`, triple:true},
+        ];
+        area.innerHTML = `<div style="width:100%; display:flex; flex-direction:column; gap:20px;">` +
+            renderTable(`${wName} ─ 概覽`, rows1) +
+            renderTable(`${wName} ─ BOSS 傷害加總目標`, rows2) +
+            renderTable(`${wName} ─ ${A}% 加總目標`, rows3) +
+            renderTable(`${wName} ─ 混合：2排 BOSS 傷害% + 1排 ${A}%`, rows4) +
+            renderTable(`${wName} ─ 混合：1排 BOSS 傷害% + 2排 ${A}%`, rows5) +
+            `</div>`;
     } else if (mode === 'emblem_att') {
         let rows = [ 
             ...posRows,

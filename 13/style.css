@@ -137,8 +137,8 @@ tr:last-child td { border-bottom: none; }
 tr:hover { background-color: #f0f5ff; }
 
 .sim-val { color: #16a34a; font-weight: 700; font-family: monospace; font-size: 1.1em; }
-.math-val { color: #1E40AF; font-weight: 700; font-family: monospace; font-size: 1.0em; }
-.math-group { color: #94a3b8; font-size: 0.9em; margin-left: 4px; }
+.math-val { color: #7C3AED; font-weight: 700; font-family: monospace; font-size: 1.0em; }
+.math-group { color: #6b7280; font-size: 0.9em; margin-left: 4px; }
 .cube-val { color: #dc2626; font-weight: 700; font-size: 1.1em; }
 
 .target-name { text-align: left; padding-left: 20px; font-weight: 500; font-size: 15px; }
@@ -154,6 +154,11 @@ tr:hover { background-color: #f0f5ff; }
 }
 .note-special {
     color: #fff; background-color: #7c3aed; font-size: 0.8em;
+    padding: 2px 6px; border-radius: 4px; margin-left: 5px;
+    white-space: nowrap; display: inline-block;
+}
+.note-triple {
+    color: #fff; background-color: #059669; font-size: 0.8em;
     padding: 2px 6px; border-radius: 4px; margin-left: 5px;
     white-space: nowrap; display: inline-block;
 }
