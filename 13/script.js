@@ -466,8 +466,9 @@ function checkCombination(combo, mode, achieved) {
 
         // 純 物攻 加總
         if(attSum >= 39) achieved['Att_39'] = true; if(attSum >= 36) achieved['Att_36'] = true;
-        if(attSum >= 33) achieved['Att_33'] = true; if(attSum >= 26) achieved['Att_26'] = true;
-        if(attSum >= 23) achieved['Att_23'] = true; if(attSum >= 20) achieved['Att_20'] = true;
+        if(attSum >= 33) achieved['Att_33'] = true; if(attSum >= 30) achieved['Att_30'] = true;
+        if(attSum >= 26) achieved['Att_26'] = true; if(attSum >= 23) achieved['Att_23'] = true;
+        if(attSum >= 20) achieved['Att_20'] = true;
 
         // 混合：2排BOSS + 1排物攻（含以上語意：↑表示該值或更高）
         const cB35up = countB35 + countB40;
@@ -875,8 +876,9 @@ function calcMath_Weapon(useRules, lockedInfo) {
 
         // 純物攻加總
         if(attSum >= 39) validMap['Att_39'] = true; if(attSum >= 36) validMap['Att_36'] = true;
-        if(attSum >= 33) validMap['Att_33'] = true; if(attSum >= 26) validMap['Att_26'] = true;
-        if(attSum >= 23) validMap['Att_23'] = true; if(attSum >= 20) validMap['Att_20'] = true;
+        if(attSum >= 33) validMap['Att_33'] = true; if(attSum >= 30) validMap['Att_30'] = true;
+        if(attSum >= 26) validMap['Att_26'] = true; if(attSum >= 23) validMap['Att_23'] = true;
+        if(attSum >= 20) validMap['Att_20'] = true;
 
         // 混合：2排BOSS + 1排物攻（含以上語意：↑表示該值或更高）
         const cB35up = countB35 + countB40;
@@ -1185,6 +1187,7 @@ function renderResults(simRes, mode, mathData) {
             {key:'Att_39', label:`${A} +39%↑`},
             {key:'Att_36', label:`${A} +36%↑`},
             {key:'Att_33', label:`${A} +33%↑`},
+            {key:'Att_30', label:`${A} +30%↑`},
             {key:'Att_26', label:`${A} +26%↑`},
             {key:'Att_23', label:`${A} +23%↑`},
             {key:'Att_20', label:`${A} +20%↑`},
