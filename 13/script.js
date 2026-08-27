@@ -1155,9 +1155,9 @@ function renderResults(simRes, mode, mathData) {
             {key:'1L_AnyBA',       label:`任意一排 BOSS傷害+40% 或 ${A}+13%`},
             {key:'1L_Boss40',      label:'一排 BOSS傷害+40%'},
             {key:'1L_Att13',       label:`一排 ${A}+13%`},
-            {key:'2L_Boss40_Att13',label:`任意兩排 BOSS傷害+40% 或 ${A}+13%（另一排任意）`, special:true},
-            {key:'2L_Boss40',      label:'雙排 BOSS傷害+40%（另一排任意）', special:true},
-            {key:'2L_Att13',       label:`雙排 ${A}+13%（另一排任意）`, special:true},
+            {key:'2L_Boss40_Att13',label:`任意兩排 BOSS傷害+40% 或 ${A}+13%（另一排任意）`},
+            {key:'2L_Boss40',      label:'雙排 BOSS傷害+40%（另一排任意）'},
+            {key:'2L_Att13',       label:`雙排 ${A}+13%（另一排任意）`},
             {key:'3L_BossAtt',     label:`三排全為 ${A}% 或 BOSS傷害%（任意值）`},
             {key:'2L_BossAtt',     label:`任意兩排 ${A}% 或 BOSS傷害%（任意值）`},
         ];
