@@ -1152,14 +1152,14 @@ function renderResults(simRes, mode, mathData) {
         const A = '物理攻擊力(魔法攻擊力)';
         let rows1 = [
             ...posRows,
-            {key:'1L_AnyBA',       label:`任意一排 BOSS傷害+40% 或 ${A}+13%`, broad:true},
+            {key:'1L_AnyBA',       label:`任意一排 BOSS傷害+40% 或 ${A}+13%`},
             {key:'1L_Boss40',      label:'一排 BOSS傷害+40%'},
             {key:'1L_Att13',       label:`一排 ${A}+13%`},
             {key:'2L_Boss40_Att13',label:`任意兩排 BOSS傷害+40% 或 ${A}+13%（另一排任意）`, special:true},
             {key:'2L_Boss40',      label:'雙排 BOSS傷害+40%（另一排任意）', special:true},
             {key:'2L_Att13',       label:`雙排 ${A}+13%（另一排任意）`, special:true},
-            {key:'3L_BossAtt',     label:`三排全為 ${A}% 或 BOSS傷害%（任意值）`, broad:true},
-            {key:'2L_BossAtt',     label:`任意兩排 ${A}% 或 BOSS傷害%（任意值）`, broad:true},
+            {key:'3L_BossAtt',     label:`三排全為 ${A}% 或 BOSS傷害%（任意值）`},
+            {key:'2L_BossAtt',     label:`任意兩排 ${A}% 或 BOSS傷害%（任意值）`},
         ];
         let rows2 = [
             {key:'120B', label:'BOSS傷害 +120%↑'}, {key:'115B', label:'BOSS傷害 +115%↑'},
