@@ -629,7 +629,7 @@ function renderConfig() {
                             <option value="2" ${currentCount === 2 ? 'selected' : ''}>≥ 2 排</option>
                             <option value="3" ${currentCount === 3 ? 'selected' : ''}>3 排</option>
                         </select>
-                        <input type="number" class="val-input" step="0.1" value="${currentVal}" placeholder="分數" 
+                        <input type="number" class="val-input" step="any" value="${currentVal}" placeholder="分數" 
                                data-text="${item.text}" 
                                oninput="handleValueChange('${item.text}', this.value)">
                         <button class="btn-remove" title="移除" onclick="removeStat('${item.rawName}', '${item.text}', this)">❌</button>
@@ -741,9 +741,9 @@ function calculateProb() {
                 for (const s3 of validP3) {
                     const prob3 = s3.num / sumP3;
                     const finalProb = path.p * prob1 * prob2 * prob3;
-                    const totalVal = s1.value + s2.value + s3.value;
+                    const totalVal = parseFloat((s1.value + s2.value + s3.value).toFixed(10));
 
-                    if (totalVal >= threshold) {
+                    if (totalVal >= threshold - 1e-9) {
                         
                         let meetsReq = true;
                         if (hasReqs) {
@@ -829,7 +829,7 @@ function calculateProb() {
             for (const key of sortedKeys) {
                 html += `<tr>
                             <td style="line-height: 1.6; padding-left: 15px;">${key}</td>
-                            <td style="font-weight:bold; color:#0f172a; vertical-align: middle;">${group[key].val.toFixed(1)}</td>
+                            <td style="font-weight:bold; color:#0f172a; vertical-align: middle;">${parseFloat(group[key].val.toFixed(6))}</td>
                             <td style="vertical-align: middle; color: #333;">${(group[key].prob * 100).toFixed(4)}%</td>
                          </tr>`;
             }
