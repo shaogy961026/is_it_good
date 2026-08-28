@@ -78,15 +78,15 @@
     s.textContent = '\
 #chat-fab{\
   position:fixed!important;bottom:24px!important;right:24px!important;\
-  width:56px!important;height:56px!important;border-radius:50%!important;\
-  background:#1E40AF!important;color:#fff!important;border:none!important;\
+  width:52px!important;height:52px!important;border-radius:50%!important;\
+  background:#0f766e!important;color:#fff!important;border:none!important;\
   cursor:pointer!important;font-size:26px!important;\
   display:flex!important;align-items:center!important;justify-content:center!important;\
-  box-shadow:0 4px 16px rgba(30,64,175,.45)!important;\
+  box-shadow:0 4px 16px rgba(15,118,110,.5)!important;\
   z-index:99990!important;transition:transform .2s,box-shadow .2s!important;\
   padding:0!important;line-height:1!important;\
 }\
-#chat-fab:hover{transform:scale(1.08)!important;box-shadow:0 6px 22px rgba(30,64,175,.55)!important;}\
+#chat-fab:hover{transform:scale(1.08)!important;box-shadow:0 6px 22px rgba(15,118,110,.65)!important;}\
 #chat-badge{\
   position:absolute!important;top:-5px!important;right:-5px!important;\
   background:#ef4444!important;color:#fff!important;\
@@ -97,10 +97,10 @@
   box-shadow:0 1px 4px rgba(0,0,0,.25)!important;\
 }\
 #chat-win{\
-  position:fixed!important;bottom:92px!important;right:24px!important;\
+  position:fixed!important;bottom:88px!important;right:24px!important;\
   width:360px!important;height:510px!important;\
   background:#fff!important;border-radius:16px!important;\
-  box-shadow:0 8px 40px rgba(30,64,175,.2)!important;\
+  box-shadow:0 8px 40px rgba(15,118,110,.2)!important;\
   z-index:99989!important;display:none!important;flex-direction:column!important;\
   overflow:hidden!important;\
   font-family:"Noto Sans TC","Microsoft JhengHei",sans-serif!important;\
@@ -108,7 +108,7 @@
 }\
 #chat-win.open{display:flex!important;}\
 #chat-hd{\
-  background:#1E40AF!important;color:#fff!important;\
+  background:#0f766e!important;color:#fff!important;\
   padding:12px 16px!important;font-weight:700!important;\
   display:flex!important;align-items:center!important;\
   justify-content:space-between!important;flex-shrink:0!important;\
@@ -161,7 +161,7 @@
   font-weight:700!important;letter-spacing:.3px!important;\
 }\
 .cpage{\
-  background:#e0e7ff!important;color:#4338ca!important;\
+  background:#ccfbf1!important;color:#0f766e!important;\
   font-size:10px!important;padding:1px 6px!important;\
   border-radius:4px!important;font-weight:600!important;\
 }\
@@ -171,7 +171,7 @@
   word-break:break-word!important;position:relative!important;\
 }\
 .me .cbubble{\
-  background:#1E40AF!important;color:#fff!important;\
+  background:#0f766e!important;color:#fff!important;\
   border-bottom-right-radius:4px!important;\
 }\
 .them .cbubble{\
@@ -187,8 +187,8 @@
   box-shadow:0 1px 6px rgba(245,158,11,.15)!important;\
 }\
 .cmsg.is-admin-msg.me .cbubble{\
-  background:linear-gradient(135deg,#1E40AF,#1e3a8a)!important;\
-  box-shadow:0 2px 10px rgba(30,64,175,.4)!important;\
+  background:linear-gradient(135deg,#0f766e,#134e4a)!important;\
+  box-shadow:0 2px 10px rgba(15,118,110,.4)!important;\
 }\
 /* 刪除按鈕 */\
 .cdel{\
@@ -208,8 +208,8 @@
 }\
 /* 進場提示橫幅 */\
 #chat-welcome{\
-  background:#eff6ff!important;border-bottom:1px solid #dbeafe!important;\
-  padding:8px 12px!important;font-size:11.5px!important;color:#3b82f6!important;\
+  background:#f0fdfa!important;border-bottom:1px solid #99f6e4!important;\
+  padding:8px 12px!important;font-size:11.5px!important;color:#0f766e!important;\
   line-height:1.5!important;flex-shrink:0!important;\
 }\
 #chat-ft{\
@@ -231,7 +231,7 @@
   font-family:"Noto Sans TC","Microsoft JhengHei",sans-serif!important;\
   transition:border .15s!important;\
 }\
-#chat-nick:focus{border-color:#1E40AF!important;}\
+#chat-nick:focus{border-color:#0f766e!important;}\
 #chat-in-row{display:flex!important;gap:8px!important;}\
 #chat-in{\
   flex:1!important;border:1px solid #e2e8f0!important;\
@@ -241,15 +241,15 @@
   transition:border .15s!important;height:38px!important;\
   box-sizing:border-box!important;\
 }\
-#chat-in:focus{border-color:#1E40AF!important;}\
+#chat-in:focus{border-color:#0f766e!important;}\
 #chat-send{\
-  background:#1E40AF!important;color:#fff!important;border:none!important;\
+  background:#0f766e!important;color:#fff!important;border:none!important;\
   border-radius:10px!important;padding:0 14px!important;cursor:pointer!important;\
   font-size:18px!important;transition:background .15s!important;\
   flex-shrink:0!important;height:38px!important;\
   display:flex!important;align-items:center!important;justify-content:center!important;\
 }\
-#chat-send:hover{background:#1e3a8a!important;}\
+#chat-send:hover{background:#134e4a!important;}\
 #chat-send:disabled{background:#94a3b8!important;cursor:not-allowed!important;}\
 #chat-hint{\
   font-size:11px!important;color:#f59e0b!important;\
@@ -268,9 +268,12 @@
   box-shadow:0 0 0 2px rgba(245,158,11,.2)!important;\
 }\
 @media(max-width:420px){\
-  #chat-win{width:calc(100vw - 16px)!important;right:8px!important;}\
+  #chat-win{width:calc(100vw - 16px)!important;right:8px!important;bottom:80px!important;}\
   #chat-fab{bottom:16px!important;right:16px!important;}\
+  body{padding-bottom:72px!important;}\
 }\
+/* ── 頁面底部補白（讓內容不被 FAB 遮住）── */\
+body{padding-bottom:88px!important;}\
 /* ── UID 後綴 ── */\
 .cuid{\
   font-size:10px!important;color:#b0bec5!important;\
@@ -371,13 +374,13 @@
   padding-left:18px!important;width:100%!important;box-sizing:border-box!important;\
 }\
 #chat-disclaimer-agree{\
-  background:#1E40AF!important;color:#fff!important;border:none!important;\
+  background:#0f766e!important;color:#fff!important;border:none!important;\
   border-radius:10px!important;padding:10px 0!important;\
   font-size:14px!important;font-weight:700!important;cursor:pointer!important;\
   font-family:"Noto Sans TC","Microsoft JhengHei",sans-serif!important;\
   transition:background .15s!important;width:100%!important;\
 }\
-#chat-disclaimer-agree:hover{background:#1e3a8a!important;}\
+#chat-disclaimer-agree:hover{background:#134e4a!important;}\
 ';
     document.head.appendChild(s);
   }
@@ -486,6 +489,66 @@
         titleClickTimer = setTimeout(function () { titleClickCount = 0; }, 2000);
       }
     });
+
+    // ── 偵測頁面底部 sticky 元素，自動讓 FAB 避開 ──
+    avoidStickyBar();
+  }
+
+  // ═══════════════════════════════════════════════════
+  //  避開頁面底部 sticky 元素
+  // ═══════════════════════════════════════════════════
+  function avoidStickyBar() {
+    var fab = document.getElementById('chat-fab');
+    var win = document.getElementById('chat-win');
+    if (!fab) return;
+
+    // 找 position:sticky 且 bottom 值合理的元素
+    function findStickyBar() {
+      var candidates = document.querySelectorAll(
+        '.action-container, [class*="action-bar"], [class*="btn-row"], [class*="footer-bar"], [class*="bottom-bar"]'
+      );
+      for (var i = 0; i < candidates.length; i++) {
+        var el = candidates[i];
+        var s = window.getComputedStyle(el);
+        if (s.position === 'sticky') {
+          var btm = parseFloat(s.bottom);
+          if (!isNaN(btm) && btm >= 0 && btm < 200) return el;
+        }
+      }
+      return null;
+    }
+
+    var bar = findStickyBar();
+    if (!bar) return; // 此頁無 sticky 底列，不需調整
+
+    var barBtm = parseFloat(window.getComputedStyle(bar).bottom) || 0;
+
+    function adjust() {
+      var rect = bar.getBoundingClientRect();
+      // 當 sticky 列「正在吸附」時，其底緣 ≈ window.innerHeight - barBtm
+      // 捲到最底部時 sticky 回到自然位置，底緣會更高（數值更小）
+      var isSticking = rect.bottom >= (window.innerHeight - barBtm - 4);
+      if (isSticking) {
+        var fabBtm = bar.offsetHeight + barBtm + 12;
+        fab.style.setProperty('bottom', fabBtm + 'px', 'important');
+        if (win) win.style.setProperty('bottom', (fabBtm + 52 + 8) + 'px', 'important');
+      } else {
+        // sticky 已回到自然位置 → FAB 回到預設
+        fab.style.setProperty('bottom', '24px', 'important');
+        if (win) win.style.setProperty('bottom', '88px', 'important');
+      }
+    }
+
+    // DOM 完成後初始執行，並監聽 scroll
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', function () {
+        adjust();
+        window.addEventListener('scroll', adjust, { passive: true });
+      });
+    } else {
+      adjust();
+      window.addEventListener('scroll', adjust, { passive: true });
+    }
   }
 
   // ═══════════════════════════════════════════════════
