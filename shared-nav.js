@@ -267,6 +267,16 @@ document.addEventListener("DOMContentLoaded", function() {
     function toolUrl(id) { return basePath + id + '/'; }
     function extraUrl(path) { return basePath + path; }
 
+    // ==========================================
+    // 2-a. 載入全站聊天室（shared-chat.js）
+    // ==========================================
+    if (!document.getElementById('global-chat-script')) {
+        const chatScript = document.createElement('script');
+        chatScript.id  = 'global-chat-script';
+        chatScript.src = basePath + 'shared-chat.js';
+        document.head.appendChild(chatScript);
+    }
+
     const NAV_CATEGORIES = [
         {
             name: "星力",
