@@ -582,9 +582,9 @@ body{padding-bottom:88px!important;}\
     var b = document.getElementById('chat-badge');
     if (unread > 0 && !isOpen) {
       b.textContent = unread > 99 ? '99+' : String(unread);
-      b.style.display = 'flex';
+      b.style.setProperty('display', 'flex', 'important');
     } else {
-      b.style.display = 'none';
+      b.style.setProperty('display', 'none', 'important');
     }
   }
 
