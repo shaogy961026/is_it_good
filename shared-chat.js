@@ -692,9 +692,18 @@ body{padding-bottom:88px!important;}\
   function renderMsg(id, data) {
     var isMine    = (data.uid === myUid);
     var isMsgAdmin = !!(data.isAdmin || adminUids[data.uid]);
-    var time      = data.ts
-      ? new Date(data.ts).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })
-      : '';
+    var time = '';
+    if (data.ts) {
+      var msgDate  = new Date(data.ts);
+      var now      = new Date();
+      var msgDay   = new Date(msgDate.getFullYear(), msgDate.getMonth(), msgDate.getDate());
+      var today    = new Date(now.getFullYear(),    now.getMonth(),    now.getDate());
+      var diffDays = Math.round((today - msgDay) / 86400000);
+      var hhmm     = msgDate.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' });
+      if (diffDays === 0)      time = hhmm;
+      else if (diffDays === 1) time = '昨天 ' + hhmm;
+      else                     time = (msgDate.getMonth() + 1) + '/' + msgDate.getDate() + ' ' + hhmm;
+    }
 
     var div = document.createElement('div');
     div.className  = 'cmsg ' + (isMine ? 'me' : 'them') + (isMsgAdmin ? ' is-admin-msg' : '');
