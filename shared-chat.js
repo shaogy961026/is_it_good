@@ -148,6 +148,18 @@
 }\
 .cmsg.me{align-self:flex-end!important;align-items:flex-end!important;}\
 .cmsg.them{align-self:flex-start!important;align-items:flex-start!important;}\
+.cdate-sep{\
+  display:flex!important;align-items:center!important;gap:8px!important;\
+  width:100%!important;margin:4px 0!important;flex-shrink:0!important;\
+}\
+.cdate-sep span{\
+  font-size:11px!important;color:#94a3b8!important;\
+  white-space:nowrap!important;flex-shrink:0!important;\
+}\
+.cdate-sep::before,.cdate-sep::after{\
+  content:""!important;flex:1!important;\
+  height:1px!important;background:#e2e8f0!important;\
+}\
 .cmeta{\
   font-size:11px!important;color:#94a3b8!important;\
   display:flex!important;align-items:center!important;gap:5px!important;\
@@ -905,7 +917,8 @@ body{padding-bottom:88px!important;}\
 
     var msgsEl = document.getElementById('chat-msgs');
     var msgRef = db.ref('chat/messages').limitToLast(MAX_MSGS);
-    var isEmpty = true;
+    var isEmpty    = true;
+    var lastDateKey = null; // 追蹤上一則訊息的日期，用來插入分隔線
 
     function ensureNotEmpty() {
       if (isEmpty) { msgsEl.innerHTML = ''; isEmpty = false; }
@@ -913,14 +926,38 @@ body{padding-bottom:88px!important;}\
     function atBottom() {
       return (msgsEl.scrollHeight - msgsEl.scrollTop - msgsEl.clientHeight) < 80;
     }
+    function dateSepLabel(ts) {
+      var d    = new Date(ts);
+      var now  = new Date();
+      var msgDay   = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+      var today    = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      var diffDays = Math.round((today - msgDay) / 86400000);
+      if (diffDays === 0) return '今天';
+      if (diffDays === 1) return '昨天';
+      return (d.getFullYear() !== now.getFullYear() ? d.getFullYear() + '/' : '')
+           + (d.getMonth() + 1) + '/' + d.getDate();
+    }
+    function insertDateSep(ts) {
+      var key = new Date(ts).toDateString();
+      if (key === lastDateKey) return;
+      lastDateKey = key;
+      var sep  = document.createElement('div');
+      sep.className = 'cdate-sep';
+      var lbl  = document.createElement('span');
+      lbl.textContent = dateSepLabel(ts);
+      sep.appendChild(lbl);
+      msgsEl.appendChild(sep);
+    }
 
     msgRef.on('child_added', function (snap) {
       ensureNotEmpty();
-      var el = renderMsg(snap.key, snap.val());
+      var data = snap.val();
+      if (data.ts) insertDateSep(data.ts);
+      var el = renderMsg(snap.key, data);
       msgsEl.appendChild(el);
       if (isAdmin) msgsEl.classList.add('admin-on');
       if (isReady && !isOpen) { unread++; updateBadge(); }
-      if (atBottom() || snap.val().uid === myUid) msgsEl.scrollTop = msgsEl.scrollHeight;
+      if (atBottom() || data.uid === myUid) msgsEl.scrollTop = msgsEl.scrollHeight;
     });
 
     // child_changed：訊息被軟刪除（deleted:true）時即時更新 UI
