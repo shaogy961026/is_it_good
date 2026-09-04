@@ -57,16 +57,24 @@ const TRACE_RECOVERY_COSTS = {
     22: { equips: 4, mesos: { 140: 14100000000, 150: 17300000000, 160: 21000000000, 200: 41000000000, 250: 80100000000 } },
 };
 
-function getTraceMesos(traceStar, equipLevel) {
+function getTraceMesos(traceStar, equipLevel, traceDiscount = false) {
     const entry = TRACE_RECOVERY_COSTS[traceStar];
     if (!entry) return Infinity;
     const levelKey = String(equipLevel);
-    if (entry.mesos[levelKey] !== undefined) return entry.mesos[levelKey];
-    const keys = Object.keys(entry.mesos).map(Number).sort((a, b) => a - b);
-    const lvl = parseInt(levelKey, 10);
-    if (lvl < keys[0]) return Infinity;
-    const fallback = keys.filter(k => k <= lvl).at(-1) ?? keys[0];
-    return entry.mesos[fallback];
+    let cost = Infinity;
+    if (entry.mesos[levelKey] !== undefined) {
+        cost = entry.mesos[levelKey];
+    } else {
+        const keys = Object.keys(entry.mesos).map(Number).sort((a, b) => a - b);
+        const lvl = parseInt(levelKey, 10);
+        if (lvl < keys[0]) return Infinity;
+        const fallback = keys.filter(k => k <= lvl).at(-1) ?? keys[0];
+        cost = entry.mesos[fallback];
+    }
+    if (cost !== Infinity && traceDiscount) {
+        cost = Math.round(cost * 0.8);
+    }
+    return cost;
 }
 
 // 成本表
@@ -90,6 +98,7 @@ const DEFAULT_SETTINGS = {
     costDiscount: false,
     guaranteedSuccess: false,
     reduceDestruction: false,
+    traceDiscount: false,
     disableCoupons: false,
     disableHighCoupons: true,
     disableSpecialCoupons: true,
@@ -132,6 +141,7 @@ function getSettingsObject() {
         costDiscount: document.getElementById('cost-discount-event').checked,
         guaranteedSuccess: document.getElementById('guaranteed-success-event').checked,
         reduceDestruction: document.getElementById('reduce-destruction-event').checked,
+        traceDiscount: document.getElementById('trace-discount-event').checked, // 讀取痕跡8折勾選狀態
         disableCoupons: document.getElementById('disable-coupons-event').checked,
         disableHighCoupons: document.getElementById('disable-high-coupons-event').checked,
         disableSpecialCoupons: document.getElementById('disable-special-coupons-event').checked,
@@ -192,7 +202,7 @@ function applySettingsToUI(settings, dom) {
     if(settings.ratioMain !== undefined && dom.ratioMain) dom.ratioMain.value = settings.ratioMain;
     if(settings.ratioVice !== undefined && dom.ratioVice) dom.ratioVice.value = settings.ratioVice;
 
-    const checkboxFields = ['costDiscount', 'guaranteedSuccess', 'reduceDestruction', 'disableCoupons', 'disableHighCoupons', 'disableSpecialCoupons'];
+    const checkboxFields = ['costDiscount', 'guaranteedSuccess', 'reduceDestruction', 'traceDiscount', 'disableCoupons', 'disableHighCoupons', 'disableSpecialCoupons'];
     checkboxFields.forEach(field => {
         if (typeof settings[field] === 'boolean') {
             const checkboxKey = `${field}Checkbox`;
@@ -241,7 +251,7 @@ function loadSettings(dom) {
 // ============================================================================
 // 終極絕對精準動態規劃引擎 (Exact MDP Solver) - 防記憶體洩漏與卡死優化版
 // ============================================================================
-function solveMDPExact(targetStar, equipLevel, compensationPrice, couponPrices, specialCouponPrices, costDiscount, vipDiscount, activeProbabilities, K, forcedPath = null) {
+function solveMDPExact(targetStar, equipLevel, compensationPrice, couponPrices, specialCouponPrices, costDiscount, vipDiscount, activeProbabilities, K, traceDiscount = false, forcedPath = null) {
     const MAX_STATES = 31;
     let V = new Array(MAX_STATES).fill(0);
     let Var = new Array(MAX_STATES).fill(0);
@@ -253,9 +263,6 @@ function solveMDPExact(targetStar, equipLevel, compensationPrice, couponPrices, 
     const equipLevelNum = parseInt(equipLevel);
     const originalCosts = enhancementCosts[equipLevel];
 
-    // T=28 需要 ~21000 次才收斂；T≥29 已由呼叫端用外推法處理，不應直接傳入此函式
-    // MIN_ITER：保證至少跑這麼多次，之後每輪檢查收斂，收斂即停
-    // BUG_CAP：數學上 MDP 必然收斂，此上限僅防止程式碼 bug 導致瀏覽器卡死
     const MIN_ITER = targetStar === 28 ? 25000 : targetStar >= 26 ? 5000 : 500;
     const BUG_CAP  = 200000;
     for (let iter = 0; iter < BUG_CAP; iter++) {
@@ -268,7 +275,6 @@ function solveMDPExact(targetStar, equipLevel, compensationPrice, couponPrices, 
             let bestV = Infinity, bestVar = 0, bestD = 0, bestCPN = 0, bestEQ = 0;
             let bestType = null, bestName = null, bestLimitStar = null, bestRecChoice = null, bestActionCost = 0;
 
-            // 🐛 【修復點】：這裡的變數屬性名稱已修正為 forcedStarMethods 與 forcedRecoveryMethods
             let forcedMethod = (forcedPath && forcedPath.forcedStarMethods) ? forcedPath.forcedStarMethods[n] : null;
             let forcedRec = (forcedPath && forcedPath.forcedRecoveryMethods) ? forcedPath.forcedRecoveryMethods[n] : 'auto';
 
@@ -292,9 +298,9 @@ function solveMDPExact(targetStar, equipLevel, compensationPrice, couponPrices, 
             let traceStar = n >= 23 ? 22 : n;
             let traceCost = Infinity;
             let traceEquipCount = 0;
-            if (traceStar >= 15 && TRACE_RECOVERY_COSTS[traceStar] && getTraceMesos(traceStar, equipLevel) !== Infinity) {
+            if (traceStar >= 15 && TRACE_RECOVERY_COSTS[traceStar] && getTraceMesos(traceStar, equipLevel, traceDiscount) !== Infinity) {
                 const recData = TRACE_RECOVERY_COSTS[traceStar];
-                traceCost = (recData.equips * compensationPrice) + getTraceMesos(traceStar, equipLevel);
+                traceCost = (recData.equips * compensationPrice) + getTraceMesos(traceStar, equipLevel, traceDiscount);
                 traceEquipCount = recData.equips;
             }
 
@@ -334,9 +340,6 @@ function solveMDPExact(targetStar, equipLevel, compensationPrice, couponPrices, 
                 if (1 - k <= 0) return;
                 const q = 1 - k;
                 let expV = (actionCost + p * V[n+1] + r * d_v) / q;
-                // 正確方差推導（全方差定理）：
-                //   Var(C_n) = c²k/q²  +  pr·(V[n+1]-d_v)²/q²  +  (p·Var[n+1] + r·d_var)/q
-                // 等價寫法（乘 q² 後再除）：
                 let expVar = (actionCost * actionCost * k + p * r * Math.pow(V[n+1] - d_v, 2) + (p * Var[n+1] + r * d_var) * q) / (q * q);
                 let score = (expV + K * Math.sqrt(Math.max(0, expVar))) / YI;
                 
@@ -404,9 +407,6 @@ function solveMDPExact(targetStar, equipLevel, compensationPrice, couponPrices, 
             }
         }
         if (iter >= MIN_ITER - 1 && maxDiff < 1e-6) break;
-        if (iter === BUG_CAP - 1) {
-            console.error(`[MDP BUG] T=${targetStar} 在 ${BUG_CAP} 次後仍未收斂，maxDiff=${maxDiff.toExponential(2)}，結果可能有誤`);
-        }
     }
 
     if (forcedPath && forcedPath.initialJump) {
@@ -431,7 +431,7 @@ function solveMDPExact(targetStar, equipLevel, compensationPrice, couponPrices, 
 // 從 baseMDP（已精確解至 T-1 = n）外推一步至 T = n+1
 // 用閉合公式：V_extra[n]×p = c + r×(恢復即時費 + V_base[恢復星])
 // 適用於 T=29(n=28)、T=30(n=29)，呼叫前需確保 baseMDP 已收斂
-function extrapolateMDPStep(baseMDP, n, equipLevel, compensationPrice, activeProbabilities, K, costDiscount = false) {
+function extrapolateMDPStep(baseMDP, n, equipLevel, compensationPrice, activeProbabilities, K, costDiscount = false, traceDiscount = false) {
     const YI = 100000000;
     const V   = [...baseMDP.V];
     const Var = [...baseMDP.Var];
@@ -445,15 +445,13 @@ function extrapolateMDPStep(baseMDP, n, equipLevel, compensationPrice, activePro
     const rawC = enhancementCosts[equipLevel][n];
     const c = costDiscount ? rawC * 0.7 : rawC;
 
-    // n >= 23，恢復目標固定為 22★
     const ts = 22;
     const recData22 = TRACE_RECOVERY_COSTS[ts];
-    const traceMesos22 = getTraceMesos(ts, equipLevel);
+    const traceMesos22 = getTraceMesos(ts, equipLevel, traceDiscount);
     const traceCost22 = (recData22 && traceMesos22 !== Infinity)
         ? recData22.equips * compensationPrice + traceMesos22
         : Infinity;
 
-    // 與原 solveMDPExact 相同的恢復方式評分邏輯
     const scoreFullRec = traceCost22 !== Infinity
         ? (traceCost22 + V[ts] + K * Math.sqrt(Math.max(0, Var[ts]))) / YI
         : Infinity;
@@ -469,19 +467,15 @@ function extrapolateMDPStep(baseMDP, n, equipLevel, compensationPrice, activePro
         ? (recData22 ? recData22.equips * compensationPrice : 0) + EQ[ts]
         : compensationPrice + EQ[12];
 
-    // 閉合公式（消去 keep 自迴圈後）：keep 與 destroy 皆回到 n★ 重試
-    //   V_extra × p = c + r × (R_immediate + R_v)
     const R_total = R_immediate + R_v;
     const V_extra   = (c + r * R_total) / p;
     const D_extra   = r * R_d / p;
     const CPN_extra = r * R_cpn / p;
     const EQ_extra  = r * R_eq / p;
-    // 正確方差推導（全方差定理，兩種非成功結果均回到 n★ 繼續）：
-    //   Var_extra = [p·(c-V_extra)² + k·c² + r·(c+R_total)² + r·R_var] / p
+    
     const k_prob = 1 - p - r;
     const Var_extra = (p * Math.pow(c - V_extra, 2) + k_prob * c * c + r * Math.pow(c + R_total, 2) + r * R_var) / p;
 
-    // 狀態 0..n-1：期望費用均加上此額外步驟的成本
     for (let i = 0; i < n; i++) {
         V[i]   += V_extra;
         D[i]   += D_extra;
@@ -489,14 +483,12 @@ function extrapolateMDPStep(baseMDP, n, equipLevel, compensationPrice, activePro
         EQ[i]  += EQ_extra;
         Var[i] += Var_extra;
     }
-    // 狀態 n 本身的費用（從 n★ 到 n+1★）
     V[n]   = V_extra;
     Var[n] = Var_extra;
     D[n]   = D_extra;
     CPN[n] = CPN_extra;
     EQ[n]  = EQ_extra;
 
-    // Policy：直接強化（不防爆），記錄恢復方式
     Policy[n] = { type: 'sf', name: '直接強化(不防爆)', recChoice: useFull ? 'full' : '12', cost: c };
 
     return { V, Var, D, CPN, EQ, Policy, recoveryJump: baseMDP.recoveryJump };
@@ -558,7 +550,7 @@ function generatePathDescriptionMDP(start, target, policyArray) {
 }
 
 // 根據 MDP Policy 進行單次模擬
-function simulateTrialMDP(equipLevel, targetStar, compensationPrice, policyArray, costDiscount, vipDiscount, activeProbabilities, startStar, keepLog = false, recoveryJump = null) {
+function simulateTrialMDP(equipLevel, targetStar, compensationPrice, policyArray, costDiscount, vipDiscount, activeProbabilities, startStar, keepLog = false, recoveryJump = null, traceDiscount = false) {
     let currentStars = startStar;
     let totalCost = 0, totalDestroys = 0, totalEnhancementCost = 0, totalDestructionCost = 0, totalCouponCost = 0;
     const log = [];
@@ -622,7 +614,7 @@ function simulateTrialMDP(equipLevel, targetStar, compensationPrice, policyArray
             if (act.recChoice === 'full') {
                 let traceStar = currentStars >= 23 ? 22 : currentStars;
                 const recData = TRACE_RECOVERY_COSTS[traceStar];
-                let traceCost = getTraceMesos(traceStar, equipLevel);
+                let traceCost = getTraceMesos(traceStar, equipLevel, traceDiscount);
                 let equipC = recData.equips * compensationPrice;
                 let restoreCost = traceCost + equipC;
                 totalCost += restoreCost;
@@ -711,6 +703,7 @@ document.addEventListener('DOMContentLoaded', () => {
         costDiscountCheckbox: document.getElementById('cost-discount-event'),
         guaranteedSuccessCheckbox: document.getElementById('guaranteed-success-event'),
         reduceDestructionCheckbox: document.getElementById('reduce-destruction-event'),
+        traceDiscountCheckbox: document.getElementById('trace-discount-event'),
         disableCouponsCheckbox: document.getElementById('disable-coupons-event'),
         disableHighCouponsCheckbox: document.getElementById('disable-high-coupons-event'), 
         disableSpecialCouponsCheckbox: document.getElementById('disable-special-coupons-event'),
@@ -976,23 +969,24 @@ document.addEventListener('DOMContentLoaded', () => {
         return { exchangeRate, currencyName, isTWD };
     }
 
-    function displayDataTables(equipLevel, costDiscount, vipDiscount, activeProbabilities, compensationPrice) {
+    function displayDataTables(equipLevel, costDiscount, vipDiscount, activeProbabilities, compensationPrice, traceDiscount) {
         const maxStar = enhancementCosts[equipLevel].length;
         dom.dataTablesTitle.textContent = "基礎數據參考 (基於當前設定)";
 
         const costsMods = [];
         if (costDiscount) costsMods.push('活動30%折扣');
         if (vipDiscount > 0) costsMods.push(`VIP ${Math.round(vipDiscount * 100)}%折扣`);
-        dom.costsTableTitle.textContent = costsMods.length > 0
-            ? `單次強化成本表（套用：${costsMods.join('、')}）`
+        dom.costsTableTitle.innerHTML = costsMods.length > 0
+            ? `單次強化成本表（套用：<span style="color:#d35400;">${costsMods.join('、')}</span>）`
             : '單次強化成本表';
 
         const probsMods = [];
         if (dom.guaranteedSuccessCheckbox.checked) probsMods.push('5/10/15星必過');
         if (dom.reduceDestructionCheckbox.checked) probsMods.push('破壞機率-30%');
-        dom.probsTableTitle.textContent = probsMods.length > 0
-            ? `成功/維持/破壞機率表（套用：${probsMods.join('、')}）`
+        dom.probsTableTitle.innerHTML = probsMods.length > 0
+            ? `成功/維持/破壞機率表（套用：<span style="color:#d35400;">${probsMods.join('、')}</span>）`
             : '成功/維持/破壞機率表';
+            
         let costsHtml = '<table class="data-table"><thead><tr><th>星等</th><th>強化費用(楓幣)</th></tr></thead><tbody>';
         for(let n = 0; n < maxStar; n++) {
             const originalBaseCost = enhancementCosts[equipLevel][n];
@@ -1003,23 +997,54 @@ document.addEventListener('DOMContentLoaded', () => {
             if (totalDiscountRate > 0) {
                 finalCost = originalBaseCost * (1 - totalDiscountRate);
             }
-            costsHtml += `<tr><td>${n} → ${n+1}</td><td>${Math.round(finalCost).toLocaleString()}</td></tr>`;
+            const highlightStyle = (totalDiscountRate > 0) ? 'color:#d35400; font-weight:bold;' : '';
+            costsHtml += `<tr><td>${n} → ${n+1}</td><td><span style="${highlightStyle}">${Math.round(finalCost).toLocaleString()}</span></td></tr>`;
         }
         costsHtml += '</tbody></table>';
         dom.costsTableContainer.innerHTML = costsHtml;
 
         const floorTo2 = v => (Math.floor(v * 10000) / 100).toFixed(2);
         let probsHtml = '<table class="data-table"><thead><tr><th>星等</th><th>成功</th><th>維持</th><th>破壞</th></tr></thead><tbody>';
+        
         activeProbabilities.forEach((p, n) => {
             if (n >= maxStar) return;
-            probsHtml += `<tr><td>${n} → ${n+1}</td><td>${floorTo2(p.success)}%</td><td>${floorTo2(p.keep)}%</td><td>${floorTo2(p.destroy)}%</td></tr>`;
+            
+            // 取得全域變數中未被活動改變的「原始機率」作為比對基準
+            const baseP = starProbabilities[n];
+            
+            // 成功機率比對
+            const actSuccStr = floorTo2(p.success);
+            const baseSuccStr = floorTo2(baseP.success);
+            const succDisp = (actSuccStr !== baseSuccStr) 
+                ? `<span style="color:#d35400; font-weight:bold;">${actSuccStr}%</span>` 
+                : `${actSuccStr}%`;
+
+            // 維持機率比對
+            const actKeepStr = floorTo2(p.keep);
+            const baseKeepStr = floorTo2(baseP.keep);
+            const keepDisp = (actKeepStr !== baseKeepStr) 
+                ? `<span style="color:#d35400; font-weight:bold;">${actKeepStr}%</span>` 
+                : `${actKeepStr}%`;
+
+            // 破壞機率比對
+            const actDestStr = floorTo2(p.destroy);
+            const baseDestStr = floorTo2(baseP.destroy);
+            const destDisp = (actDestStr !== baseDestStr) 
+                ? `<span style="color:#d35400; font-weight:bold;">${actDestStr}%</span>` 
+                : `${actDestStr}%`;
+
+            probsHtml += `<tr><td>${n} → ${n+1}</td><td>${succDisp}</td><td>${keepDisp}</td><td>${destDisp}</td></tr>`;
         });
+        
         probsHtml += '</tbody></table>';
         probsHtml += `<p style="margin:4px 0 0; font-size:0.8rem; color:#888;">※ 數值無條件捨去至小數點第二位（同官方習慣）</p>`;
         dom.probsTableContainer.innerHTML = probsHtml;
 
-        dom.traceTableTitle.textContent = `痕跡完全復原費用參考（裝備等級 ${equipLevel}）`;
-        const isTraceSupported = getTraceMesos(15, equipLevel) !== Infinity;
+        dom.traceTableTitle.innerHTML = traceDiscount 
+            ? `痕跡完全復原費用參考（裝備等級 ${equipLevel}）（套用：<span style="color:#d35400;">痕跡費用8折</span>）`
+            : `痕跡完全復原費用參考（裝備等級 ${equipLevel}）`;
+            
+        const isTraceSupported = getTraceMesos(15, equipLevel, traceDiscount) !== Infinity;
         let traceHtml;
         if (!isTraceSupported) {
             traceHtml = `<p style="margin:0; font-size:0.85rem; color:#888;">此裝備等級（${equipLevel}）不支援痕跡完全復原功能，計算機不會將其納入策略比較。</p>`;
@@ -1041,13 +1066,14 @@ document.addEventListener('DOMContentLoaded', () => {
             for (let star = 15; star <= 22; star++) {
                 const entry = TRACE_RECOVERY_COSTS[star];
                 if (!entry) continue;
-                const mesos = getTraceMesos(star, equipLevel);
+                const mesos = getTraceMesos(star, equipLevel, traceDiscount);
                 const total = entry.equips * compensationPrice + mesos;
+                const highlightStyle = traceDiscount ? 'color:#d35400; font-weight:bold;' : '';
                 traceHtml += `<tr>
                     <td>${star}★</td>
                     <td>${entry.equips} 件</td>
-                    <td>${mesos.toLocaleString()}</td>
-                    <td>${total.toLocaleString()}</td>
+                    <td><span style="${highlightStyle}">${mesos.toLocaleString()}</span></td>
+                    <td><span style="${highlightStyle}">${total.toLocaleString()}</span></td>
                 </tr>`;
             }
             traceHtml += '</tbody></table>';
@@ -1618,6 +1644,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const costDiscount = dom.costDiscountCheckbox.checked;
         const guaranteedSuccess = dom.guaranteedSuccessCheckbox.checked;
         const reduceDestruction = dom.reduceDestructionCheckbox.checked;
+        const traceDiscount = dom.traceDiscountCheckbox.checked; // 讀取痕跡8折勾選
         const vipDiscount = parseFloat(dom.vipDiscountSelect.value);
         const numSimulations = 10000;
         
@@ -1644,7 +1671,8 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
         
-        displayDataTables(equipLevel, costDiscount, vipDiscount, activeProbabilities, compensationPrice);
+        // 傳遞 traceDiscount 讓表格變化
+        displayDataTables(equipLevel, costDiscount, vipDiscount, activeProbabilities, compensationPrice, traceDiscount);
         dom.dataTablesContainer.classList.remove('hidden');
 
         const strategies = [
@@ -1687,20 +1715,18 @@ document.addEventListener('DOMContentLoaded', () => {
             let bestGlobalMDP = null;
             let minGlobalZScore = Infinity;
 
-            // T=29/30：外推步驟（28→29、29→30）無券可選，K 值不影響外推策略，固定 K=0 以避免瀏覽器卡頓
-            // T=28：標準券最高到 21★，K 值影響 21★ 券的避險使用時機，保留全 K 搜尋
             const effectiveSolveStar = Math.min(targetStar, 28);
             const effectiveKValues = targetStar > 28 ? [0] : K_VALUES;
 
             for (let K of effectiveKValues) {
-                const mdp = solveMDPExact(effectiveSolveStar, equipLevel, compensationPrice, couponPrices, specialCouponPrices, costDiscount, vipDiscount, activeProbabilities, K);
+                // 傳遞 traceDiscount 給最佳化計算引擎
+                const mdp = solveMDPExact(effectiveSolveStar, equipLevel, compensationPrice, couponPrices, specialCouponPrices, costDiscount, vipDiscount, activeProbabilities, K, traceDiscount);
 
-                // 外推至實際目標星數（T=29 加一步，T=30 加兩步）
                 let finalMDP = mdp;
                 if (targetStar >= 29) {
-                    finalMDP = extrapolateMDPStep(mdp, 28, equipLevel, compensationPrice, activeProbabilities, K, costDiscount);
+                    finalMDP = extrapolateMDPStep(mdp, 28, equipLevel, compensationPrice, activeProbabilities, K, costDiscount, traceDiscount);
                     if (targetStar >= 30) {
-                        finalMDP = extrapolateMDPStep(finalMDP, 29, equipLevel, compensationPrice, activeProbabilities, K, costDiscount);
+                        finalMDP = extrapolateMDPStep(finalMDP, 29, equipLevel, compensationPrice, activeProbabilities, K, costDiscount, traceDiscount);
                     }
                 }
 
@@ -1750,7 +1776,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
 
                     const keepLog = (j === 0);
-                    const result = simulateTrialMDP(equipLevel, targetStar, compensationPrice, bestGlobalMDP.Policy, costDiscount, vipDiscount, activeProbabilities, startStar, keepLog);
+                    const result = simulateTrialMDP(equipLevel, targetStar, compensationPrice, bestGlobalMDP.Policy, costDiscount, vipDiscount, activeProbabilities, startStar, keepLog, null, traceDiscount);
                     
                     if (result.aborted) {
                         g_simulationAborted = true; 
@@ -1780,7 +1806,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             
             const initPathDesc = generatePathDescriptionMDP(startStar, targetStar, bestGlobalMDP.Policy);
-            const traceAvailable = getTraceMesos(15, equipLevel) !== Infinity;
+            const traceAvailable = getTraceMesos(15, equipLevel, traceDiscount) !== Infinity;
             const recoverNote = traceAvailable
                 ? "(系統已為各星等自動評估並選用最優復原策略：完全復原 或 降回12星)"
                 : "(此裝備等級不支援痕跡完全復原，若破壞固定降回 12 星)";
@@ -1813,17 +1839,16 @@ document.addEventListener('DOMContentLoaded', () => {
             if (customData) {
                 const { startStar, forcedStarMethods, forcedRecoveryMethods } = customData;
 
-                // T >= 29：與主策略相同，先精確解 T=28 再外推，避免數值嚴重偏低
                 let customMDP;
                 if (targetStar >= 29) {
                     const customData28 = { ...customData, initialJump: null };
                     const base28 = solveMDPExact(
                         28, equipLevel, compensationPrice, couponPrices, specialCouponPrices,
-                        costDiscount, vipDiscount, activeProbabilities, 0, customData28
+                        costDiscount, vipDiscount, activeProbabilities, 0, traceDiscount, customData28
                     );
-                    customMDP = extrapolateMDPStep(base28, 28, equipLevel, compensationPrice, activeProbabilities, 0, costDiscount);
+                    customMDP = extrapolateMDPStep(base28, 28, equipLevel, compensationPrice, activeProbabilities, 0, costDiscount, traceDiscount);
                     if (targetStar >= 30) {
-                        customMDP = extrapolateMDPStep(customMDP, 29, equipLevel, compensationPrice, activeProbabilities, 0, costDiscount);
+                        customMDP = extrapolateMDPStep(customMDP, 29, equipLevel, compensationPrice, activeProbabilities, 0, costDiscount, traceDiscount);
                     }
                     if (customData.initialJump) {
                         const jt = customData.initialJump;
@@ -1842,7 +1867,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     customMDP = solveMDPExact(
                         targetStar, equipLevel, compensationPrice, couponPrices, specialCouponPrices,
-                        costDiscount, vipDiscount, activeProbabilities, 0, customData
+                        costDiscount, vipDiscount, activeProbabilities, 0, traceDiscount, customData
                     );
                 }
 
@@ -1862,7 +1887,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (g_simulationAborted || (Date.now() - customSimStart) > SIMULATION_TIMEOUT) break;
                         if (j > 0 && j % 200 === 0) await new Promise(resolve => setTimeout(resolve, 0));
                         const keepLog = (j === 0);
-                        const result = simulateTrialMDP(equipLevel, targetStar, compensationPrice, customMDP.Policy, costDiscount, vipDiscount, activeProbabilities, startStar, keepLog, customMDP.recoveryJump);
+                        const result = simulateTrialMDP(equipLevel, targetStar, compensationPrice, customMDP.Policy, costDiscount, vipDiscount, activeProbabilities, startStar, keepLog, customMDP.recoveryJump, traceDiscount);
                         if (result.aborted) break;
                         customRuns.costs.push(result.totalCost);
                         customRuns.destroys.push(result.totalDestroys);
@@ -1959,7 +1984,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const allInputsToSave = [
         dom.equipLevelSelect, dom.startStarSelect, dom.targetStarSelect, dom.compensationPriceInput,
         dom.exchangeRateInput, dom.vipDiscountSelect, dom.costDiscountCheckbox, 
-        dom.guaranteedSuccessCheckbox, dom.reduceDestructionCheckbox, 
+        dom.guaranteedSuccessCheckbox, dom.reduceDestructionCheckbox, dom.traceDiscountCheckbox,
         dom.disableCouponsCheckbox, dom.disableHighCouponsCheckbox,
         dom.disableSpecialCouponsCheckbox,
         dom.ratioMain, dom.ratioVice 
