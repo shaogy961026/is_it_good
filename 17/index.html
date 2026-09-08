@@ -40,6 +40,50 @@
         .summary-value { font-size: 42px; font-weight: 900; color: #0e6251; margin: 10px 0; }
         .summary-note { font-size: 13px; color: #50716b; }
 
+        .route-guide {
+            margin: 0 0 28px;
+            padding: 20px 22px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+        }
+        .route-guide h3 { margin: 0 0 6px; color: #1e293b; font-size: 1.15em; }
+        .route-guide-note { margin: 0 0 14px; font-size: 13px; color: #64748b; line-height: 1.5; }
+        .route-steps { margin: 0; padding: 0; list-style: none; counter-reset: route-step; }
+        .route-steps li {
+            counter-increment: route-step;
+            position: relative;
+            padding: 12px 12px 12px 48px;
+            margin-bottom: 8px;
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            line-height: 1.55;
+            color: #334155;
+            font-size: 14px;
+        }
+        .route-steps li::before {
+            content: counter(route-step);
+            position: absolute; left: 12px; top: 12px;
+            width: 26px; height: 26px;
+            border-radius: 50%;
+            background: #2980b9; color: #fff;
+            font-weight: 800; font-size: 13px;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .route-steps li:last-child { margin-bottom: 0; }
+        .route-attr { font-weight: 700; color: #0f172a; }
+        .route-branch {
+            display: inline-block;
+            margin-top: 6px;
+            padding: 4px 8px;
+            background: #fff7ed;
+            color: #c2410c;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
         .policy-table { width: 100%; border-collapse: separate; border-spacing: 0; margin-top: 20px; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 15px rgba(0,0,0,0.05); }
         .policy-table th { background: #34495e; color: white; padding: 16px; text-align: left; font-weight: 600; }
         .policy-table td { padding: 16px; border-bottom: 1px solid #eee; vertical-align: middle; background: white; }
@@ -194,6 +238,12 @@
             <div class="summary-title">達成目標的理論最低期望消耗</div>
             <div class="summary-value" id="expectedCost">-</div>
             <div class="summary-note" id="costNote">此數值已根據活動折扣進行優化</div>
+        </div>
+
+        <div class="route-guide" id="routeGuide" style="display:none;">
+            <h3>簡易操作路線</h3>
+            <p class="route-guide-note">依最佳策略整理的建議順序。若同一步有多個目標可洗，誰先出現就先鎖定誰。</p>
+            <ol class="route-steps" id="routeSteps"></ol>
         </div>
 
         <h3>最佳操作策略（依據當前持有狀態）</h3>
@@ -555,9 +605,9 @@
         const t2 = JSON.parse(document.getElementById('sel2').value);
         const t3 = JSON.parse(document.getElementById('sel3').value);
         const targets = [
-            { id: t1.id, tier: t1.tier, barLabel: formatBarLabel(t1.tier, rawData[t1.id]) },
-            { id: t2.id, tier: t2.tier, barLabel: formatBarLabel(t2.tier, rawData[t2.id]) },
-            { id: t3.id, tier: t3.tier, barLabel: formatBarLabel(t3.tier, rawData[t3.id]) }
+            { id: t1.id, tier: t1.tier, name: rawData[t1.id].name, barLabel: formatBarLabel(t1.tier, rawData[t1.id]) },
+            { id: t2.id, tier: t2.tier, name: rawData[t2.id].name, barLabel: formatBarLabel(t2.tier, rawData[t2.id]) },
+            { id: t3.id, tier: t3.tier, name: rawData[t3.id].name, barLabel: formatBarLabel(t3.tier, rawData[t3.id]) }
         ];
 
         // 1. 精確計算所有 Action 帶來的狀態轉移機率矩陣 (DFS 全展開)
@@ -732,7 +782,137 @@
 
         document.getElementById('expectedCost').innerText = Math.round(V[0]).toLocaleString();
         document.getElementById('costNote').innerText = isEventActive ? "已套用 50% 活動折扣費率" : "標準費率 (無活動)";
+        renderRouteGuide(Policy, targets);
         renderPolicyTable(V, Policy, targets, CURRENT_COSTS, ForcedCost);
+    }
+
+    const BIT = [4, 2, 1];
+    const ROW_PHRASE = ['第一排', '第二或三排', '第二或三排'];
+
+    function attrHtml(target) {
+        return `<span class="route-attr">「${target.name}」</span>`;
+    }
+
+    function describeTarget(i, targets) {
+        return `${ROW_PHRASE[i]}的${attrHtml(targets[i])}`;
+    }
+
+    function describeTargetList(indices, targets) {
+        if (indices.length === 1) return describeTarget(indices[0], targets);
+        if (indices.length === 2 && indices[0] > 0 && indices[1] > 0) {
+            // 兩個都是第二或三排
+            return `第二或三排的${attrHtml(targets[indices[0]])}或${attrHtml(targets[indices[1]])}`;
+        }
+        return indices.map(i => describeTarget(i, targets)).join('或');
+    }
+
+    function getNextKeepers(s, Policy) {
+        const keepers = [];
+        for (let i = 0; i < 3; i++) {
+            if (s & BIT[i]) continue;
+            const nextS = s | BIT[i];
+            // 拿到就達成三條目標：一定算有效下一步
+            if (nextS === 7) {
+                keepers.push(i);
+                continue;
+            }
+            const nextAct = Policy[nextS];
+            if (nextAct !== null && (nextAct & BIT[i])) keepers.push(i);
+        }
+        return keepers;
+    }
+
+    function buildRouteSteps(Policy, targets) {
+        const steps = [];
+        let s = 0;
+        const seen = new Set();
+        let prevWasEither = false;
+
+        while (s !== 7 && !seen.has(s) && steps.length < 6) {
+            seen.add(s);
+            const act = Policy[s];
+            if (act === null) break;
+
+            const held = [];
+            for (let i = 0; i < 3; i++) if (s & BIT[i]) held.push(i);
+
+            let drops = false;
+            for (let i = 0; i < 3; i++) {
+                if ((s & BIT[i]) && !(act & BIT[i])) drops = true;
+            }
+            if (drops) break;
+
+            const keepers = getNextKeepers(s, Policy);
+            if (keepers.length === 0) break;
+
+            const lockedNow = held.filter(i => act & BIT[i]);
+            const isEither = keepers.length >= 2;
+
+            let lockText = '';
+            let washText = '';
+            let focusKeepers = keepers;
+
+            if (lockedNow.length === 0) {
+                lockText = '不鎖定';
+            } else if (prevWasEither && lockedNow.length === 1 && lockedNow[0] > 0) {
+                lockText = '鎖定已出現的那一條';
+            } else if (lockedNow.length === 2 && lockedNow.every(i => i > 0)) {
+                lockText = `鎖定${attrHtml(targets[lockedNow[0]])}與${attrHtml(targets[lockedNow[1]])}`;
+            } else if (lockedNow.length === 1) {
+                lockText = `鎖定${describeTarget(lockedNow[0], targets)}`;
+            } else {
+                lockText = `鎖定${lockedNow.map(i => describeTarget(i, targets)).join('，以及')}`;
+            }
+
+            if (prevWasEither && lockedNow.length === 1 && lockedNow[0] > 0) {
+                const otherBottom = keepers.filter(i => i > 0);
+                lockText = '鎖定已出現的那一條';
+                if (otherBottom.length === 1) {
+                    // 不寫死是哪一條，避免與上一步「誰先到都行」矛盾
+                    washText = '洗出尚未出現的另一條';
+                    focusKeepers = otherBottom;
+                } else if (otherBottom.length > 1) {
+                    washText = `洗出${describeTargetList(otherBottom, targets)}`;
+                    focusKeepers = otherBottom;
+                } else {
+                    washText = `洗出${describeTargetList(keepers, targets)}`;
+                }
+            } else if (isEither) {
+                washText = `洗出${describeTargetList(keepers, targets)}`;
+            } else {
+                washText = `洗出${describeTarget(keepers[0], targets)}`;
+            }
+
+            steps.push({
+                text: `${lockText}，${washText}`,
+                either: isEither
+            });
+
+            prevWasEither = isEither;
+            s = s | BIT[focusKeepers[0]];
+        }
+
+        return steps;
+    }
+
+    function renderRouteGuide(Policy, targets) {
+        const box = document.getElementById('routeGuide');
+        const list = document.getElementById('routeSteps');
+        const steps = buildRouteSteps(Policy, targets);
+
+        if (!steps.length) {
+            box.style.display = 'none';
+            list.innerHTML = '';
+            return;
+        }
+
+        list.innerHTML = steps.map(step => {
+            const branch = step.either
+                ? `<div class="route-branch">此步有兩種可能：誰先出現就先鎖定誰</div>`
+                : '';
+            return `<li>${step.text}${branch}</li>`;
+        }).join('');
+        box.style.display = 'block';
     }
 
     function renderPolicyTable(V, Policy, targets, costs, ForcedCost) {
