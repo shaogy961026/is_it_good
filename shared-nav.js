@@ -310,8 +310,8 @@ document.addEventListener("DOMContentLoaded", function() {
         {
             name: "其他",
             items: [
-                { name: "內潛最佳策略分析",              url: toolUrl(17) },
-                { name: "HEXA屬性策略分析",              url: toolUrl(14) },
+                { name: "洗內潛最佳策略分析",              url: toolUrl(17) },
+                { name: "洗HEXA屬性策略分析",              url: toolUrl(14) },
                 { name: "寶玉加工分析",                  url: toolUrl(15) },
                 { name: "寶玉研磨分析",                  url: toolUrl(16) },
                 { name: "殺人鯨拼圖期望值分析",          url: toolUrl(22) },
