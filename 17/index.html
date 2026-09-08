@@ -11,16 +11,15 @@
         h1 { text-align: center; color: #2980b9; margin-bottom: 5px; font-weight: 800; }
         .subtitle { text-align: center; color: #7f8c8d; margin-bottom: 30px; font-size: 1em; }
         
-        /* Event Toggle Switch */
-        .event-section { background: #fff3e0; border: 1px solid #ffe0b2; padding: 15px; border-radius: 8px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; }
-        .event-label { font-weight: bold; color: #e67e22; font-size: 1.1em; display: flex; align-items: center; gap: 10px; }
-        
-        .switch { position: relative; display: inline-block; width: 60px; height: 34px; }
-        .switch input { opacity: 0; width: 0; height: 0; }
-        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
-        .slider:before { position: absolute; content: ""; height: 26px; width: 26px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
-        input:checked + .slider { background-color: #e67e22; }
-        input:checked + .slider:before { transform: translateX(26px); }
+        /* Event Checkbox */
+        .event-section { background: #fff3e0; border: 1px solid #ffe0b2; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+        .event-label {
+            font-weight: bold; color: #e67e22; font-size: 1.1em;
+            display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none;
+        }
+        .event-label input[type="checkbox"] {
+            width: 18px; height: 18px; accent-color: #e67e22; cursor: pointer; flex-shrink: 0;
+        }
 
         .grid-layout { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 10px; }
         .input-group { background: #fff; border: 1px solid #e1e4e8; padding: 20px; border-radius: 12px; transition: 0.2s; }
@@ -46,16 +45,98 @@
         .policy-table td { padding: 16px; border-bottom: 1px solid #eee; vertical-align: middle; background: white; }
         .policy-table tr:hover td { background-color: #f1f5f9; }
         
-        .state-badges { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
-        .badge { padding: 5px 10px; border-radius: 6px; font-size: 13px; font-weight: 700; color: white; display: inline-block; }
-        .badge-have { background-color: #27ae60; }
-        .badge-miss { background-color: #bdc3c7; color: #666; opacity: 0.7; }
-        
-        .action-text { font-weight: 600; display: block; margin-bottom: 4px; }
-        .action-cost { font-size: 0.85em; color: #7f8c8d; }
-        .action-lock { color: #e74c3c; }
-        .action-free { color: #2980b9; }
-        .warning-text { color: #d35400; font-size: 12px; display: block; margin-top: 6px; background: #fff3cd; padding: 6px 10px; border-radius: 6px; }
+        .ia-stack { display: flex; flex-direction: column; gap: 6px; width: 100%; min-width: 0; }
+        .ia-row { display: flex; align-items: stretch; gap: 8px; width: 100%; min-width: 0; }
+        .ia-row-idx {
+            flex: 0 0 36px; width: 36px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 11px; font-weight: 800; color: #64748b;
+            white-space: nowrap;
+        }
+        .ia-line {
+            flex: 1; min-width: 0;
+            display: flex; align-items: stretch;
+            border-radius: 5px; overflow: hidden;
+            min-height: 34px;
+            position: relative;
+            border: 1px solid rgba(0,0,0,0.18);
+        }
+        .ia-line::before {
+            content: "";
+            position: absolute; left: 0; right: 0; top: 0; height: 48%;
+            background: linear-gradient(180deg, rgba(255,255,255,0.28), rgba(255,255,255,0));
+            pointer-events: none; z-index: 1;
+        }
+        .ia-line-text {
+            flex: 1; min-width: 0;
+            display: flex; align-items: center;
+            padding: 6px 10px;
+            color: #fff; font-size: 12px; font-weight: 700;
+            line-height: 1.35; text-shadow: 0 1px 1px rgba(0,0,0,0.35);
+            word-break: break-word;
+            position: relative; z-index: 2;
+        }
+        /* 未鎖定（亮色） */
+        .ia-line.ia-leg { background: linear-gradient(180deg, #c5e020 0%, #a4c700 42%, #8fb000 100%); }
+        .ia-line.ia-uni { background: linear-gradient(180deg, #f0b12a 0%, #e89c09 45%, #d48900 100%); }
+        .ia-line.ia-epic { background: linear-gradient(180deg, #9b82e8 0%, #7f66d3 45%, #6a52c0 100%); }
+        /* 鎖定（截圖漸層：橄欖綠 / 暗金棕，非整塊單色） */
+        .ia-line.ia-leg.is-locked {
+            background: linear-gradient(180deg, #95b595 0%, #6a8041 10%, #627632 45%, #5b6d23 78%, #57681c 100%);
+        }
+        .ia-line.ia-uni.is-locked {
+            background: linear-gradient(180deg, #a2ad97 0%, #817144 10%, #7b6736 40%, #755c27 72%, #725720 100%);
+        }
+        .ia-line.ia-epic.is-locked {
+            background: linear-gradient(180deg, #8e86b5 0%, #5a4f8a 10%, #4d4380 45%, #3f3670 78%, #342c5e 100%);
+        }
+        .ia-line.is-locked .ia-line-text {
+            color: #e8e8e8;
+            opacity: 0.88;
+            text-shadow: none;
+        }
+        .ia-line.is-locked::before {
+            background: linear-gradient(180deg, rgba(255,255,255,0.16), rgba(255,255,255,0));
+        }
+
+        .ia-line.ia-empty {
+            background: #eef2f6;
+            border: 1px dashed #cbd5e1;
+        }
+        .ia-line.ia-empty::before { display: none; }
+        .ia-line.ia-empty .ia-line-text {
+            justify-content: center;
+            color: #94a3b8;
+            font-size: 14px;
+            font-weight: 800;
+            text-shadow: none;
+            opacity: 1;
+        }
+
+        .ia-lock {
+            flex: 0 0 34px; width: 34px;
+            display: flex; align-items: center; justify-content: center;
+            background: rgba(0,0,0,0.2);
+            border-left: 1px solid rgba(0,0,0,0.12);
+            position: relative; z-index: 2;
+        }
+        .ia-lock svg { width: 15px; height: 15px; display: block; }
+        /* 鎖定：鎖頭亮白；不鎖定：半透明融入底色 */
+        .ia-lock.is-locked svg { filter: drop-shadow(0 0 1.5px rgba(255,255,255,0.9)); opacity: 1; }
+        .ia-lock.is-open svg { opacity: 0.38; filter: none; }
+
+        .action-cost { font-size: 0.85em; color: #7f8c8d; display: block; margin-top: 8px; }
+        .action-note { font-size: 12px; color: #64748b; margin-top: 6px; line-height: 1.4; }
+        .cost-main { font-weight: bold; color: #2c3e50; font-size: 1.1em; }
+        .forced-cost { margin-top: 10px; padding: 8px 10px; background: #fef2f2; border-radius: 6px; border-left: 3px solid #e74c3c; }
+        .forced-cost-label { font-size: 12px; color: #991b1b; font-weight: 600; margin-bottom: 6px; line-height: 1.4; }
+        .forced-cost-value { font-size: 0.95em; color: #e74c3c; font-weight: 700; }
+        .forced-cost .ia-stack { gap: 4px; }
+        .forced-cost .ia-row-idx { flex-basis: 30px; width: 30px; font-size: 10px; }
+        .forced-cost .ia-line { min-height: 26px; }
+        .forced-cost .ia-line-text { font-size: 11px; padding: 4px 8px; }
+        .forced-cost .ia-lock { flex-basis: 28px; width: 28px; }
+        .forced-cost .ia-lock svg { width: 12px; height: 12px; }
 
         .footer-info { margin-top: 50px; padding-top: 20px; border-top: 2px solid #eee; }
         .rules-box { background: #f1f5f9; padding: 20px; border-radius: 8px; font-size: 0.9em; color: #34495e; margin-bottom: 30px; border-left: 4px solid #3498db; }
@@ -64,7 +145,11 @@
         .data-table { width: 100%; font-size: 12px; border-collapse: collapse; margin-top: 10px; }
         .data-table th, .data-table td { border: 1px solid #ddd; padding: 8px; text-align: center; }
         .data-table th { background-color: #f1f2f6; color: #1e293b; }
+        .data-table td:first-child { text-align: left; white-space: nowrap; }
         .rank-prob-info { display: flex; justify-content: space-around; background: #f1f5f9; padding: 15px; border-radius: 8px; margin-bottom: 20px; font-weight: bold; color: #1e293b; }
+        .tier-rare { color: #e89c09; font-weight: 700; }
+        .tier-leg { color: #8fb000; font-weight: 700; }
+        .tier-epic { color: #7f66d3; font-weight: 600; }
 
         .loading { display: none; text-align: center; font-size: 1.2em; color: #2980b9; padding: 30px; font-weight: 600; }
     </style>
@@ -79,12 +164,9 @@
     <div id="tool-subtitle"></div>
 
     <div class="event-section">
-        <div class="event-label">
-            <span>減半活動：能力重設費用 50% 折扣</span>
-        </div>
-        <label class="switch">
+        <label class="event-label" for="eventToggle">
             <input type="checkbox" id="eventToggle" onchange="runSolver()">
-            <span class="slider"></span>
+            <span>減半活動：能力重設費用 50% 折扣</span>
         </label>
     </div>
 
@@ -114,12 +196,12 @@
             <div class="summary-note" id="costNote">此數值已根據活動折扣進行優化</div>
         </div>
 
-        <h3>最佳操作策略 (依據當前成本)</h3>
+        <h3>最佳操作策略（依據當前持有狀態）</h3>
         <table class="policy-table">
             <thead>
                 <tr>
                     <th width="35%">當前持有狀態</th>
-                    <th width="40%">最佳操作 (Action)</th>
+                    <th width="40%">最佳操作</th>
                     <th width="25%">預期剩餘消耗</th>
                 </tr>
             </thead>
@@ -145,7 +227,22 @@
             <span>第三排：罕見 15% / 稀有 85%</span>
         </div>
 
-        <h4>全詞條權重與基礎機率表 (顯示階級池內機率)</h4>
+        <h4>屬性數值上下限參考</h4>
+        <div style="overflow-x: auto;">
+            <table class="data-table" id="rangeTable">
+                <thead>
+                    <tr>
+                        <th>屬性名稱</th>
+                        <th>稀有</th>
+                        <th>罕見</th>
+                        <th>傳說</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
+        <h4 style="margin-top: 28px;">全詞條權重與基礎機率表 (顯示階級池內機率)</h4>
         <div style="overflow-x: auto;">
             <table class="data-table" id="dataTable">
                 <thead>
@@ -172,48 +269,49 @@
 
 <script>
     // --- 數據庫 ---
+    // range: [稀有, 罕見, 傳說] — 對應內在潛能數值機率可出現的上下限；null 表示該階級無此屬性
     const rawData = [
-        { id: 0, name: "STR增加", w: [45, 9, 45] },
-        { id: 1, name: "DEX增加", w: [45, 9, 45] },
-        { id: 2, name: "INT增加", w: [45, 9, 45] },
-        { id: 3, name: "LUK增加", w: [45, 9, 45] },
-        { id: 4, name: "最大HP增加", w: [30, 5, 20] },
-        { id: 5, name: "最大MP增加", w: [30, 5, 20] },
-        { id: 6, name: "攻擊力增加", w: [20, 3, 25] },
-        { id: 7, name: "魔力增加", w: [20, 3, 25] },
-        { id: 8, name: "暴擊機率提升%", w: [10, 1, 5] },
-        { id: 9, name: "所有能力值提升", w: [30, 4, 20] },
-        { id: 10, name: "攻擊速度階段提升", w: [0, 0, 5] },
-        { id: 11, name: "根據AP投資STR的%提升DEX", w: [30, 6, 25] },
-        { id: 12, name: "根據AP投資DEX的%提升STR", w: [30, 6, 25] },
-        { id: 13, name: "根據AP投資INT的%提升LUK", w: [30, 6, 25] },
-        { id: 14, name: "根據AP投資LUK的%提升DEX", w: [30, 6, 25] },
-        { id: 15, name: "每一定等級攻擊力提升1", w: [0, 0, 25] },
-        { id: 16, name: "每一定等級魔力提升1", w: [0, 0, 25] },
-        { id: 17, name: "最大HP提升%", w: [0, 4, 20] },
-        { id: 18, name: "最大MP提升%", w: [0, 4, 20] },
-        { id: 19, name: "攻擊BOSS怪物時傷害提升%", w: [0, 2, 25] },
-        { id: 20, name: "攻擊一般怪物時傷害提升%", w: [30, 4, 20] },
-        { id: 21, name: "攻擊套用狀態異常對象傷害%", w: [30, 4, 20] },
-        { id: 22, name: "根據防禦力的%提升傷害", w: [0, 4, 20] },
-        { id: 23, name: "使用技能時%機率不冷卻", w: [0, 4, 20] },
-        { id: 24, name: "被動技能等級提升", w: [0, 0, 8] },
-        { id: 25, name: "多數攻擊技能的攻擊對象增加", w: [0, 0, 8] },
-        { id: 26, name: "BUFF技能持續時間增加%", w: [15, 2, 10] },
-        { id: 27, name: "道具掉落率提升%", w: [30, 4, 20] },
-        { id: 28, name: "楓幣獲得量增加%", w: [30, 4, 20] },
-        { id: 29, name: "STR, DEX增加", w: [42, 8, 35] },
-        { id: 30, name: "STR, INT增加", w: [42, 8, 35] },
-        { id: 31, name: "STR, LUK增加", w: [42, 8, 35] },
-        { id: 32, name: "DEX, INT增加", w: [42, 8, 35] },
-        { id: 33, name: "DEX, LUK增加", w: [42, 8, 35] },
-        { id: 34, name: "INT, LUK增加", w: [42, 8, 35] },
-        { id: 35, name: "DEX, STR增加", w: [42, 8, 35] },
-        { id: 36, name: "INT, STR增加", w: [42, 8, 35] },
-        { id: 37, name: "LUK, STR增加", w: [42, 8, 35] },
-        { id: 38, name: "INT, DEX增加", w: [42, 8, 35] },
-        { id: 39, name: "LUK, DEX增加", w: [42, 8, 35] },
-        { id: 40, name: "LUK, INT增加", w: [42, 8, 35] }
+        { id: 0, name: "STR增加", w: [45, 9, 45], range: ["15~20", "25~30", "35~40"] },
+        { id: 1, name: "DEX增加", w: [45, 9, 45], range: ["15~20", "25~30", "35~40"] },
+        { id: 2, name: "INT增加", w: [45, 9, 45], range: ["15~20", "25~30", "35~40"] },
+        { id: 3, name: "LUK增加", w: [45, 9, 45], range: ["15~20", "25~30", "35~40"] },
+        { id: 4, name: "最大HP增加", w: [30, 5, 20], range: ["225~300", "375~450", "525~600"] },
+        { id: 5, name: "最大MP增加", w: [30, 5, 20], range: ["225~300", "375~450", "525~600"] },
+        { id: 6, name: "攻擊力增加", w: [20, 3, 25], range: ["6~12", "15~21", "27~30"] },
+        { id: 7, name: "魔力增加", w: [20, 3, 25], range: ["6~12", "15~21", "27~30"] },
+        { id: 8, name: "暴擊機率提升%", w: [10, 1, 5], range: ["10", "15~20", "25~30"] },
+        { id: 9, name: "所有能力值提升", w: [30, 4, 20], range: ["15~20", "25~30", "35~40"] },
+        { id: 10, name: "攻擊速度階段提升", w: [0, 0, 5], range: [null, null, "1"] },
+        { id: 11, name: "根據AP投資STR的%提升DEX", w: [30, 6, 25], range: ["4~5", "7~8", "9~10"] },
+        { id: 12, name: "根據AP投資DEX的%提升STR", w: [30, 6, 25], range: ["4~5", "7~8", "9~10"] },
+        { id: 13, name: "根據AP投資INT的%提升LUK", w: [30, 6, 25], range: ["4~5", "7~8", "9~10"] },
+        { id: 14, name: "根據AP投資LUK的%提升DEX", w: [30, 6, 25], range: ["4~5", "7~8", "9~10"] },
+        { id: 15, name: "每一定等級攻擊力提升1", w: [0, 0, 25], range: [null, null, "每10~16等+1"] },
+        { id: 16, name: "每一定等級魔力提升1", w: [0, 0, 25], range: [null, null, "每10~16等+1"] },
+        { id: 17, name: "最大HP提升%", w: [0, 4, 20], range: [null, "5~10", "15~20"] },
+        { id: 18, name: "最大MP提升%", w: [0, 4, 20], range: [null, "5~10", "15~20"] },
+        { id: 19, name: "攻擊BOSS怪物時傷害提升%", w: [0, 2, 25], range: [null, "5~10", "15~20"] },
+        { id: 20, name: "攻擊一般怪物時傷害提升%", w: [30, 4, 20], range: ["4~5", "7~8", "9~10"] },
+        { id: 21, name: "攻擊套用狀態異常對象傷害%", w: [30, 4, 20], range: ["4~5", "7~8", "9~10"] },
+        { id: 22, name: "根據防禦力的%提升傷害", w: [0, 4, 20], range: [null, "13~25", "38~50"] },
+        { id: 23, name: "使用技能時%機率不冷卻", w: [0, 4, 20], range: [null, "5~10", "15~20"] },
+        { id: 24, name: "被動技能等級提升", w: [0, 0, 8], range: [null, null, "1"] },
+        { id: 25, name: "多數攻擊技能的攻擊對象增加", w: [0, 0, 8], range: [null, null, "1"] },
+        { id: 26, name: "BUFF技能持續時間增加%", w: [15, 2, 10], range: ["19~25", "32~38", "44~50"] },
+        { id: 27, name: "道具掉落率提升%", w: [30, 4, 20], range: ["8~10", "13~15", "18~20"] },
+        { id: 28, name: "楓幣獲得量增加%", w: [30, 4, 20], range: ["8~10", "13~15", "18~20"] },
+        { id: 29, name: "STR, DEX增加", w: [42, 8, 35], range: ["8~10", "13~15", "18~20"] },
+        { id: 30, name: "STR, INT增加", w: [42, 8, 35], range: ["8~10", "13~15", "18~20"] },
+        { id: 31, name: "STR, LUK增加", w: [42, 8, 35], range: ["8~10", "13~15", "18~20"] },
+        { id: 32, name: "DEX, INT增加", w: [42, 8, 35], range: ["8~10", "13~15", "18~20"] },
+        { id: 33, name: "DEX, LUK增加", w: [42, 8, 35], range: ["8~10", "13~15", "18~20"] },
+        { id: 34, name: "INT, LUK增加", w: [42, 8, 35], range: ["8~10", "13~15", "18~20"] },
+        { id: 35, name: "DEX, STR增加", w: [42, 8, 35], range: ["8~10", "13~15", "18~20"] },
+        { id: 36, name: "INT, STR增加", w: [42, 8, 35], range: ["8~10", "13~15", "18~20"] },
+        { id: 37, name: "LUK, STR增加", w: [42, 8, 35], range: ["8~10", "13~15", "18~20"] },
+        { id: 38, name: "INT, DEX增加", w: [42, 8, 35], range: ["8~10", "13~15", "18~20"] },
+        { id: 39, name: "LUK, DEX增加", w: [42, 8, 35], range: ["8~10", "13~15", "18~20"] },
+        { id: 40, name: "LUK, INT增加", w: [42, 8, 35], range: ["8~10", "13~15", "18~20"] }
     ];
 
     const POPULAR_IDS = [ 8, 19, 20, 21, 23, 25, 26, 27, 28 ];
@@ -225,6 +323,82 @@
     };
     const P_UNIQUE = 0.15;
     const P_EPIC = 0.85;
+    const TIER_LABEL = { 0: "稀有", 1: "罕見", 2: "傳說" };
+
+    function getRangeText(stat, tier) {
+        const r = stat.range && stat.range[tier];
+        return r || null;
+    }
+
+    function formatOptionLabel(tier, stat) {
+        const range = getRangeText(stat, tier);
+        const base = `[${TIER_LABEL[tier]}] ${stat.name}`;
+        return range ? `${base} (${range})` : base;
+    }
+
+    function formatBarLabel(tier, stat) {
+        const range = getRangeText(stat, tier);
+        return range ? `${stat.name} (${range})` : stat.name;
+    }
+
+    function tierClass(tier) {
+        if (tier === 2) return 'ia-leg';
+        if (tier === 1) return 'ia-uni';
+        return 'ia-epic';
+    }
+
+    const LOCK_ICON = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#fff" d="M17 8h-1V6a4 4 0 0 0-8 0v2H7a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2zm-7-2a2 2 0 1 1 4 0v2h-4V6zm7 14H7V10h10v10zm-5-3a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z"/></svg>`;
+    const UNLOCK_ICON = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#fff" d="M17 8h-1V6a4 4 0 0 0-7.9-1 1 1 0 0 0 1.96.4A2 2 0 0 1 14 6v2H7a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2zM7 20V10h10v10H7zm5-3a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z"/></svg>`;
+
+    const SLOT_LABELS = ['1', '2或3', '2或3'];
+
+    function renderIaLine(target, opts = {}) {
+        const showLock = !!opts.showLock;
+        const locked = !!opts.locked;
+        const empty = !!opts.empty;
+        const rowLabel = opts.rowLabel;
+
+        if (empty) {
+            return `<div class="ia-row">
+                <div class="ia-row-idx">${rowLabel}</div>
+                <div class="ia-line ia-empty"><span class="ia-line-text">✕</span></div>
+            </div>`;
+        }
+
+        const cls = `${tierClass(target.tier)}${locked ? ' is-locked' : ''}`;
+        let lockHtml = '';
+        if (showLock) {
+            if (locked) {
+                lockHtml = `<span class="ia-lock is-locked" title="鎖定">${LOCK_ICON}</span>`;
+            } else {
+                lockHtml = `<span class="ia-lock is-open" title="不鎖定">${UNLOCK_ICON}</span>`;
+            }
+        }
+        return `<div class="ia-row">
+            <div class="ia-row-idx">${rowLabel}</div>
+            <div class="ia-line ${cls}">
+                <span class="ia-line-text">${target.barLabel}</span>
+                ${lockHtml}
+            </div>
+        </div>`;
+    }
+
+    function renderSlotStack(targets, has, opts = {}) {
+        const lines = [];
+        for (let i = 0; i < 3; i++) {
+            const rowLabel = SLOT_LABELS[i];
+            if (!has[i]) {
+                lines.push(renderIaLine(targets[i], { empty: true, rowLabel }));
+                continue;
+            }
+            lines.push(renderIaLine(targets[i], {
+                showLock: !!opts.showLock,
+                locked: opts.lockFlags ? !!opts.lockFlags[i] : false,
+                rowLabel
+            }));
+        }
+        return `<div class="ia-stack">${lines.join('')}</div>`;
+    }
 
     // --- UI 初始化 ---
     function init() {
@@ -239,10 +413,10 @@
 
         POPULAR_IDS.forEach(pid => {
             const d = rawData.find(item => item.id === pid);
-            if (d && d.w[2] > 0) popGroup1.appendChild(new Option(`[傳說] ${d.name}`, JSON.stringify({id: d.id, tier: 2})));
+            if (d && d.w[2] > 0) popGroup1.appendChild(new Option(formatOptionLabel(2, d), JSON.stringify({id: d.id, tier: 2})));
         });
         rawData.forEach(d => {
-            if (!POPULAR_IDS.includes(d.id) && d.w[2] > 0) otherGroup1.appendChild(new Option(`[傳說] ${d.name}`, JSON.stringify({id: d.id, tier: 2})));
+            if (!POPULAR_IDS.includes(d.id) && d.w[2] > 0) otherGroup1.appendChild(new Option(formatOptionLabel(2, d), JSON.stringify({id: d.id, tier: 2})));
         });
         s1.appendChild(popGroup1);
         s1.appendChild(otherGroup1);
@@ -255,15 +429,15 @@
 
             POPULAR_IDS.forEach(pid => {
                 const d = rawData.find(item => item.id === pid);
-                if (d && d.w[1] > 0) popGroup.appendChild(new Option(`[罕見] ${d.name}`, JSON.stringify({id: d.id, tier: 1})));
+                if (d && d.w[1] > 0) popGroup.appendChild(new Option(formatOptionLabel(1, d), JSON.stringify({id: d.id, tier: 1})));
             });
 
             rawData.forEach(d => {
                 if (POPULAR_IDS.includes(d.id)) {
-                    if (d.w[0] > 0) otherGroup.appendChild(new Option(`[稀有] ${d.name}`, JSON.stringify({id: d.id, tier: 0})));
+                    if (d.w[0] > 0) otherGroup.appendChild(new Option(formatOptionLabel(0, d), JSON.stringify({id: d.id, tier: 0})));
                 } else {
-                    if (d.w[1] > 0) otherGroup.appendChild(new Option(`[罕見] ${d.name}`, JSON.stringify({id: d.id, tier: 1})));
-                    if (d.w[0] > 0) otherGroup.appendChild(new Option(`[稀有] ${d.name}`, JSON.stringify({id: d.id, tier: 0})));
+                    if (d.w[1] > 0) otherGroup.appendChild(new Option(formatOptionLabel(1, d), JSON.stringify({id: d.id, tier: 1})));
+                    if (d.w[0] > 0) otherGroup.appendChild(new Option(formatOptionLabel(0, d), JSON.stringify({id: d.id, tier: 0})));
                 }
             });
             return [popGroup, otherGroup];
@@ -281,6 +455,7 @@
         setSelect(s2, "[罕見] 攻擊BOSS");
         setSelect(s3, "[罕見] 攻擊套用");
 
+        renderRangeTable();
         renderDataTable();
     }
 
@@ -290,6 +465,25 @@
                 sel.selectedIndex = i; break;
             }
         }
+    }
+
+    function renderRangeCell(text) {
+        return text ? text : "—";
+    }
+
+    function renderRangeTable() {
+        const tbody = document.querySelector('#rangeTable tbody');
+        let html = '';
+        rawData.forEach(d => {
+            let nameDisplay = POPULAR_IDS.includes(d.id) ? `<strong>${d.name}</strong>` : d.name;
+            html += `<tr>
+                <td>${nameDisplay}</td>
+                <td class="tier-epic">${renderRangeCell(d.range[0])}</td>
+                <td class="tier-rare">${renderRangeCell(d.range[1])}</td>
+                <td class="tier-leg">${renderRangeCell(d.range[2])}</td>
+            </tr>`;
+        });
+        tbody.innerHTML = html;
     }
 
     function renderDataTable() {
@@ -360,10 +554,10 @@
         const t1 = JSON.parse(document.getElementById('sel1').value);
         const t2 = JSON.parse(document.getElementById('sel2').value);
         const t3 = JSON.parse(document.getElementById('sel3').value);
-        const names = [
-            `[傳說] ${rawData[t1.id].name}`, 
-            `[${t2.tier===1?'罕見':'稀有'}] ${rawData[t2.id].name}`, 
-            `[${t3.tier===1?'罕見':'稀有'}] ${rawData[t3.id].name}`
+        const targets = [
+            { id: t1.id, tier: t1.tier, barLabel: formatBarLabel(t1.tier, rawData[t1.id]) },
+            { id: t2.id, tier: t2.tier, barLabel: formatBarLabel(t2.tier, rawData[t2.id]) },
+            { id: t3.id, tier: t3.tier, barLabel: formatBarLabel(t3.tier, rawData[t3.id]) }
         ];
 
         // 1. 精確計算所有 Action 帶來的狀態轉移機率矩陣 (DFS 全展開)
@@ -538,62 +732,59 @@
 
         document.getElementById('expectedCost').innerText = Math.round(V[0]).toLocaleString();
         document.getElementById('costNote').innerText = isEventActive ? "已套用 50% 活動折扣費率" : "標準費率 (無活動)";
-        renderPolicyTable(V, Policy, names, CURRENT_COSTS, ForcedCost);
+        renderPolicyTable(V, Policy, targets, CURRENT_COSTS, ForcedCost);
     }
 
-    function renderPolicyTable(V, Policy, names, costs, ForcedCost) {
+    function renderPolicyTable(V, Policy, targets, costs, ForcedCost) {
         let tbody = document.getElementById('policyBody');
         tbody.innerHTML = '';
         
         for(let s=0; s<7; s++) {
             let tr = document.createElement('tr');
-            let has = [(s&4), (s&2), (s&1)];
+            let has = [(s&4)>>2, (s&2)>>1, s&1];
             
-            let badges = `
-                <div class="state-badges">
-                    <span class="badge ${has[0]?'badge-have':'badge-miss'}">${names[0]}</span>
-                    <span class="badge ${has[1]?'badge-have':'badge-miss'}">${names[1]}</span>
-                    <span class="badge ${has[2]?'badge-have':'badge-miss'}">${names[2]}</span>
-                </div>
-            `;
+            let stateHtml = renderSlotStack(targets, has, { showLock: false });
             
             let act = Policy[s];
-            let actionText = "";
-            let dropped = [];
+            let actionHtml = "";
+            let droppedIdx = [];
             
             if (act === null) {
-                actionText = "無解 (機率異常)";
+                actionHtml = "無解 (機率異常)";
             } else {
-                let locks = [];
-                let lockCount = 0;
-                if(act & 4) { locks.push(names[0]); lockCount++; }
-                if(act & 2) { locks.push(names[1]); lockCount++; }
-                if(act & 1) { locks.push(names[2]); lockCount++; }
-                
-                if(has[0] && !(act&4)) dropped.push(names[0]);
-                if(has[1] && !(act&2)) dropped.push(names[1]);
-                if(has[2] && !(act&1)) dropped.push(names[2]);
+                let lockFlags = [(act&4)>>2, (act&2)>>1, act&1];
+                let lockCount = lockFlags[0] + lockFlags[1] + lockFlags[2];
 
-                if (locks.length === 0) {
-                    actionText = `<span class="action-text action-free">🔓 全部不鎖定，重洗</span> <span class="action-cost">(消耗: ${costs[0]} 名聲)</span>`;
-                } else {
-                    actionText = `<span class="action-text action-lock">🔒 鎖定: ${locks.join(' + ')}</span> <span class="action-cost">(消耗: ${costs[lockCount]} 名聲)</span>`;
+                for (let i = 0; i < 3; i++) {
+                    if (has[i] && !lockFlags[i]) droppedIdx.push(i);
                 }
 
-                if(dropped.length > 0) {
-                    actionText += `<span class="warning-text">⚠️ 建議放棄: ${dropped.join(', ')}</span>`;
+                const ownedCount = has[0] + has[1] + has[2];
+                actionHtml = renderSlotStack(targets, has, { showLock: ownedCount > 0, lockFlags });
+                if (ownedCount === 0) {
+                    actionHtml += `<span class="action-cost">全部不鎖定，直接重洗 · ${costs[0]} 名聲</span>`;
+                } else if (lockCount === 0) {
+                    actionHtml += `<span class="action-cost">全部不鎖定 · ${costs[0]} 名聲</span>`;
+                } else {
+                    actionHtml += `<span class="action-cost">鎖定 ${lockCount} 條 · ${costs[lockCount]} 名聲</span>`;
+                }
+                if (droppedIdx.length > 0) {
+                    actionHtml += `<div class="action-note">不鎖定的屬性會被重洗</div>`;
                 }
             }
             
-            let costHtml = `<div style="font-weight:bold; color:#2c3e50; font-size:1.1em;">${Math.round(V[s]).toLocaleString()}</div>`;
-            if (dropped.length > 0 && ForcedCost[s] !== null && ForcedCost[s] !== Infinity) {
-                // 將「若鎖到最後一刻」替換為明確指出堅持保留的對象
-                costHtml += `<div style="font-size: 0.85em; color: #e74c3c; margin-top: 8px; font-weight: 600;">(若堅持保留 ${dropped.join(' 與 ')}: ${Math.round(ForcedCost[s]).toLocaleString()})</div>`;
+            let costHtml = `<div class="cost-main">${Math.round(V[s]).toLocaleString()}</div>`;
+            if (droppedIdx.length > 0 && ForcedCost[s] !== null && ForcedCost[s] !== Infinity) {
+                const allLockFlags = [has[0], has[1], has[2]];
+                costHtml += `<div class="forced-cost">
+                    <div class="forced-cost-label">若將當前持有狀態鎖定，期望消耗 <span class="forced-cost-value">${Math.round(ForcedCost[s]).toLocaleString()}</span></div>
+                    ${renderSlotStack(targets, has, { showLock: true, lockFlags: allLockFlags })}
+                </div>`;
             }
 
             tr.innerHTML = `
-                <td>${badges}</td>
-                <td>${actionText}</td>
+                <td>${stateHtml}</td>
+                <td>${actionHtml}</td>
                 <td>${costHtml}</td>
             `;
             tbody.appendChild(tr);
