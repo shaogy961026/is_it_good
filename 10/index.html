@@ -43,7 +43,7 @@
                 <li>即使同樣的裝備，決策也不是固定的，會隨著星力強化券價格的相對關係「動態」改變。</li>
                 <li>由於遊戲不允許撈拍賣場資料，請根據當下伺服器物價自行輸入（會在瀏覽器儲存你曾經的輸入），網頁預設輸入值未必符合你的情況。</li>
                 <li>點擊任何金額輸入框並按下 <kbd style="background:#eee; border:1px solid #ccc; border-radius:3px; padding:1px 5px; font-size:0.8rem;">Ctrl+V</kbd> 貼上圖片，即可自動辨識截圖中的數字並輸入！</li>
-                <li style="color: #e74c3c; font-weight: bold; margin-top: 5px;">【注意】神之子武器琉璃、阿斯特拉輔助武器、命運2次超越武器等裝備的完全復原規則不同，本計算機尚未支援此類特例裝備。</li>
+                <li style="color: #e74c3c; font-weight: bold; margin-top: 5px;">【注意】神之子武器琉璃、命運2次超越武器等裝備的完全復原規則不同，本計算機尚未支援此類特例裝備。</li>
             </ul>
         </details>
 
@@ -75,10 +75,10 @@
                 </div>
             </div>
             <div class="control-group">
-                <label for="compensation-price">裝備補償價格(楓幣):</label>
+                <label for="compensation-price">裝備基本價格(楓幣):</label>
                 <input type="number" id="compensation-price" value="500000000" data-format-target="compensation-price-formatted">
                 <span class="formatted-currency" id="compensation-price-formatted"></span>
-                <p class="note">意思就是你炸裝要補一件的那件裝備價格</p>
+                <p class="note">破壞後變成痕跡道具，痕跡復原時需使用的裝備價格(一件)<br>阿斯特拉輔助武器填寫 1000000000 (10億)</p>
             </div>
              <div class="control-group">
                 <label for="vip-discount">VIP 星力強化費用優惠:</label>
@@ -190,33 +190,42 @@
             </details>
         </div>
 
-        <div class="control-group" style="margin-bottom: 20px;">
-            <label>22-23 星券設定 (陶德專用，一般情況不必輸入):</label>
-            <div class="checkbox-group" style="margin-bottom: 8px;">
-                <input type="checkbox" id="disable-high-coupons-event" checked>
-                <label for="disable-high-coupons-event">不使用 22-23 星券</label>
-            </div>
-
-            <details>
-                <summary class="settings-summary">
-                    🔻 點此設定：22-23 星券價格 (楓幣)
-                </summary>
-                <div class="coupon-section">
-                    <div class="coupon-header">
-                        <p class="note" style="margin-top:0;">沒有22-23星力強化券，但如果你想陶德22~23星到裝備上(用23~24星的裝備)，可以使用這區塊</p>
-                    </div>
-                    <div class="coupon-controls-grid" id="high-coupon-grid">
-                        <div class="coupon-group"><label for="coupon-22">星力22星強化券</label><input type="number" id="coupon-22" data-format-target="coupon-22-formatted"><span class="formatted-currency" id="coupon-22-formatted"></span></div>
-                        <div class="coupon-group"><label for="coupon-23">星力23星強化券</label><input type="number" id="coupon-23" data-format-target="coupon-23-formatted"><span class="formatted-currency" id="coupon-23-formatted"></span></div>
-                    </div>
-                </div>
-            </details>
-        </div>
-
         <div class="control-group" style="margin-bottom: 15px; border-top: 1px solid #eee; padding-top: 15px;">
-            <details id="custom-path-details">
+            <details class="advanced-options">
+                <summary>⚙ 進階設定（一般使用者免填）</summary>
+                <div class="advanced-options-body">
+
+                    <details style="margin-bottom: 12px;">
+                        <summary class="settings-summary">▶ 模擬次數相關設定</summary>
+                        <div style="padding: 12px 5px 0 5px;">
+                            <label for="num-simulations">模擬次數:</label>
+                            <input type="number" id="num-simulations" value="10000" min="1" step="1000">
+                            <p class="note">建議 10000 次。次數越多結果越穩定，但計算時間也越久。</p>
+                            <label for="timeout-seconds" style="margin-top:10px;">運算時間上限（秒）:</label>
+                            <input type="number" id="timeout-seconds" value="10" min="1" step="1">
+                            <p class="note">建議 10 秒。單一策略運算超過此時間會自動略過模擬、改用理論值。調高模擬次數時可一併調高此值。</p>
+                        </div>
+                    </details>
+
+                    <details style="margin-bottom: 12px;">
+                        <summary class="settings-summary">▶ 陶德設定(22-23星券)</summary>
+                        <div style="padding: 12px 5px 0 5px;">
+                            <label style="margin-top:4px;">22-23 星券價格設定 (陶德專用，一般情況不必輸入):</label>
+                            <input type="checkbox" id="disable-high-coupons-event" style="display:none;">
+                            <div class="coupon-section">
+                                <p class="note" style="margin-top:0;">遊戲中沒有22-23星力強化券，但如果你想陶德22~23星到受裝上(用23~24星的付裝)，將付裝製作成本視作星力強化券的成本輸入</p>
+                                <p class="note" style="margin-top:0;">(輸入框留空代表不使用該種券)</p>
+                                <div class="coupon-controls-grid" id="high-coupon-grid">
+                                    <div class="coupon-group"><label for="coupon-22">星力22星強化券</label><input type="number" id="coupon-22" data-format-target="coupon-22-formatted"><span class="formatted-currency" id="coupon-22-formatted"></span></div>
+                                    <div class="coupon-group"><label for="coupon-23">星力23星強化券</label><input type="number" id="coupon-23" data-format-target="coupon-23-formatted"><span class="formatted-currency" id="coupon-23-formatted"></span></div>
+                                </div>
+                            </div>
+                        </div>
+                    </details>
+
+                    <details id="custom-path-details">
                 <summary class="settings-summary">
-                    ▶ 進階：手動指定強化路徑（選填）
+                    ▶ 手動指定強化路徑（選填）
                 </summary>
                 <div style="padding: 12px 5px 0 5px;">
                     <p class="note" style="margin-bottom: 12px; line-height: 1.8;">
@@ -248,6 +257,9 @@
                             </div>
                         </div>
                     </div>
+                </div>
+                    </details>
+
                 </div>
             </details>
         </div>

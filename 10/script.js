@@ -100,7 +100,7 @@ const DEFAULT_SETTINGS = {
     reduceDestruction: false,
     traceDiscount: false,
     disableCoupons: false,
-    disableHighCoupons: true,
+    disableHighCoupons: false,
     disableSpecialCoupons: true,
     exchangeRate: "25000000",
     ratioMain: "2",
@@ -138,6 +138,8 @@ function getSettingsObject() {
         targetStar: document.getElementById('target-star').value,
         compensationPrice: document.getElementById('compensation-price').value,
         vipDiscount: document.getElementById('vip-discount').value,
+        numSimulations: document.getElementById('num-simulations').value,
+        timeoutSeconds: document.getElementById('timeout-seconds').value,
         costDiscount: document.getElementById('cost-discount-event').checked,
         guaranteedSuccess: document.getElementById('guaranteed-success-event').checked,
         reduceDestruction: document.getElementById('reduce-destruction-event').checked,
@@ -193,7 +195,7 @@ function saveSettings() {
 }
 
 function applySettingsToUI(settings, dom) {
-    const fields = ['equipLevel', 'startStar', 'compensationPrice', 'exchangeRate', 'vipDiscount']; 
+    const fields = ['equipLevel', 'startStar', 'compensationPrice', 'exchangeRate', 'vipDiscount', 'numSimulations', 'timeoutSeconds']; 
     fields.forEach(field => {
         const key = `${field}Input` in dom ? `${field}Input` : `${field}Select`;
         if (settings[field] !== undefined && dom[key]) dom[key].value = settings[field];
@@ -244,6 +246,16 @@ function loadSettings(dom) {
         return DEFAULT_SETTINGS;
     }
     const settings = JSON.parse(savedSettings);
+    // 只針對 22-23 星券改動做遷移（新機制：留空=不使用、有填=使用）：
+    // 舊設定若為「不使用」(true)，代表使用者本來就不用，直接清空 22-23 券價格並設為可用，結果一致、使用者無感。
+    // 舊設定若為「使用」(false)，代表使用者有在用，完全保留其價格，不做更動。
+    if (settings.disableHighCoupons === true) {
+        settings.disableHighCoupons = false;
+        if (settings.coupons) {
+            settings.coupons[22] = '';
+            settings.coupons[23] = '';
+        }
+    }
     applySettingsToUI(settings, dom);
     return settings;
 }
@@ -711,6 +723,8 @@ document.addEventListener('DOMContentLoaded', () => {
         highCouponGrid: document.getElementById('high-coupon-grid'), 
         specialCouponGrid: document.getElementById('special-coupon-grid'),
         vipDiscountSelect: document.getElementById('vip-discount'),
+        numSimulationsInput: document.getElementById('num-simulations'),
+        timeoutSecondsInput: document.getElementById('timeout-seconds'),
         dataTablesContainer: document.getElementById('data-tables-container'),
         dataTablesTitle: document.getElementById('data-tables-title'),
         costsTableTitle: document.getElementById('costs-table-title'),
@@ -962,6 +976,21 @@ document.addEventListener('DOMContentLoaded', () => {
         return value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
+    // 將楓幣數字轉為「696億3178萬3008」格式（含萬以下尾數）；小於一萬則回傳空字串
+    function formatYiWanFull(num) {
+        num = Math.round(num);
+        if (isNaN(num) || num < 10000) return '';
+        if (num >= 10000000000000000) return '數字過大';
+        const yi = Math.floor(num / 100000000);
+        const wan = Math.floor((num % 100000000) / 10000);
+        const rem = num % 10000;
+        let result = '';
+        if (yi > 0) result += `${yi.toLocaleString()}億`;
+        if (wan > 0) result += `${wan}萬`;
+        if (rem > 0) result += `${rem}`;
+        return result;
+    }
+
     function getCurrencyInfo() {
         const isTWD = dom.currencySwitch.checked;
         const currencyName = isTWD ? '台幣' : '楓幣';
@@ -1077,7 +1106,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 </tr>`;
             }
             traceHtml += '</tbody></table>';
-            traceHtml += `<p style="margin:6px 0 0; font-size:0.8rem; color:#888; line-height:1.5;">※ 23★ 以上破壞時，痕跡完全復原費用以 22★ 計算（恢復至 22★）；亦可選擇降回 12★ 重爬——系統會依當下最優路線自動評估，您也可在自訂路徑中手動指定。</p>`;
+            traceHtml += `<p style="margin:6px 0 0; font-size:0.8rem; color:#888; line-height:1.5;">※ 阿斯特拉輔助武器在修復痕跡道具時，只需1個裝備。但除基本修復費用外還需額外提供楓幣。（19 ~ 20星：10億楓幣，21星：20億楓幣，22星：30億楓幣）</p>`;
+            traceHtml += `<p style="margin:6px 0 0; font-size:0.8rem; color:#888; line-height:1.5;">※ 23★ 以上破壞時，痕跡完全復原費用以 22★ 計算（恢復至 22★）；亦可選擇降回 12★ 重爬——系統會依當下最優路線自動評估。</p>`;
         }
         dom.traceTableContainer.innerHTML = traceHtml;
     }
@@ -1519,7 +1549,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const couponPart = finalResult.totalCouponCost;
                 const destructionPart = finalResult.totalEquipCost;
                 const enhancementPart = finalResult.totalCost - couponPart - destructionPart;
-                const costBreakdown = `<div class="cost-breakdown">(券: ${formatCost(couponPart, exchangeRate)}<br>強化: ${formatCost(enhancementPart, exchangeRate)}<br><span title="空裝補償估算（不含痕跡修復楓幣費）" style="cursor:help;text-decoration:underline dotted #aaa;">裝備</span>: ${formatCost(destructionPart, exchangeRate)})</div>`;
+                const costBreakdown = `<span class="cost-breakdown cost-detail-wrap"><span class="cost-detail-trigger">ⓘ</span><span class="cost-detail-popup"><span class="cost-detail-row">星力強化券費用：${formatCost(couponPart, exchangeRate)}</span><span class="cost-detail-row">星力強化費用（含痕跡修復楓幣費）：${formatCost(enhancementPart, exchangeRate)}</span><span class="cost-detail-row">裝備補償費用（爆裝次數 × 裝備基本價格，不含痕跡修復楓幣費）：${formatCost(destructionPart, exchangeRate)}</span></span></span>`;
                 
                 let stratNameHtml = `
                     <span style="display: flex; align-items: center; justify-content: flex-start;">
@@ -1544,7 +1574,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
         } else {
-            dom.legendNote.innerHTML = `上方為模擬值 <span class="theoretical-value">(綠字) 為理論期望值</span>${highStarApproxNote}`;
+            dom.legendNote.innerHTML = `${highStarApproxNote}`;
             dom.resultsTitle.textContent = "模擬與理論成本統計";
             tableHeaders = `
                 <thead>
@@ -1574,14 +1604,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 const simCouponPart = stats.avgCouponCost;
                 const simDestructionPart = stats.avgDestroyCost;
                 const simEnhancementPart = stats.avgCost - simCouponPart - simDestructionPart;
-                const simCostBreakdown = `<span class="cost-breakdown sim-cost-breakdown">(券: ${formatCost(simCouponPart, exchangeRate)} 強化: ${formatCost(simEnhancementPart, exchangeRate)} <span title="爆裝次數 × 空裝補償價格（不含痕跡修復楓幣費）" style="cursor:help;text-decoration:underline dotted #aaa;">裝備</span>: ${formatCost(simDestructionPart, exchangeRate)})</span>`;
+                const simCostBreakdown = `<span class="cost-breakdown sim-cost-breakdown cost-detail-wrap"><span class="cost-detail-trigger">ⓘ</span><span class="cost-detail-popup"><span class="cost-detail-row">星力強化券費用：${formatCost(simCouponPart, exchangeRate)}</span><span class="cost-detail-row">星力強化費用（含痕跡修復楓幣費）：${formatCost(simEnhancementPart, exchangeRate)}</span><span class="cost-detail-row">裝備補償費用（爆裝次數 × 裝備基本價格，不含痕跡修復楓幣費）：${formatCost(simDestructionPart, exchangeRate)}</span></span></span>`;
 
                 const theoryCouponPart = theoretical.totalCouponCost;
                 const theoryDestructionPart = theoretical.totalEquipCost;
                 const theoryEnhancementPart = theoretical.totalCost - theoryCouponPart - theoryDestructionPart;
-                const theoryCostBreakdown = `<span class="cost-breakdown">(券: ${formatCost(theoryCouponPart, exchangeRate)} 強化: ${formatCost(theoryEnhancementPart, exchangeRate)} <span title="空裝補償估算（不含痕跡修復楓幣費）" style="cursor:help;text-decoration:underline dotted #aaa;">裝備</span>: ${formatCost(theoryDestructionPart, exchangeRate)})</span>`;
+                const theoryCostBreakdown = `<span class="cost-breakdown cost-detail-wrap"><span class="cost-detail-trigger">ⓘ</span><span class="cost-detail-popup"><span class="cost-detail-row">星力強化券費用：${formatCost(theoryCouponPart, exchangeRate)}</span><span class="cost-detail-row">星力強化費用（含痕跡修復楓幣費）：${formatCost(theoryEnhancementPart, exchangeRate)}</span><span class="cost-detail-row">裝備補償費用（爆裝次數 × 裝備基本價格，不含痕跡修復楓幣費）：${formatCost(theoryDestructionPart, exchangeRate)}</span></span></span>`;
 
-                const avgCostDisplay = `<div>${formatCost(stats.avgCost, exchangeRate)} ${simCostBreakdown}</div> <div class="theoretical-value">(${formatCost(theoretical.totalCost, exchangeRate)}) ${theoryCostBreakdown}</div>`;
+                const simYiWan = exchangeRate === 1 ? formatYiWanFull(stats.avgCost) : '';
+                const theoryYiWan = exchangeRate === 1 ? formatYiWanFull(theoretical.totalCost) : '';
+                const simYiWanHtml = simYiWan ? `<div class="cost-yiwan">${simYiWan}</div>` : '';
+                const theoryYiWanHtml = theoryYiWan ? `<div class="cost-yiwan">${theoryYiWan}</div>` : '';
+                let p99Html = '';
+                if (stats.percentiles && stats.percentiles.P99) {
+                    const p99Cost = stats.percentiles.P99.cost;
+                    const p99YiWan = exchangeRate === 1 ? formatYiWanFull(p99Cost) : '';
+                    const p99YiWanHtml = p99YiWan ? `<span class="p99-yiwan">（${p99YiWan}）</span>` : '';
+                    p99Html = `<div class="cost-p99">⚠ 99% 的人低於 ${formatCost(p99Cost, exchangeRate)} ${p99YiWanHtml}<br><span class="cost-p99-note">根據模擬結果，99% 的情況成本低於此數值，也代表仍有約 1% 的情況超過此成本。<br>平均值是大量模擬下的長期結果，您的單次強化很可能與平均值有明顯落差，請謹慎評估。</span></div>`;
+                }
+                const avgCostDisplay = `<div><span class="cost-label">模擬平均值：</span>${formatCost(stats.avgCost, exchangeRate)} ${simCostBreakdown}${simYiWanHtml}</div> <div class="theoretical-value"><span class="cost-label">理論平均值：</span>${formatCost(theoretical.totalCost, exchangeRate)} ${theoryCostBreakdown}${theoryYiWanHtml}</div>${p99Html}`;
                 const avgDestroysDisplay = `<div>${stats.avgDestroys.toFixed(2)}</div> <div class="theoretical-value">(${theoretical.totalDestructions.toFixed(2)})</div>`;
 
                 const cleanNameForModal = result.name.split(' (')[0].replace(/<[^>]*>?/gm, '');
@@ -1646,7 +1687,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const reduceDestruction = dom.reduceDestructionCheckbox.checked;
         const traceDiscount = dom.traceDiscountCheckbox.checked; // 讀取痕跡8折勾選
         const vipDiscount = parseFloat(dom.vipDiscountSelect.value);
-        const numSimulations = 10000;
+        let numSimulations = parseInt(dom.numSimulationsInput.value, 10);
+        if (!Number.isFinite(numSimulations) || numSimulations < 1) {
+            numSimulations = 10000;
+            dom.numSimulationsInput.value = 10000;
+        }
+        let timeoutSeconds = parseInt(dom.timeoutSecondsInput.value, 10);
+        if (!Number.isFinite(timeoutSeconds) || timeoutSeconds < 1) {
+            timeoutSeconds = 10;
+            dom.timeoutSecondsInput.value = 10;
+        }
         
         g_simulationAborted = false;
 
@@ -1704,7 +1754,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ];
 
         g_allScenarioResults = [];
-        const SIMULATION_TIMEOUT = 10000;
+        const SIMULATION_TIMEOUT = timeoutSeconds * 1000;
         const YI = 100000000;
 
         for (let i = 0; i < strategies.length; i++) {
@@ -1962,19 +2012,9 @@ document.addEventListener('DOMContentLoaded', () => {
         inputsToFormat.forEach(input => {
             const targetId = input.getAttribute('data-format-target');
             const displaySpan = document.getElementById(targetId);
-            const formatToYiWan = (num) => {
-                if (isNaN(num) || num < 10000) return '';
-                if (num >= 10000000000000000) return '數字過大';
-                const yi = Math.floor(num / 100000000);
-                const wan = Math.floor((num % 100000000) / 10000);
-                let result = '';
-                if (yi > 0) result += `${yi.toLocaleString()}億`;
-                if (wan > 0) result += ` ${wan.toLocaleString()}萬`;
-                return result.trim();
-            };
             const updateDisplay = () => {
                 const value = parseFloat(input.value);
-                if(displaySpan) displaySpan.textContent = formatToYiWan(value);
+                if(displaySpan) displaySpan.textContent = formatYiWanFull(value);
             };
             input.addEventListener('input', updateDisplay);
             updateDisplay(); 
@@ -1983,7 +2023,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const allInputsToSave = [
         dom.equipLevelSelect, dom.startStarSelect, dom.targetStarSelect, dom.compensationPriceInput,
-        dom.exchangeRateInput, dom.vipDiscountSelect, dom.costDiscountCheckbox, 
+        dom.exchangeRateInput, dom.vipDiscountSelect, dom.numSimulationsInput, dom.timeoutSecondsInput, dom.costDiscountCheckbox, 
         dom.guaranteedSuccessCheckbox, dom.reduceDestructionCheckbox, dom.traceDiscountCheckbox,
         dom.disableCouponsCheckbox, dom.disableHighCouponsCheckbox,
         dom.disableSpecialCouponsCheckbox,
