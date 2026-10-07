@@ -9,6 +9,14 @@ const PROB_CONFIG = {
     mystic: {
         rates: [1.0, 0.2, 0.05], 
         labels: ["第 1 排", "第 2 排", "第 3 排"]
+    },
+    equal: {
+        rates: [1.0, 1.0, 1.0],
+        labels: ["第 1 排(必傳)", "第 2 排(必傳)", "第 3 排(必傳)"]
+    },
+    mirror: {
+        rates: [1.0, 0.2, 0.05],
+        labels: ["第 1 排", "第 2 排", "第 3 排"]
     }
 };
 
@@ -33,6 +41,31 @@ const DB = {
     "Shoes": { den: {Leg:38, Uni:53}, pool: [ {name:"STR",type:1,wLeg:4,wUni:5,label:"STR %"}, {name:"HP",type:1,wLeg:4,wUni:6,label:"HP %"}, {name:"All",type:1,wLeg:3,wUni:4,label:"全屬性 %"}, {name:"Decent",type:20,wLeg:3,wUni:4,label:"實用技能 (上限1)"}, {name:"IgnoreDmg",type:40,wLeg:8,wUni:8,label:"被擊中無視傷害 (上限2)"}, {name:"OtherStats",type:1,wLeg:16,wUni: 31, label: "雜項 (回復/其他)"} ] },
     "Cape": { den: {Leg:35, Uni:49}, pool: [ {name:"STR",type:1,wLeg:4,wUni:5,label:"STR %"}, {name:"HP",type:1,wLeg:4,wUni:6,label:"HP %"}, {name:"All",type:1,wLeg:3,wUni:4,label:"全屬性 %"}, {name:"IgnoreDmg",type:40,wLeg:8,wUni:8,label:"被擊中無視傷害 (上限2)"}, {name:"OtherStats",type:1,wLeg:16,wUni: 31, label: "雜項 (回復/其他)"} ] }
 };
+
+// ──────────────────────────────────────────
+// 閃耀鏡射方塊 (mirror) 專用機率表
+// 機率來源：使用者提供之官方機率表，已逆向換算為「分子加總 = 分母」的精確整數權重，
+// 每一詞條轉回百分比與官方表格完全一致（零誤差，驗算到小數第 2 位）。
+// 詞條分類沿用現有體系：STR 為「單一主屬」代表值，DEX/INT/LUK 併入 OtherStats；
+// 物理攻擊力% 為「物攻/魔攻」代表值，魔攻%/總傷害% 等併入 OtherStats。
+// ──────────────────────────────────────────
+const DB_MIRROR = {
+    "Hat": { den: { Leg: 32, Uni: 35 }, pool: [ { name: "STR", val: 0, type: 1, wLeg: 2, wUni: 2, label: "STR %" }, { name: "HP", val: 0, type: 1, wLeg: 2, wUni: 2, label: "HP %" }, { name: "All", val: 0, type: 1, wLeg: 2, wUni: 2, label: "全屬性 %" }, { name: "CD_2", val: 2, type: 1, wLeg: 2, wUni: 0, label: "技能冷卻 -2秒" }, { name: "CD_1", val: 1, type: 1, wLeg: 3, wUni: 0, label: "技能冷卻 -1秒" }, { name: "Decent", val:0, type: 20, wLeg: 3, wUni: 1, label: "實用的技能 (上限1)" }, { name: "IgnoreDmg", val:0, type: 40, wLeg: 8, wUni: 8, label: "被擊中無視傷害 (上限2)" }, { name: "OtherStats", val:0, type:1, wLeg:10, wUni: 20, label: "雜項 (其他屬性)" } ] },
+    "Glove": { den: { Leg: 31, Uni: 39 }, pool: [ { name: "STR", val:0, type: 1, wLeg: 2, wUni: 2, label: "STR %" }, { name: "HP", val:0, type: 1, wLeg: 2, wUni: 2, label: "HP %" }, { name: "All", val:0, type: 1, wLeg: 2, wUni: 2, label: "全屬性 %" }, { name: "CritD", val:1, type: 1, wLeg: 4, wUni: 0, label: "爆擊傷害 %" }, { name: "Decent", val:0, type: 20, wLeg: 3, wUni: 4, label: "實用的技能 (上限1)" }, { name: "IgnoreDmg", val:0, type: 40, wLeg: 8, wUni: 8, label: "被擊中無視傷害 (上限2)" }, { name: "OtherStats", val:0, type:1, wLeg:10, wUni: 21, label: "雜項 (定值/其他)" } ] },
+    "Weapon": { den: { Leg: 36, Uni: 37 }, pool: [ { name: "Att_Pct_13", val: 13, type: 1, wLeg: 1, wUni: 0, label: "物理攻擊力(魔法攻擊力)+13%" }, { name: "Att_Pct_10", val: 10, type: 1, wLeg: 0, wUni: 1, label: "物理攻擊力(魔法攻擊力)+10%" }, { name: "Boss_40", val: 40, type: 1, wLeg: 1, wUni: 0, label: "BOSS傷害+40%" }, { name: "Boss_35", val: 35, type: 1, wLeg: 2, wUni: 0, label: "BOSS傷害+35%" }, { name: "Boss_30", val: 30, type: 1, wLeg: 0, wUni: 2, label: "BOSS傷害+30%" }, { name: "Ignore_40", val: 40, type: 1, wLeg: 2, wUni: 0, label: "無視防禦+40%" }, { name: "Ignore_35", val: 35, type: 1, wLeg: 2, wUni: 0, label: "無視防禦+35%" }, { name: "Ignore_30", val: 30, type: 1, wLeg: 0, wUni: 2, label: "無視防禦+30%" }, { name: "OtherStats", val:0, type:1, wLeg:28, wUni: 32, label: "雜項 (STR/全屬/其他)" } ] },
+    "Emblem": { den: { Leg: 33, Uni: 35 }, pool: [ { name: "Att_Pct_13", val: 13, type: 1, wLeg: 1, wUni: 0, label: "物理攻擊力(魔法攻擊力)+13%" }, { name: "Att_Pct_10", val: 10, type: 1, wLeg: 0, wUni: 1, label: "物理攻擊力(魔法攻擊力)+10%" }, { name: "Ignore_40", val: 40, type: 1, wLeg: 2, wUni: 0, label: "無視防禦+40%" }, { name: "Ignore_35", val: 35, type: 1, wLeg: 2, wUni: 0, label: "無視防禦+35%" }, { name: "Ignore_30", val: 30, type: 1, wLeg: 0, wUni: 2, label: "無視防禦+30%" }, { name: "OtherStats", val:0, type:1, wLeg:28, wUni: 32, label: "雜項 (STR/全屬/其他)" } ] },
+    "Accessory": { den: {Leg:30, Uni:23}, pool: [ {name:"STR",type:1,wLeg:2,wUni:2,label:"STR %"}, {name:"HP",type:1,wLeg:2,wUni:2,label:"HP %"}, {name:"All",type:1,wLeg:2,wUni:2,label:"全屬性 %"}, {name:"Drop",type:1,wLeg:3,wUni:0, label: "道具掉落率%" }, {name:"Meso",type:1,wLeg:3,wUni:0, label: "楓幣獲得量%" }, {name:"OtherStats",type:1,wLeg:18,wUni: 17, label: "雜項 (MP/其他)"} ] },
+    "Top": { den: {Leg:30, Uni:45}, pool: [ {name:"STR",type:1,wLeg:2,wUni:2,label:"STR %"}, {name:"HP",type:1,wLeg:2,wUni:2,label:"HP %"}, {name:"All",type:1,wLeg:2,wUni:2,label:"全屬性 %"}, {name:"InvincDur",type:21,wLeg:3,wUni:4,label:"被擊無敵時間+ (上限1)"}, {name:"InvincCh",type:41,wLeg:3,wUni:4,label:"被擊無敵機率 (上限2)"}, {name:"IgnoreDmg",type:40,wLeg:8,wUni:8,label:"被擊中無視傷害 (上限2)"}, {name:"OtherStats",type:1,wLeg:10,wUni: 23, label: "雜項 (反射/回復/其他)"} ] },
+    "Bottom": { den: {Leg:12, Uni:37}, pool: [ {name:"STR",type:1,wLeg:1,wUni:2,label:"STR %"}, {name:"HP",type:1,wLeg:1,wUni:2,label:"HP %"}, {name:"All",type:1,wLeg:1,wUni:2,label:"全屬性 %"}, {name:"Decent",type:20,wLeg:0,wUni:4,label:"實用技能 (上限1)"}, {name:"IgnoreDmg",type:40,wLeg:4,wUni:10,label:"被擊中無視傷害 (上限2)"}, {name:"OtherStats",type:1,wLeg:5,wUni: 17, label: "雜項 (回復/其他)"} ] },
+    "Shoes": { den: {Leg:27, Uni:35}, pool: [ {name:"STR",type:1,wLeg:2,wUni:2,label:"STR %"}, {name:"HP",type:1,wLeg:2,wUni:2,label:"HP %"}, {name:"All",type:1,wLeg:2,wUni:2,label:"全屬性 %"}, {name:"Decent",type:20,wLeg:3,wUni:4,label:"實用技能 (上限1)"}, {name:"IgnoreDmg",type:40,wLeg:8,wUni:8,label:"被擊中無視傷害 (上限2)"}, {name:"OtherStats",type:1,wLeg:10,wUni: 17, label: "雜項 (回復/其他)"} ] },
+    "Cape": { den: {Leg:12, Uni:31}, pool: [ {name:"STR",type:1,wLeg:1,wUni:2,label:"STR %"}, {name:"HP",type:1,wLeg:1,wUni:2,label:"HP %"}, {name:"All",type:1,wLeg:1,wUni:2,label:"全屬性 %"}, {name:"IgnoreDmg",type:40,wLeg:4,wUni:8,label:"被擊中無視傷害 (上限2)"}, {name:"OtherStats",type:1,wLeg:5,wUni: 17, label: "雜項 (回復/其他)"} ] }
+};
+
+// 依目前方塊種類取得對應資料庫（mirror 走專用表，其餘走預設）
+function getDB(part) {
+    const ct = document.getElementById('calcType').value;
+    return (ct === 'mirror') ? DB_MIRROR[part] : DB[part];
+}
 
 const RULE_DEF = {
     20: { title: "實用的技能", limit: 1, icon: "🔴" },
@@ -133,7 +166,7 @@ function updateRuleDisplay() {
     const part = document.getElementById('partSelect').value;
     const infoDiv = document.getElementById('ruleContent');
     
-    const pool = DB[part].pool; let groups = {};
+    const pool = getDB(part).pool; let groups = {};
     pool.forEach(p => {
         if (p.type > 1 && p.label) {
             if (!groups[p.type]) groups[p.type] = new Set();
@@ -151,13 +184,23 @@ function updateRuleDisplay() {
         html += `<div style="margin-bottom: 12px; border-bottom: 1px dashed #e0e0e0; padding-bottom: 8px;"><div style="font-weight:bold; color:#34495e; margin-bottom:4px;">${def.icon} 【${def.title}】 共用上限 ${def.limit} 排</div><div style="line-height: 1.6;">${tagsHtml}</div></div>`;
     }
     if(!hasRules) html = "<div style='padding:10px; color:#666;'>此部位無特殊排他屬性限制。</div>";
+
+    // 閃耀鏡射方塊：排他規則在「抽排階段」照常生效；但第2排 20% 複製第1排為最後階段的
+    // 無條件覆蓋，複製出來的詞條不受上述上限限制(作者推測，官方規則描述不明)。
+    // 僅在該部位「確實有排他上限」時才顯示，避免與「此部位無特殊排他屬性限制」矛盾。
+    if (hasRules && document.getElementById('calcType').value === 'mirror') {
+        html += `<div style="margin-top:10px; padding:10px; background:#fff7e6; border:1px solid #ffd591; border-radius:6px; font-size:13px; line-height:1.6; color:#874d00;">
+            ✨ <b>閃耀鏡射方塊</b>：上述排他上限在「抽取三排」時照常生效；但<b>第2排有 20% 機率完整複製第1排</b>，此複製為最後階段覆蓋，<b>複製而來的詞條不受上限限制</b>（作者推測，官方規則描述不明）。
+        </div>`;
+    }
+
     infoDiv.innerHTML = html;
 }
 
 function renderWeightTable() {
     const part = document.getElementById('partSelect').value;
     const div = document.getElementById('weightContent');
-    const cfg = DB[part];
+    const cfg = getDB(part);
     let html = `<table class="w-table"><thead><tr><th>詞條名稱</th><th>傳說機率</th><th>罕見機率</th></tr></thead><tbody>`;
     const fmtProb = (w, d) => { if(w===0) return '<span style="color:#ccc">-</span>'; return `<span class="pct-val">${(w/d*100).toFixed(2)}%</span> <span class="frac-tag">${w}/${d}</span>`; };
     cfg.pool.forEach(p => {
@@ -199,7 +242,7 @@ function renderRankRates() {
 }
 
 function prepareSimulationData(part) {
-    const cfg = DB[part]; const st = getStatConfig();
+    const cfg = getDB(part); const st = getStatConfig();
     const expand = (den, poolCfg, rank) => {
         let arr = [];
         poolCfg.forEach(p => {
@@ -221,7 +264,7 @@ function prepareSimulationData(part) {
 }
 
 function getLockedItem(part, mode, specialLock) {
-    const pool = DB[part].pool; const st = getStatConfig(); let targetName = "";
+    const pool = getDB(part).pool; const st = getStatConfig(); let targetName = "";
     if (part === 'Weapon') {
         let type = specialLock.split('_')[0]; 
         if (type === 'B') targetName = 'Boss_40'; else targetName = 'Att_Pct_13';
@@ -333,6 +376,13 @@ function runChunk() {
             }
             lineVals.push(pick);
         }
+
+        // 閃耀鏡射方塊：抽完三排後，第2排有 20% 機率「完整複製第1排」。
+        // 複製為最後階段的無條件覆蓋，不再檢查排他上限（作者推測：複製後才繞過排他）。
+        if (calcType === 'mirror' && Math.random() < 0.2) {
+            lineVals[1] = lineVals[0];
+        }
+
         analyzeLines(lineVals, mode, results, calcType);
         
         // 追加不鎖定時的位置統計
@@ -581,7 +631,7 @@ function runMathDP(part, stateConfig, evaluateFn, useRules, lockedInfo) {
     const configKey = document.getElementById('calcType').value;
     const P_RANK = PROB_CONFIG[configKey].rates;
 
-    const cfg = DB[part];
+    const cfg = getDB(part);
     let weights = { Leg: {}, Uni: {} };
     let totalWeightSums = { Leg: 0, Uni: 0 }; 
 
@@ -599,7 +649,7 @@ function runMathDP(part, stateConfig, evaluateFn, useRules, lockedInfo) {
     let den = { Leg: Math.max(cfg.den.Leg, totalWeightSums.Leg), Uni: Math.max(cfg.den.Uni, totalWeightSums.Uni) };
     let startState = [0,0,0,0,0,0,0,0,0,0,0,0];
     let dp = {}; dp[startState.join(',')] = 1.0;
-    let maxSlots = (configKey === 'mystic') ? 3 : 6;
+    let maxSlots = (configKey === 'violet') ? 6 : 3;
 
     for (let slot = 0; slot < maxSlots; slot++) {
         if (lockedInfo && slot === lockedInfo.slot) continue; 
@@ -641,6 +691,80 @@ function runMathDP(part, stateConfig, evaluateFn, useRules, lockedInfo) {
 
 function addProb(dpObj, stateArr, p) { let k = stateArr.join(','); dpObj[k] = (dpObj[k] || 0) + p; }
 
+// 閃耀鏡射方塊專用數學：以「有序三排列舉」精確計算。
+// 抽階段三排依序 (rates [1.0,0.2,0.05]) 抽出，排他上限照常生效(依前面已抽排判斷)；
+// 列舉每種有序 (idx0,idx1,idx2) 的機率後，對結果做混合：
+//   0.8 × checkFn([line0, line1, line2])              (未複製)
+// + 0.2 × checkFn([line0, line0, line2])              (第2排完整複製第1排，覆蓋 line1)
+// 複製為最後階段無條件覆蓋，不重新檢查排他(作者推測)。idx2 的條件分布仍受原始 idx1 影響，與模擬一致。
+function runMirrorMath(part, configFn, idMap, checkFn, useRules) {
+    const P_RANK = PROB_CONFIG.mirror.rates;
+    const cfg = getDB(part);
+
+    // 建立每稀有度的 category→權重 與分母
+    let weights = { Leg: {}, Uni: {} };
+    let totalWeightSums = { Leg: 0, Uni: 0 };
+    for (let rank of ['Leg', 'Uni']) {
+        cfg.pool.forEach(p => {
+            let w = p[`w${rank}`] || 0;
+            if (w > 0) {
+                totalWeightSums[rank] += w;
+                let tag = configFn(p, rank);
+                if (tag !== null) { weights[rank][tag] = (weights[rank][tag] || 0) + w; }
+            }
+        });
+    }
+    let den = { Leg: Math.max(cfg.den.Leg, totalWeightSums.Leg), Uni: Math.max(cfg.den.Uni, totalWeightSums.Uni) };
+
+    // 單一排的候選分布：回傳 [{idx, p}]，idx=-1 代表 Junk(非目標雜項)
+    // state 為目前已抽排的 category 計數(用於排他判斷)
+    function rowOutcomes(slot, state) {
+        const pLeg = P_RANK[slot]; const pUni = 1.0 - pLeg;
+        const acc = {}; // idx -> p
+        const add = (idx, p) => { if (p > 0) acc[idx] = (acc[idx] || 0) + p; };
+        [['Leg', pLeg], ['Uni', pUni]].forEach(([rank, rankProb]) => {
+            if (rankProb <= 0) return;
+            let wMap = weights[rank]; let reducedDen = den[rank];
+            let validKeys = []; let weightSum = 0;
+            for (let tag in wMap) {
+                let w = wMap[tag];
+                if (useRules && isLimitReached(state, tag)) { reducedDen -= w; }
+                else { validKeys.push(tag); weightSum += w; }
+            }
+            validKeys.forEach(tag => { add(parseInt(tag), rankProb * (wMap[tag] / reducedDen)); });
+            add(-1, rankProb * (1.0 - weightSum / reducedDen)); // Junk
+        });
+        return Object.keys(acc).map(k => ({ idx: parseInt(k), p: acc[k] }));
+    }
+
+    const JUNK = { id: 'Junk', val: 0, s: 0, h: 0, all: 0, hp: 0, str: 0 };
+    const lineOf = (idx) => (idx === -1 ? JUNK : (idMap[idx] || JUNK));
+    const bump = (state, idx) => { let s = state.slice(); if (idx >= 0) s[idx] += 1; return s; };
+
+    const res = {};
+    const startState = [0,0,0,0,0,0,0,0,0,0,0,0];
+
+    // 有序列舉三排
+    rowOutcomes(0, startState).forEach(o0 => {
+        const s1 = bump(startState, o0.idx);
+        rowOutcomes(1, s1).forEach(o1 => {
+            const s2 = bump(s1, o1.idx);
+            rowOutcomes(2, s2).forEach(o2 => {
+                const prob = o0.p * o1.p * o2.p;
+                if (prob <= 0) return;
+                const l0 = lineOf(o0.idx), l1 = lineOf(o1.idx), l2 = lineOf(o2.idx);
+                // 未複製 (0.8)
+                let a1 = {}; checkFn([l0, l1, l2], a1);
+                for (let key in a1) res[key] = (res[key] || 0) + prob * 0.8;
+                // 複製：第2排 = 第1排 (0.2)
+                let a2 = {}; checkFn([l0, l0, l2], a2);
+                for (let key in a2) res[key] = (res[key] || 0) + prob * 0.2;
+            });
+        });
+    });
+    return res;
+}
+
 function isLimitReached(state, tag) {
     let idx = parseInt(tag);
     if (idx === 8 && state[8] >= 1) return true; 
@@ -652,6 +776,10 @@ function isLimitReached(state, tag) {
 
 function runGenericC63(part, configFn, idMap, checkFn, useRules, lockedInfo) {
     const calcType = document.getElementById('calcType').value;
+    // 閃耀鏡射方塊走專用的有序列舉數學(含複製機制)
+    if (calcType === 'mirror') {
+        return runMirrorMath(part, configFn, idMap, checkFn, useRules);
+    }
     const evalFn = (s, res, prob) => {
         let fullLines = [];
         for(let idx=0; idx<s.length; idx++) {
@@ -674,11 +802,11 @@ function runGenericC63(part, configFn, idMap, checkFn, useRules, lockedInfo) {
             fullLines.push(mathLine);
         }
         
-        let targetLen = (calcType === 'mystic') ? 3 : 6;
+        let targetLen = (calcType === 'violet') ? 6 : 3;
         while(fullLines.length < targetLen) fullLines.push({id:'Junk', val:0, s:0, h:0, all:0, hp:0});
 
         let achieved = {};
-        if (calcType === 'mystic') { 
+        if (calcType !== 'violet') { 
             checkFn(fullLines, achieved); 
         } else {
             for (let i = 0; i < 4; i++) {
@@ -985,7 +1113,7 @@ function calcMath_AccessoryDropMeso(useRules, lockedInfo) {
 }
 
 function calculatePositionalMath(part, mode, mathData) {
-    const cfg = DB[part];
+    const cfg = getDB(part);
     const rates = PROB_CONFIG.mystic.rates;
     const targets = getSpecTargets(mode);
 

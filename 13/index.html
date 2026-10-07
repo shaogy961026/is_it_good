@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>新楓之谷 閃炫&紅閃分析</title>
-    <meta name="description" content="透過數學理論與模擬雙重驗證，精算《新楓之谷》閃炫方塊與紅閃方塊的成本。針對雙排傳說、次頂級詞條等目標提供詳細的期望值分析。">
+    <title>新楓之谷 潛能方塊分析</title>
+    <meta name="description" content="透過數學理論與百萬次模擬雙重驗證，精算《新楓之谷》潛能方塊成本。支援閃炫方塊、恢復方塊&紅閃、新對等方塊、閃耀鏡射方塊，針對雙排傳說、次頂級詞條等目標提供詳細的期望值與成功機率分析。">
     <link rel="stylesheet" href="style.css">
     <style>
         .alert-box { background-color: #e8f4fd; border: 1px solid #b6e0fe; color: #0d5283; padding: 12px; border-radius: 8px; margin-bottom: 20px; font-size: 14px; line-height: 1.5; text-align: left; }
@@ -17,7 +17,7 @@
 <script src="../shared-nav.js"></script>
 <script src="../shared-subtitle.js"></script>
 <div class="container">
-    <h2>新楓之谷 閃炫&紅閃分析</h2>
+    <h2>新楓之谷 潛能方塊分析</h2>
     <div id="tool-subtitle"></div>
 
     <div class="alert-box">
@@ -61,12 +61,14 @@
             <span class="control-label">[4] 計算類型 (方塊種類)</span>
             <select id="calcType" onchange="updateUI()">
                 <option value="violet">閃炫方塊 (6選3)</option>
-                <option value="mystic">神秘+恢復 (鎖1排 隨機2排)</option>
+                <option value="mystic">恢復方塊&紅閃 (不鎖定 / 搭配鎖定道具)</option>
+                <option value="equal">新對等方塊 (3排全傳說)</option>
+                <option value="mirror">閃耀鏡射方塊 (3排/第2排20%複製)</option>
             </select>
         </div>
 
         <div class="control-group" id="lockGroup" style="visibility: hidden;"> 
-            <span class="control-label">[5] 鎖定設定 (僅限神秘恢復)</span>
+            <span class="control-label">[5] 鎖定設定 (僅限紅閃，即搭配鎖定道具)</span>
             <select id="lockSelect" onchange="renderRankRates()">
             </select>
         </div>
