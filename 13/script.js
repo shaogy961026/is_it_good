@@ -201,14 +201,17 @@ function renderWeightTable() {
     const part = document.getElementById('partSelect').value;
     const div = document.getElementById('weightContent');
     const cfg = getDB(part);
-    let html = `<table class="w-table"><thead><tr><th>詞條名稱</th><th>傳說機率</th><th>罕見機率</th></tr></thead><tbody>`;
+    // 新對等方塊三排全為 100% 傳說，永遠不會抽到罕見池，故隱藏「罕見機率」欄。
+    const hideUni = (document.getElementById('calcType').value === 'equal');
+    let html = `<table class="w-table"><thead><tr><th>詞條名稱</th><th>傳說機率</th>${hideUni ? '' : '<th>罕見機率</th>'}</tr></thead><tbody>`;
     const fmtProb = (w, d) => { if(w===0) return '<span style="color:#ccc">-</span>'; return `<span class="pct-val">${(w/d*100).toFixed(2)}%</span> <span class="frac-tag">${w}/${d}</span>`; };
     cfg.pool.forEach(p => {
         let wL = p.wLeg || 0; let wU = p.wUni || 0;
-        if (wL === 0 && wU === 0) return;
+        // 隱藏罕見欄時，純罕見詞條(傳說權重為0)不需列出
+        if (hideUni ? (wL === 0) : (wL === 0 && wU === 0)) return;
         let name = p.label || p.name;
         if (p.name === 'OtherStats' || p.name.startsWith('Other')) name = `<span style="color:#888">${name}</span>`;
-        html += `<tr><td>${name}</td><td>${fmtProb(wL, cfg.den.Leg)}</td><td>${fmtProb(wU, cfg.den.Uni)}</td></tr>`;
+        html += `<tr><td>${name}</td><td>${fmtProb(wL, cfg.den.Leg)}</td>${hideUni ? '' : `<td>${fmtProb(wU, cfg.den.Uni)}</td>`}</tr>`;
     });
     html += `</tbody></table>`;
     div.innerHTML = html;
