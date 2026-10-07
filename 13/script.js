@@ -151,7 +151,7 @@ function updateLockOptions() {
         else if (mode === 'emblem_att') label = "物理攻擊力(魔法攻擊力)+13%";
         else if (mode === 'all_stat') label = `全屬性 ${st.u1}%`;
         else if (mode === 'hp_stat') label = `HP ${st.base}%`;
-        else if (mode === 'default') label = `指定主屬 ${st.base}% (含全屬)`; 
+        else if (mode === 'default') label = `指定主屬 ${st.base}%`; 
         options.push({ val: 0, text: `鎖定 第1排 (${label}) [100% 傳說]` });
         options.push({ val: 1, text: `鎖定 第2排 (${label}) [20% 傳說]` });
         options.push({ val: 2, text: `鎖定 第3排 (${label}) [5% 傳說]` });
