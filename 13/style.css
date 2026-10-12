@@ -234,11 +234,13 @@ tr:hover { background-color: #f0f5ff; }
 /* 專屬 Hover 提示框 */
 .tooltip-wrap { position: relative; display: inline-block; }
 .tooltip-wrap .tooltip-content {
-    visibility: hidden; width: max-content; background-color: #0f172a; color: #e2e8f0;
+    visibility: hidden; width: max-content; max-width: min(92vw, 420px);
+    background-color: #0f172a; color: #e2e8f0;
     text-align: left; padding: 10px 14px; border-radius: 8px; position: absolute;
     z-index: 100; bottom: 130%; left: 50%; transform: translateX(-50%);
     opacity: 0; transition: opacity 0.2s, bottom 0.2s; font-size: 13px; font-weight: normal;
-    line-height: 1.7; white-space: pre-wrap; box-shadow: 0 6px 20px rgba(0,0,0,0.25); pointer-events: none;
+    line-height: 1.7; white-space: pre-wrap; word-break: break-word;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.25); pointer-events: none;
 }
 .tooltip-wrap .tooltip-content::after {
     content: ""; position: absolute; top: 100%; left: 50%; margin-left: -6px;

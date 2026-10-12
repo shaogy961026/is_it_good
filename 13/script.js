@@ -572,6 +572,21 @@ function checkCombination(combo, mode, achieved) {
         if (countAnyB >= 1 && countA13 >= 1 && countAnyA >= 2)       achieved['M_B30_A13Any'] = true;
         if (countAnyB >= 1 && countAnyA >= 2)                         achieved['M_B30_Any2A']  = true;
 
+        // 頂% / 次頂 / 次次頂（三排全有效：BOSS傷害% 或 物理攻擊力(魔法攻擊力)%）
+        // 計算「階差」：每排距離該詞條最高值的級數總和。
+        //   BOSS: 40→0, 35→1, 30→2；物攻: 13→0, 10→1。
+        // 全有效且階差=0 為頂%，≤1 為次頂（含頂%），≤2 為次次頂（含頂%、次頂）。
+        if (countAnyB + countAnyA >= 3) {
+            let deficit = 0;
+            combo.forEach(l => {
+                if (l.id.startsWith('Boss')) deficit += (40 - l.val) / 5;      // 40/35/30 → 0/1/2
+                else if (l.id.startsWith('Att_Pct')) deficit += (13 - l.val) / 3; // 13/10 → 0/1
+            });
+            if (deficit <= 0) achieved['W_Top'] = true;
+            if (deficit <= 1) achieved['W_Near'] = true;
+            if (deficit <= 2) achieved['W_Near2'] = true;
+        }
+
     } else if (mode === 'emblem_att') {
         let attSum = 0; let maxIgnore = 0; let countA13 = 0; 
         combo.forEach(l => {
@@ -1059,6 +1074,18 @@ function calcMath_Weapon(useRules, lockedInfo) {
         if(countAnyB >= 1 && countA13 >= 2)                         validMap['M_B30_A13A13'] = true;
         if(countAnyB >= 1 && countA13 >= 1 && countAnyA >= 2)      validMap['M_B30_A13Any'] = true;
         if(countAnyB >= 1 && countAnyA >= 2)                        validMap['M_B30_Any2A']  = true;
+
+        // 頂% / 次頂 / 次次頂（三排全有效，階差總和判定；與模擬引擎同邏輯）
+        if(countAnyB + countAnyA >= 3) {
+            let deficit = 0;
+            for(let l of lines) {
+                if(l.type === 'B') deficit += (40 - l.val) / 5;      // 40/35/30 → 0/1/2
+                else if(l.type === 'A') deficit += (13 - l.val) / 3; // 13/10 → 0/1
+            }
+            if(deficit <= 0) validMap['W_Top'] = true;
+            if(deficit <= 1) validMap['W_Near'] = true;
+            if(deficit <= 2) validMap['W_Near2'] = true;
+        }
     };
     return runGenericC63('Weapon', config, ID_MAP, check3, useRules, lockedInfo);
 }
@@ -1285,6 +1312,31 @@ function renderResults(simRes, mode, mathData) {
     } else if (mode === 'weapon_boss') {
         const wName = "武器,輔助武器";
         const A = '物理攻擊力(魔法攻擊力)';
+
+        // 頂% / 次頂 / 次次頂 的 hover 說明：依「階差」自動列出所有達標（或超越）組合，確保與計算邏輯一致。
+        // 有效詞條：BOSS傷害（40/35/30，階差 0/1/2）、物理攻擊力(魔法攻擊力)（13/10，階差 0/1）。
+        const weaponTierTooltip = (maxDeficit) => {
+            const slots = [
+                { name: 'BOSS傷害+40%', d: 0 }, { name: 'BOSS傷害+35%', d: 1 }, { name: 'BOSS傷害+30%', d: 2 },
+                { name: `${A}+13%`, d: 0 }, { name: `${A}+10%`, d: 1 }
+            ];
+            let combos = [];
+            for (let i = 0; i < slots.length; i++)
+                for (let j = i; j < slots.length; j++)
+                    for (let k = j; k < slots.length; k++) {
+                        if (slots[i].d + slots[j].d + slots[k].d <= maxDeficit)
+                            combos.push(`${slots[i].name} + ${slots[j].name} + ${slots[k].name}`);
+                    }
+            return `符合條件的組合（達標或超越，共 ${combos.length} 種）：\n` + combos.join('\n');
+        };
+        const tierIcon = (maxDeficit) => ` <div class="tooltip-wrap"><span class="info-icon">ℹ️</span><div class="tooltip-content">${weaponTierTooltip(maxDeficit)}</div></div>`;
+
+        let rows0 = [
+            {key:'W_Top',   label:`頂%${tierIcon(0)}`},
+            {key:'W_Near',  label:`次頂${tierIcon(1)}`},
+            {key:'W_Near2', label:`次次頂${tierIcon(2)}`},
+        ];
+
         let rows1 = [
             ...posRows,
             {key:'1L_AnyBA',       label:`任意一排 BOSS傷害+40% 或 ${A}+13%`},
@@ -1359,6 +1411,7 @@ function renderResults(simRes, mode, mathData) {
             {key:'M_B30_Any2A',  label:`${A}+10%↑ + ${A}+10%↑ + BOSS傷害+30%↑`, triple:true},
         ];
         area.innerHTML = `<div style="width:100%; display:flex; flex-direction:column; gap:20px;">` +
+            renderTable(`${wName} ─ 頂% / 次頂 / 次次頂`, rows0) +
             renderTable(`${wName} ─ 概覽`, rows1) +
             renderTable(`${wName} ─ BOSS 傷害加總目標`, rows2) +
             renderTable(`${wName} ─ ${A}% 加總目標`, rows3) +
