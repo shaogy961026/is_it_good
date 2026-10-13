@@ -680,7 +680,7 @@ E.RATES = RATES;
 'use strict';
 const E = global.MapleDP;
 
-const CUBE_NAME = {violet:'閃炫方塊', mystic:'紅閃(搭配鎖定道具)', equal:'新對等方塊', mirror:'閃耀鏡射方塊', combine:'結合方塊'};
+const CUBE_NAME = {violet:'閃炫方塊', mystic:'紅閃', equal:'新對等方塊', mirror:'閃耀鏡射方塊', combine:'結合方塊'};
 
 // 把 tier 轉成該目標的人話描述。傳入 st(等級數值)時會標出實際 % 數值。
 function tierLabel(spec, tier, st){
@@ -722,7 +722,7 @@ function actionDesc(spec, act){
   if(act.type==='violet') return '用【閃炫方塊】整把重洗，6排挑最好的3排（可任意放位置）';
   if(act.type==='equal')  return '用【新對等方塊】整把重洗（三排全保證傳說）';
   if(act.type==='mirror') return '用【閃耀鏡射方塊】整把重洗（第2排有20%複製第1排）';
-  if(act.type==='mystic') return '用【紅閃+鎖定道具】鎖住第'+(act.lock+1)+'排（保留它），重洗另外兩排';
+  if(act.type==='mystic') return '用【紅閃】鎖住第'+(act.lock+1)+'排（保留它），重洗另外兩排';
   if(act.type==='combine'){
     const pos=act.W.map(x=>'第'+(x+1)+'排').join('、');
     return '用【結合方塊】：系統每顆隨機選一排，只有選到 '+pos+' 時才洗（選到其他排就不洗、但方塊仍消耗）';
