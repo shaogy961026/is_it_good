@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>新楓之谷 潛能方塊最省洗練路線分析（施工中）</title>
+<meta name="description" content="輸入裝備部位、目標詞條與各方塊成本，透過動態規劃(DP)自動找出洗出目標潛能最便宜的方塊使用路線，並提供逐步操作指引。支援閃炫方塊、紅閃、新對等方塊、閃耀鏡射方塊與結合方塊的混合策略。">
+<style>
+body { font-family:'Noto Sans TC','Microsoft JhengHei',sans-serif; background:#F8FAFC; padding:20px; color:#1e293b; }
+.container { max-width:1100px; margin:0 auto; background:#fff; padding:35px; border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,0.07); border:1px solid #e2e8f0; }
+h2 { text-align:center; color:#1E40AF; margin-bottom:8px; font-weight:700; }
+.subtitle { text-align:center; color:#64748b; font-size:14px; margin-bottom:25px; }
+.alert-box { background:#e8f4fd; border:1px solid #b6e0fe; color:#0d5283; padding:12px 16px; border-radius:8px; margin-bottom:20px; font-size:13.5px; line-height:1.7; }
+.controls { background:#f1f5f9; padding:20px; border-radius:10px; display:grid; grid-template-columns:1fr 1fr; gap:15px 20px; margin-bottom:18px; border:1px solid #e2e8f0; }
+@media (max-width:768px){ .controls { grid-template-columns:1fr; } }
+.control-group { display:flex; flex-direction:column; gap:5px; }
+.control-label { font-size:12px; font-weight:700; color:#64748b; margin-left:2px; }
+select, input[type=number] { padding:11px 14px; border-radius:8px; font-size:15px; border:1.5px solid #e2e8f0; width:100%; box-sizing:border-box; background:#fff; color:#1e293b; }
+.cost-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:12px; background:#fff7ed; border:1px solid #fed7aa; border-radius:10px; padding:16px; margin-bottom:18px; }
+@media (max-width:768px){ .cost-grid { grid-template-columns:repeat(2,1fr); } }
+.cost-item { display:flex; flex-direction:column; gap:4px; }
+.cost-item label { font-size:12px; font-weight:700; color:#9a3412; }
+.cost-note { font-size:13px; color:#9a3412; margin-bottom:8px; }
+.opt-row { display:flex; align-items:center; gap:10px; margin-bottom:18px; flex-wrap:wrap; }
+.opt-row label { font-size:14px; color:#475569; display:flex; align-items:center; gap:6px; cursor:pointer; }
+button#run { width:100%; max-width:360px; display:block; margin:0 auto 10px auto; padding:15px; background:#1E40AF; color:#fff; border:none; border-radius:8px; font-size:18px; font-weight:bold; cursor:pointer; transition:background .2s; }
+button#run:hover { background:#1d4ed8; }
+button#run:disabled { background:#94a3b8; cursor:not-allowed; }
+#status { text-align:center; color:#64748b; font-weight:bold; height:22px; margin-bottom:10px; }
+.result-card { background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:0; margin-bottom:18px; overflow:hidden; }
+.result-head { background:#1E40AF; color:#fff; padding:14px 20px; font-weight:700; font-size:16px; }
+.result-body { padding:20px; }
+.cost-highlight { font-size:30px; font-weight:800; color:#1E40AF; }
+.cost-sub { color:#64748b; font-size:14px; }
+table { width:100%; border-collapse:collapse; margin-top:12px; font-size:14px; }
+th,td { border:1px solid #e2e8f0; padding:9px 12px; text-align:left; vertical-align:top; }
+th { background:#f1f5f9; color:#334155; font-weight:700; }
+.tier-top { color:#dc2626; font-weight:700; }
+.tier-sub { color:#d97706; font-weight:600; }
+.tier-none { color:#94a3b8; }
+.cmp-table td.best { background:#ecfdf5; font-weight:700; color:#047857; }
+.guide-row td:first-child { white-space:nowrap; color:#475569; }
+.step-badge { display:inline-block; background:#dbeafe; color:#1e40af; border-radius:6px; padding:2px 8px; font-size:12px; font-weight:700; margin-right:6px; }
+.note { font-size:13px; color:#64748b; line-height:1.7; margin-top:10px; }
+.cube-tag { display:inline-block; padding:2px 8px; border-radius:6px; font-size:12px; font-weight:700; margin-right:4px; }
+.c-violet{background:#f3e8ff;color:#7c3aed;} .c-mystic{background:#fee2e2;color:#dc2626;} .c-equal{background:#dcfce7;color:#16a34a;} .c-mirror{background:#e0f2fe;color:#0284c7;} .c-combine{background:#fef3c7;color:#b45309;}
+#prob-info { margin-top:28px; }
+.info-card { background:#fff; border:1px solid #e2e8f0; border-radius:10px; margin-bottom:16px; overflow:hidden; }
+.info-head { background:#f1f5f9; color:#334155; padding:12px 18px; font-weight:700; font-size:15px; border-bottom:1px solid #e2e8f0; }
+.info-body { padding:14px 18px; }
+.info-note { font-size:12.5px; color:#64748b; line-height:1.7; margin:0 0 10px; }
+.prob-table { width:100%; border-collapse:collapse; font-size:13px; }
+.prob-table th,.prob-table td { border:1px solid #e2e8f0; padding:7px 10px; text-align:left; }
+.prob-table th { background:#f8fafc; color:#475569; font-weight:700; }
+.prob-table td.num { text-align:right; font-variant-numeric:tabular-nums; }
+.rate-pills { display:flex; flex-wrap:wrap; gap:8px; }
+.rate-pill { background:#eff6ff; border:1px solid #bfdbfe; color:#1e40af; border-radius:8px; padding:6px 10px; font-size:12.5px; }
+.rate-pill b{ color:#1d4ed8; }
+</style>
+</head>
+<body>
+<div id="global-nav"></div>
+<script>window.TOOL_ID = 25;</script>
+<script src="../shared-nav.js"></script>
+<script src="../shared-subtitle.js"></script>
+
+<div class="container">
+  <h2>新楓之谷 潛能方塊最省洗練路線分析（施工中）</h2>
+  <div id="tool-subtitle"></div>
+
+  <div class="alert-box">
+    <ul style="margin:0 0 0 20px; padding:0;">
+      <li><b>STR / DEX / INT / LUK</b> 的出現機率與權重皆完全相同，系統內部以 <b>STR</b> 作為代表計算，並統一顯示為 <b>指定主屬</b>。</li>
+      <li><b>物理攻擊力% / 魔法攻擊力%</b> 的出現機率與權重皆完全相同，系統內部以 <b>物理攻擊力</b> 作為代表計算，並統一顯示為 <b>物理攻擊力(魔法攻擊力)</b>。</li>
+    </ul>
+  </div>
+
+  <div class="controls">
+    <div class="control-group">
+      <span class="control-label">[1] 部位</span>
+      <select id="part"></select>
+    </div>
+    <div class="control-group">
+      <span class="control-label">[2] 目標</span>
+      <select id="goal"></select>
+    </div>
+    <div class="control-group">
+      <span class="control-label">[3] 裝備等級</span>
+      <select id="level">
+        <option value="160" selected>160等以上 (含)</option>
+        <option value="150">150等以下 (含)</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="cost-note">各方塊成本（單位自訂，填你的實際取得成本即可）。<b>留空的方塊視為不使用</b>，計算時不會納入該方塊。</div>
+  <div class="cost-grid">
+    <div class="cost-item"><label>閃炫方塊</label><input type="number" id="c_violet" value="60" min="0" placeholder="留空=不使用"></div>
+    <div class="cost-item"><label>紅閃(含鎖定道具)</label><input type="number" id="c_mystic" value="50" min="0" placeholder="留空=不使用"></div>
+    <div class="cost-item"><label>新對等方塊</label><input type="number" id="c_equal" value="65" min="0" placeholder="留空=不使用"></div>
+    <div class="cost-item"><label>閃耀鏡射方塊</label><input type="number" id="c_mirror" value="60" min="0" placeholder="留空=不使用"></div>
+    <div class="cost-item"><label>結合方塊</label><input type="number" id="c_combine" value="120" min="0" placeholder="留空=不使用"></div>
+  </div>
+
+  <button id="run" onclick="runSolve()">計算最省路線</button>
+  <div id="status"></div>
+
+  <div id="result"></div>
+
+  <div id="prob-info"></div>
+</div>
+
+<script src="engine.js"></script>
+<script>
+const E = window.MapleDP;
+const partSel = document.getElementById('part');
+const goalSel = document.getElementById('goal');
+
+// 填部位
+const PART_ORDER = ['Weapon','Emblem','Hat','Glove','Top','Bottom','Shoes','Cape','Accessory'];
+PART_ORDER.forEach(p=>{ if(E.GOALS[p]){ const o=document.createElement('option'); o.value=p; o.textContent=E.PART_NAMES[p]; partSel.appendChild(o);} });
+
+function fillGoals(){
+  const prev=goalSel.value;          // 記住切換前的目標
+  goalSel.innerHTML='';
+  const part=partSel.value;
+  E.GOALS[part].forEach(g=>{ const o=document.createElement('option'); o.value=g.id; o.textContent=g.name; goalSel.appendChild(o); });
+  // 若新部位也有相同目標(id)，保留原選擇，不重設為第一項
+  if(prev && [...goalSel.options].some(o=>o.value===prev)) goalSel.value=prev;
+}
+// ===== localStorage 記憶使用者設定 =====
+const _SK25='tool25_settings';
+const COST_IDS=['c_violet','c_mystic','c_equal','c_mirror','c_combine'];
+function save25(){
+  const costs={}; COST_IDS.forEach(id=>costs[id]=document.getElementById(id).value);
+  localStorage.setItem(_SK25, JSON.stringify({ part:partSel.value, goal:goalSel.value, level:document.getElementById('level').value, costs }));
+}
+function load25(){
+  let s=null; try{ s=JSON.parse(localStorage.getItem(_SK25)); }catch(e){}
+  if(!s) return;
+  if(s.part && [...partSel.options].some(o=>o.value===s.part)) partSel.value=s.part;
+  fillGoals();
+  if(s.goal && [...goalSel.options].some(o=>o.value===s.goal)) goalSel.value=s.goal;
+  if(s.level){ const lv=document.getElementById('level'); if([...lv.options].some(o=>o.value===s.level)) lv.value=s.level; }
+  if(s.costs) COST_IDS.forEach(id=>{ if(s.costs[id]!==undefined) document.getElementById(id).value=s.costs[id]; });
+}
+
+partSel.addEventListener('change', ()=>{ fillGoals(); save25(); renderProbInfo(partSel.value); });
+goalSel.addEventListener('change', save25);
+document.getElementById('level').addEventListener('change', save25);
+COST_IDS.forEach(id=>document.getElementById(id).addEventListener('input', save25));
+
+fillGoals();
+load25();
+
+function cubeTag(type){
+  const cls={violet:'c-violet',mystic:'c-mystic',equal:'c-equal',mirror:'c-mirror',combine:'c-combine'}[type]||'';
+  return '<span class="cube-tag '+cls+'">'+E.CUBE_NAME[type]+'</span>';
+}
+
+// ===== 底部：計算採用的機率數值（透明化，資料與計算機13 同源）=====
+const NAME_LABEL = {
+  STR:'指定主屬 %', HP:'HP %', All:'全屬性 %', CD_2:'技能冷卻 -2秒', CD_1:'技能冷卻 -1秒',
+  Decent:'實用的技能(上限1)', IgnoreDmg:'被擊中無視傷害(上限2)', OtherStats:'雜項(其他)',
+  Att_13:'物理攻擊力(魔法攻擊力) +13%', Att_10:'物理攻擊力(魔法攻擊力) +10%',
+  Boss_40:'BOSS傷害 +40%', Boss_35:'BOSS傷害 +35%', Boss_30:'BOSS傷害 +30%',
+  Ign_40:'無視防禦 +40%', Ign_35:'無視防禦 +35%', Ign_30:'無視防禦 +30%',
+  CritD:'爆擊傷害 %', Drop:'道具掉落率 %', Meso:'楓幣獲得量 %',
+  InvincDur:'被擊無敵時間(上限1)', InvincCh:'被擊無敵機率(上限2)'
+};
+const COMB_LABEL = {
+  'CD_2s':'技能冷卻 -2秒','CD_1s':'技能冷卻 -1秒','Skill':'實用的技能','STR%':'STR %','DEX%':'DEX %','INT%':'INT %','LUK%':'LUK %',
+  'HP%':'HP %','MP%':'MP %','All%':'全屬性 %','IgnoreDmg':'被擊中無視傷害','HPrec':'HP回復','CritD':'爆擊傷害 %',
+  'Att%':'物理攻擊力(魔法攻擊力) %','Matt%':'魔法攻擊力 %','TotalDmg%':'總傷害 %','Ign40':'無視防禦 +40%','Ign35':'無視防禦 +35%','Ign30':'無視防禦 +30%',
+  'Boss40':'BOSS傷害 +40%','Boss35':'BOSS傷害 +35%','Boss30':'BOSS傷害 +30%','Crit%':'爆擊機率 %','Att':'物理攻擊力(定值)','Matt':'魔法攻擊力(定值)',
+  'STR':'STR(定值)','DEX':'DEX(定值)','INT':'INT(定值)','LUK':'LUK(定值)','MPcost':'MP消耗減少','Meso':'楓幣獲得量 %','Drop':'道具掉落率 %',
+  'Invinc':'無敵相關','Reflect':'傷害反射'
+};
+function pct(x){ return (x*100).toFixed(2)+'%'; }
+
+function renderProbInfo(part){
+  const box=document.getElementById('prob-info');
+  try{
+  if(!E || !E.DB || !E.DB[part]){ box.innerHTML=''; return; }
+  let html='';
+
+  // --- (1) 一般池(閃炫/紅閃/對等) 權重與機率 ---
+  html+=renderPoolTable('權重與機率（閃炫 / 紅閃 / 對等 共用）', E.DB[part]);
+  // --- (2) 鏡射專用池 ---
+  if(E.DB_MIRROR[part]) html+=renderPoolTable('閃耀鏡射方塊 專用池 權重與機率', E.DB_MIRROR[part]);
+
+  // --- (3) 位置傳說率 ---
+  const R=E.RATES;
+  html+='<div class="info-card"><div class="info-head">位置傳說率（每一排洗出「傳說階」的機率，依方塊種類與排位）</div><div class="info-body">';
+  html+='<div class="rate-pills">';
+  html+='<div class="rate-pill"><b>閃炫(6排)</b><br>'+R.violet.map((v,i)=>'第'+(i+1)+'排 '+pct(v)).join('、')+'</div>';
+  html+='<div class="rate-pill"><b>紅閃(3排)</b><br>'+R.mystic.map((v,i)=>'第'+(i+1)+'排 '+pct(v)).join('、')+'</div>';
+  html+='<div class="rate-pill"><b>對等(3排)</b><br>'+R.equal.map((v,i)=>'第'+(i+1)+'排 '+pct(v)).join('、')+'</div>';
+  html+='<div class="rate-pill"><b>鏡射(3排)</b><br>'+R.mirror.map((v,i)=>'第'+(i+1)+'排 '+pct(v)).join('、')+'　(第2排另有 20% 複製第1排)</div>';
+  html+='</div></div></div>';
+
+  // --- (4) 結合方塊池 ---
+  html+=renderCombTable(part);
+
+  box.innerHTML='<h3 style="color:#1E40AF;margin:4px 0 14px;">計算採用的機率數值</h3>'+html;
+  }catch(e){ box.innerHTML='<div class="alert-box">機率表顯示發生錯誤：'+e.message+'</div>'; }
+}
+
+function renderPoolTable(title, db){
+  // 引擎實際分母 = max(權重總和, den)（與計算機13 一致）
+  let wL=0,wU=0; db.pool.forEach(p=>{wL+=(p.wLeg||0);wU+=(p.wUni||0);});
+  const divL=Math.max(wL,db.den.Leg), divU=Math.max(wU,db.den.Uni);
+  let html='<div class="info-card"><div class="info-head">'+title+'</div><div class="info-body">';
+  html+='<table class="prob-table"><thead><tr><th>詞條</th><th>傳說權重</th><th>傳說機率</th><th>罕見權重</th><th>罕見機率</th></tr></thead><tbody>';
+  db.pool.forEach(p=>{
+    const lbl=NAME_LABEL[p.name]||p.name;
+    html+='<tr><td>'+lbl+'</td><td class="num">'+(p.wLeg||0)+'</td><td class="num">'+pct((p.wLeg||0)/divL)+'</td><td class="num">'+(p.wUni||0)+'</td><td class="num">'+pct((p.wUni||0)/divU)+'</td></tr>';
+  });
+  html+='</tbody></table></div></div>';
+  return html;
+}
+
+function renderCombTable(part){
+  const cp=E.COMB[E.COMB_MAP[part]]; if(!cp) return '';
+  const sum=a=>a.reduce((s,x)=>s+x[1],0);
+  const legTot=sum(cp.leg), uniTot=sum(cp.uni);
+  let html='<div class="info-card"><div class="info-head">結合方塊 池與機率</div><div class="info-body">';
+  html+='<table class="prob-table"><thead><tr><th>傳說池詞條（出現傳說池 '+pct(E.COMB_LEG_W)+'）</th><th>池內機率</th><th>整體機率</th></tr></thead><tbody>';
+  cp.leg.forEach(([n,w])=>{ html+='<tr><td>'+(COMB_LABEL[n]||n)+'</td><td class="num">'+pct(w/legTot)+'</td><td class="num">'+pct(E.COMB_LEG_W*w/legTot)+'</td></tr>'; });
+  html+='</tbody></table>';
+  html+='<table class="prob-table" style="margin-top:10px;"><thead><tr><th>罕見池詞條（出現罕見池 '+pct(E.COMB_UNI_W)+'）</th><th>池內機率</th><th>整體機率</th></tr></thead><tbody>';
+  cp.uni.forEach(([n,w])=>{ html+='<tr><td>'+(COMB_LABEL[n]||n)+'</td><td class="num">'+pct(w/uniTot)+'</td><td class="num">'+pct(E.COMB_UNI_W*w/uniTot)+'</td></tr>'; });
+  html+='</tbody></table></div></div>';
+  return html;
+}
+
+function runSolve(){
+  const btn=document.getElementById('run'); btn.disabled=true;
+  document.getElementById('status').textContent='計算中…';
+  setTimeout(()=>{ try{ doSolve(); }catch(e){ document.getElementById('status').textContent='發生錯誤: '+e.message; } finally { btn.disabled=false; } }, 30);
+}
+
+function doSolve(){
+  save25();
+  const part=partSel.value, goalId=goalSel.value, level=document.getElementById('level').value;
+  // 留空(或非正數) = 不使用該方塊 → 以 null 表示
+  const readCost=(id)=>{ const v=document.getElementById(id).value.trim(); if(v==='') return null; const n=+v; return (isFinite(n)&&n>0)?n:null; };
+  const costs={
+    violet:readCost('c_violet'),
+    mystic:readCost('c_mystic'),
+    equal:readCost('c_equal'),
+    mirror:readCost('c_mirror'),
+    combine:readCost('c_combine')
+  };
+  if(costs.violet==null && costs.mystic==null && costs.equal==null && costs.mirror==null && costs.combine==null){
+    document.getElementById('status').textContent='';
+    document.getElementById('result').innerHTML='<div class="result-card"><div class="result-body">請至少填入一種方塊的成本（留空的方塊視為不使用）。</div></div>';
+    return;
+  }
+  const allowMystic = costs.mystic!=null;
+  const g=E.GOALS[part].find(x=>x.id===goalId);
+  const spec=g.build(E.statConfig(level));
+
+  const res=E.solve(part,spec,level,costs,allowMystic);
+  const total=res.V[res.start];
+  document.getElementById('status').textContent='';
+
+  if(!isFinite(total)||total>=1e14){
+    document.getElementById('result').innerHTML='<div class="result-card"><div class="result-body">此目標在目前設定下無法達成（可能是該部位沒有對應詞條）。</div></div>';
+    return;
+  }
+
+  // 建立指引表(各代表狀態→動作)
+  const guide=E.buildGuide(res, spec);
+
+  // 統計實際用到的方塊
+  const usedTypes=new Set();
+  guide.forEach(r=>{ if(r.act) usedTypes.add(r.act.type); });
+
+  // 成本對照: 只用「使用者有填成本」的方塊, 組出幾種限定策略比較
+  const compare=[];
+  const CN={violet:'閃炫',mystic:'紅閃',equal:'對等',mirror:'鏡射',combine:'結合'};
+  function solveLimited(allowSet){
+    // 不在 allowSet 的方塊成本設 null(停用); 在 allowSet 的沿用使用者填的成本(若使用者沒填則本就是 null)
+    const c2={violet:null,mystic:null,equal:null,mirror:null,combine:null};
+    ['violet','mystic','equal','mirror','combine'].forEach(k=>{ if(allowSet[k]) c2[k]=costs[k]; });
+    const r=E.solve(part,spec,level,c2, c2.mystic!=null);
+    return r.V[r.start];
+  }
+  const en=k=>costs[k]!=null; // 該方塊是否啟用
+  const label=(set)=>set.map(k=>CN[k]).join(' + ');
+  // 起手工具(整洗型): 使用者有填的 violet/equal/mirror 各自搭配 紅閃(若有)+結合(若有)
+  ['violet','equal','mirror'].forEach(starter=>{
+    if(!en(starter)) return;
+    // 全組合: starter + (紅閃?) + (結合?)
+    const base={}; base[starter]=1;
+    if(en('mystic')&&en('combine')){ const s=Object.assign({},base,{mystic:1,combine:1}); compare.push([label([starter,'mystic','combine']), solveLimited(s)]); }
+    if(en('mystic')){ const s=Object.assign({},base,{mystic:1}); compare.push([label([starter,'mystic']), solveLimited(s)]); }
+    if(en('combine')){ const s=Object.assign({},base,{combine:1}); compare.push([label([starter,'combine']), solveLimited(s)]); }
+    compare.push(['只用'+CN[starter], solveLimited(base)]);
+  });
+  if(en('combine')) compare.push(['全程只用結合', solveLimited({combine:1})]);
+  // 依成本排序取前三名(去除無法達成/重複成本)
+  compare.sort((a,b)=>a[1]-b[1]);
+  const top3=[]; const seenCost=new Set();
+  for(const c of compare){
+    if(!isFinite(c[1])||c[1]>=1e12) continue;
+    const rounded=Math.round(c[1]);
+    if(seenCost.has(rounded)) continue; // 成本相同的策略只保留一個(通常是等價路線)
+    seenCost.add(rounded); top3.push(c);
+    if(top3.length>=3) break;
+  }
+  let minC=top3.length?top3[0][1]:0;
+
+  let html='';
+  html+='<div class="result-card"><div class="result-head">最省路線結果</div><div class="result-body">';
+  const enabledCubes=['violet','mystic','equal','mirror','combine'].filter(k=>costs[k]!=null).map(k=>({violet:'閃炫',mystic:'紅閃',equal:'對等',mirror:'鏡射',combine:'結合'})[k]);
+  html+='<div>目標：<b>'+E.PART_NAMES[part]+' — '+g.name+'</b></div>';
+  html+='<div class="note">納入計算的方塊：'+enabledCubes.join('、')+'</div>';
+  html+='<div style="margin-top:10px;">期望總成本 <span class="cost-highlight">'+Math.round(total).toLocaleString()+'</span> <span class="cost-sub">(精確值 '+total.toFixed(1)+')</span></div>';
+  html+='<div class="note">實際會用到的方塊：'+[...usedTypes].map(t=>cubeTag(t)).join('')+'</div>';
+  html+='</div></div>';
+
+  // 操作指引
+  html+='<div class="result-card"><div class="result-head">逐步操作指引（看目前裝備狀態 → 照著做下一步）</div><div class="result-body">';
+  html+='<div class="note">潛能是隨機的，所以沒有固定步數。請對照「目前三排的狀態」查出下一步該用哪種方塊，重複直到達標。「剩餘期望成本」是從目前狀態繼續洗到達標、平均還要花多少。</div>';
+  html+='<table><thead><tr><th style="width:40%">目前裝備狀態（三排）</th><th>下一步最省操作</th><th style="width:16%">剩餘期望成本</th></tr></thead><tbody>';
+  guide.forEach(r=>{
+    const rem=(isFinite(r.cost)&&r.cost<1e12)?Math.round(r.cost).toLocaleString():'—';
+    html+='<tr class="guide-row"><td>'+fmtState(spec,r.tiers)+'</td><td>'+cubeTag(r.act.type)+E.actionDesc(spec,r.act)+'</td><td style="text-align:right;font-weight:600;color:#1E40AF;">'+rem+'</td></tr>';
+  });
+  html+='</tbody></table>';
+  html+='<div class="note"><b>達標條件：</b>'+goalReachedDesc(spec)+'</div>';
+  html+='</div></div>';
+
+  // 成本對照（前三名）
+  html+='<div class="result-card"><div class="result-head">策略成本排名（前三名）</div><div class="result-body">';
+  html+='<table class="cmp-table"><thead><tr><th style="width:12%">名次</th><th>策略</th><th style="width:26%">期望總成本</th></tr></thead><tbody>';
+  top3.forEach((c,i)=>{
+    const cls=(i===0)?' class="best"':'';
+    const val=Math.round(c[1]).toLocaleString();
+    html+='<tr><td>第 '+(i+1)+' 名</td><td>'+c[0]+'</td><td'+cls+'>'+val+'</td></tr>';
+  });
+  html+='</tbody></table>';
+  html+='<div class="note">成本 = 期望方塊顆數 × 你填的單價。數字為期望值，實際會因運氣上下波動。成本相同的等價策略只列一個。</div>';
+  html+='</div></div>';
+
+  document.getElementById('result').innerHTML=html;
+}
+
+function fmtState(spec,tiers){
+  const st=E.statConfig(document.getElementById('level').value);
+  return tiers.map((t,i)=>{
+    const lab=E.tierLabel(spec,t,st);
+    const cls = t===0?'tier-none':(t===1?'tier-top':'tier-sub');
+    return '<span class="'+cls+'">第'+(i+1)+'排：'+lab+'</span>';
+  }).join('　');
+}
+
+function goalReachedDesc(spec){
+  if(spec.kind==='weapon'){ const m={0:'三排全為最高階(BOSS40 或 物攻13%)',1:'三排皆有效，且階差合計≤1(等同兩排最高階+一排次級)',2:'三排皆有效，且階差合計≤2'}; return m[spec.thresh]; }
+  if(spec.kind==='emblem'){ const m={0:'三排全為物攻13%',1:'三排皆物攻，且階差合計≤1',2:'三排皆物攻，且階差合計≤2'}; return m[spec.thresh]; }
+  if(spec.kind==='stat'){ const nm={STR:'指定主屬%',HP:'HP%',All:'全屬性%'}[spec.statName]; const m={0:'三排全為最高階',1:'階差合計≤1',2:'階差合計≤2'}; return nm+' '+m[spec.thresh]; }
+  if(spec.kind==='cd') return 'CD 總減秒數 ≥ '+spec.sec+' 秒';
+  if(spec.kind==='cdplus'){ const ex={HP:'HP',All:'全屬性',STR:'指定主屬'}[spec.extra]||'指定主屬'; const lv=spec.want==='top'?'頂級':'次級(含)以上'; return 'CD 總減秒數 ≥ '+spec.sec+' 秒，且至少一排為'+ex+lv; }
+  if(spec.kind==='cd2stat'){ const ex={HP:'HP',All:'全屬性',STR:'指定主屬'}[spec.extra]||'指定主屬'; const lv=spec.thresh===0?'皆為頂級':'階差合計≤1(一頂一次含兩頂)'; return '一排 CD-2秒，且另兩排皆為'+ex+'（'+lv+'）'; }
+  if(spec.kind==='crit') return '至少 '+spec.need+' 排爆擊傷害';
+  if(spec.kind==='critplus'){ const ex={HP:'HP',All:'全屬性',STR:'指定主屬'}[spec.extra]||'指定主屬'; const lv=spec.want==='top'?'頂級':'次級(含)以上'; return '至少 '+spec.need+' 排爆擊傷害，且至少一排為'+ex+lv; }
+  if(spec.kind==='dropmeso') return '至少 '+spec.need+' 排目標詞條';
+  return '';
+}
+
+// 初始渲染底部機率表（放在所有 const/function 定義之後，避免 TDZ）
+renderProbInfo(partSel.value);
+</script>
+</body>
+</html>

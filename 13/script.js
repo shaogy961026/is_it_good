@@ -93,15 +93,13 @@ function updateMode() {
     modeSel.innerHTML = "";
     
     if (part === "Hat") {
-        addOpt(modeSel, "hat_cd", "CD 優先 (-4~-6秒)");
+        addOpt(modeSel, "hat_cd", "CD 優先 (-2~-6秒)");
         addOpt(modeSel, "default", "指定主屬優先 (STR/DEX/INT/LUK)"); 
         addOpt(modeSel, "hp_stat", "HP% 優先");
         addOpt(modeSel, "all_stat", "全屬性% 優先");
     } else if (part === "Glove") {
         addOpt(modeSel, "glove_crit", "爆擊傷害 優先");
-        addOpt(modeSel, "default", "指定主屬優先 (STR/DEX/INT/LUK)");
-        addOpt(modeSel, "hp_stat", "HP% 優先");
-        addOpt(modeSel, "all_stat", "全屬性% 優先");
+        // 手套只保留爆傷相關目標；純主屬/HP/全屬無爆傷組合不列(與計算機25一致)
     } else if (part === "Weapon") {
         addOpt(modeSel, "weapon_boss", "BOSS傷害 + 物理攻擊力(魔法攻擊力)% 優先");
     } else if (part === "Emblem") {
@@ -449,10 +447,12 @@ function checkCombination(combo, mode, achieved) {
     if (mode === 'hat_cd') {
         let cdSum = 0; let countCD2 = 0;
         let hasBaseS = false, hasU1S = false, hasU2S = false, hasBaseH = false, hasU1H = false;
+        let hasTopA = false, hasSubA = false;
         combo.forEach(l => {
             if (l.val > 0 && l.id.startsWith('CD')) { cdSum += l.val; if (l.val === 2) countCD2++; }
             if (l.str >= st.base) hasBaseS = true; if (l.str >= st.u1) hasU1S = true; if (l.str >= st.u2)  hasU2S = true;
             if (l.hp >= st.base) hasBaseH = true; if (l.hp >= st.u1) hasU1H = true;
+            if (l.all >= st.u1) hasTopA = true; if (l.all >= st.u2) hasSubA = true;
         });
 
         if (cdSum >= 6) achieved['CD6'] = true; if (cdSum >= 5) achieved['CD5'] = true; if (countCD2 >= 2) achieved['2L_CD2'] = true; 
@@ -463,6 +463,27 @@ function checkCombination(combo, mode, achieved) {
             if (hasU2S || hasU1S || hasBaseS)  achieved['CD4_U2S'] = true;
             if (hasBaseH) achieved['CD4_BaseH'] = true;
             if (hasU1H || hasBaseH) achieved['CD4_U1H'] = true;
+            if (hasTopA) achieved['CD4_TopA'] = true;
+            if (hasSubA || hasTopA) achieved['CD4_SubA'] = true;
+        }
+        // CD-2秒 只佔一排，剩兩排湊屬性：一排 CD-2 + 兩排該屬性(取階差最小兩排，合計<=thresh)
+        // 階差：主屬 top=base,sub=u1；HP top=base,sub=u1；全屬 top=u1,sub=u2
+        const defsOf = (field, top, sub) => {
+            const arr = [];
+            combo.forEach(l => { const v = l[field] || 0; if (v > 0) arr.push(v >= top ? 0 : (v >= sub ? 1 : 2)); });
+            arr.sort((a,b)=>a-b); return arr;
+        };
+        const twoStatOK = (defs, thresh) => defs.length >= 2 && (defs[0] + defs[1]) <= thresh;
+        if (countCD2 >= 1) {
+            const dS = defsOf('str', st.base, st.u1);
+            const dH = defsOf('hp',  st.base, st.u1);
+            const dA = defsOf('all', st.u1,  st.u2);
+            if (twoStatOK(dS, 0)) achieved['CD2_TopS'] = true;
+            if (twoStatOK(dS, 1)) achieved['CD2_SubS'] = true;
+            if (twoStatOK(dH, 0)) achieved['CD2_TopH'] = true;
+            if (twoStatOK(dH, 1)) achieved['CD2_SubH'] = true;
+            if (twoStatOK(dA, 0)) achieved['CD2_TopA'] = true;
+            if (twoStatOK(dA, 1)) achieved['CD2_SubA'] = true;
         }
 
     } else if (mode === 'glove_crit') {
@@ -665,7 +686,7 @@ function runMathDP(part, stateConfig, evaluateFn, useRules, lockedInfo) {
     }
 
     let den = { Leg: Math.max(cfg.den.Leg, totalWeightSums.Leg), Uni: Math.max(cfg.den.Uni, totalWeightSums.Uni) };
-    let startState = [0,0,0,0,0,0,0,0,0,0,0,0];
+    let startState = [0,0,0,0,0,0,0,0,0,0,0,0,0,0];
     let dp = {}; dp[startState.join(',')] = 1.0;
     let maxSlots = (configKey === 'violet') ? 6 : 3;
 
@@ -760,7 +781,7 @@ function runMirrorMath(part, configFn, idMap, checkFn, useRules) {
     const bump = (state, idx) => { let s = state.slice(); if (idx >= 0) s[idx] += 1; return s; };
 
     const res = {};
-    const startState = [0,0,0,0,0,0,0,0,0,0,0,0];
+    const startState = [0,0,0,0,0,0,0,0,0,0,0,0,0,0];
 
     // 有序列舉三排
     rowOutcomes(0, startState).forEach(o0 => {
@@ -910,15 +931,20 @@ function calcMath_HP(useRules, lockedInfo) {
 
 function calcMath_Hat(useRules, lockedInfo) {
     const st = getStatConfig();
+    // 全屬給獨立槽位(idx 10/11)，但仍帶 s 值(All 的 u1/u2)，讓「主屬」目標照舊計入全屬；
+    // 新增的 all 欄位用於「全屬限定」目標判定，避免把主屬次級誤判為全屬。
     const ID_MAP = [
-        {id:'CD', val:2, s:0, h:0}, {id:'CD', val:1, s:0, h:0},      
-        {id:'Stat', val:0, s:st.base, h:0}, {id:'Stat', val:0, s:st.u1, h:0}, {id:'Stat', val:0, s:st.u2, h:0},    
-        {id:'HP', val:0, s:0, h:st.base}, {id:'HP', val:0, s:0, h:st.u1},     
-        {id:'Junk', val:0, s:0, h:0}, {id:'Junk', val:0, s:0, h:0}, {id:'Junk', val:0, s:0, h:0}
+        {id:'CD', val:2, s:0, h:0, all:0}, {id:'CD', val:1, s:0, h:0, all:0},      
+        {id:'Stat', val:0, s:st.base, h:0, all:0}, {id:'Stat', val:0, s:st.u1, h:0, all:0}, {id:'Stat', val:0, s:st.u2, h:0, all:0},    
+        {id:'HP', val:0, s:0, h:st.base, all:0}, {id:'HP', val:0, s:0, h:st.u1, all:0},     
+        {id:'Junk', val:0, s:0, h:0, all:0}, {id:'Junk', val:0, s:0, h:0, all:0}, {id:'Junk', val:0, s:0, h:0, all:0},
+        {id:'Junk', val:0, s:0, h:0, all:0}, {id:'Junk', val:0, s:0, h:0, all:0},
+        {id:'All', val:0, s:st.u1, h:0, all:st.u1}, {id:'All', val:0, s:st.u2, h:0, all:st.u2}
     ];
+    // All 用 idx 12/13（非排他槽，避開 isLimitReached 的 8~11）；仍帶 s 值讓「主屬」目標計入全屬。
     const config = (p, rank) => {
         if(p.name==='CD_2') return 0; if(p.name==='CD_1') return 1;
-        if(p.name==='STR') return (rank==='Leg' ? 2 : 3); if(p.name==='All') return (rank==='Leg' ? 3 : 4); 
+        if(p.name==='STR') return (rank==='Leg' ? 2 : 3); if(p.name==='All') return (rank==='Leg' ? 12 : 13); 
         if(p.name==='HP') return (rank==='Leg' ? 5 : 6);
         if(p.type === 20) return 8; if(p.type === 40) return 9; 
         return null;
@@ -926,10 +952,12 @@ function calcMath_Hat(useRules, lockedInfo) {
     const check3 = (lines, validMap) => {
         let cdSum = 0; let countCD2 = 0;
         let hasBaseS=false, hasU1S=false, hasU2S=false, hasBaseH=false, hasU1H=false;
+        let hasTopA=false, hasSubA=false;
         for(let l of lines) {
             if(l.id==='CD') { cdSum += l.val; if(l.val === 2) countCD2++; }
             if(l.s>=st.base) hasBaseS=true; if(l.s>=st.u1) hasU1S=true; if(l.s>=st.u2) hasU2S=true;
             if(l.h>=st.base) hasBaseH=true; if(l.h>=st.u1) hasU1H=true;
+            if(l.all>=st.u1) hasTopA=true; if(l.all>=st.u2) hasSubA=true;
         }
         if (countCD2 >= 2) validMap['2L_CD2'] = true;
         if (cdSum >= 6) validMap['CD6'] = true; if (cdSum >= 5) validMap['CD5'] = true;
@@ -940,6 +968,26 @@ function calcMath_Hat(useRules, lockedInfo) {
             if(hasU2S||hasU1S||hasBaseS) validMap['CD4_U2S']=true;
             if(hasBaseH) validMap['CD4_BaseH']=true;
             if(hasU1H||hasBaseH) validMap['CD4_U1H']=true;
+            if(hasTopA) validMap['CD4_TopA']=true;
+            if(hasSubA||hasTopA) validMap['CD4_SubA']=true;
+        }
+        // CD-2秒 只佔一排，剩兩排湊屬性：一排 CD-2 + 兩排該屬性(取階差最小兩排，合計<=thresh)
+        const defsOf = (field, top, sub) => {
+            const arr = [];
+            for(let l of lines){ const v = l[field] || 0; if(v > 0) arr.push(v >= top ? 0 : (v >= sub ? 1 : 2)); }
+            arr.sort((a,b)=>a-b); return arr;
+        };
+        const twoStatOK = (defs, thresh) => defs.length >= 2 && (defs[0] + defs[1]) <= thresh;
+        if (countCD2 >= 1) {
+            const dS = defsOf('s',   st.base, st.u1);
+            const dH = defsOf('h',   st.base, st.u1);
+            const dA = defsOf('all', st.u1,  st.u2);
+            if (twoStatOK(dS, 0)) validMap['CD2_TopS'] = true;
+            if (twoStatOK(dS, 1)) validMap['CD2_SubS'] = true;
+            if (twoStatOK(dH, 0)) validMap['CD2_TopH'] = true;
+            if (twoStatOK(dH, 1)) validMap['CD2_SubH'] = true;
+            if (twoStatOK(dA, 0)) validMap['CD2_TopA'] = true;
+            if (twoStatOK(dA, 1)) validMap['CD2_SubA'] = true;
         }
     };
     return runGenericC63('Hat', config, ID_MAP, check3, useRules, lockedInfo);
@@ -1299,10 +1347,15 @@ function renderResults(simRes, mode, mathData) {
 
     if (mode === 'hat_cd') {
         let r1 = [ ...posRows, {key:'2L_CD2', label:'雙排 -2秒 CD', special:true}, {key:'CD6', label:'-6秒↑ CD'}, {key:'CD5', label:'-5秒↑ CD'}, {key:'CD4_Any', label:'-4秒↑ CD'}, 
-            {key:'CD4_BaseS', label:`-4秒↑ CD + ${st.base}%↑ 指定主屬`, both:true}, {key:'CD4_U1S', label:`-4秒↑ CD + ${st.u1}%↑ 指定主屬`, both:true}, {key:'CD4_U2S', label:`-4秒↑ CD + ${st.u2}%↑ 指定主屬`, both:true} ];
+            {key:'CD4_BaseS', label:`-4秒↑ CD + ${st.base}%↑ 指定主屬`, both:true}, {key:'CD4_U1S', label:`-4秒↑ CD + ${st.u1}%↑ 指定主屬`, both:true}, {key:'CD4_U2S', label:`-4秒↑ CD + ${st.u2}%↑ 指定主屬`, both:true},
+            {key:'CD2_TopS', label:`-2秒 CD + 兩排 ${st.base}%↑ 指定主屬`, both:true}, {key:'CD2_SubS', label:`-2秒 CD + 兩排主屬 (${st.base}%+${st.u1}%↑)`, both:true} ];
         let r2 = [ ...posRows, {key:'2L_CD2', label:'雙排 -2秒 CD', special:true}, {key:'CD6', label:'-6秒↑ CD'}, {key:'CD5', label:'-5秒↑ CD'}, {key:'CD4_Any', label:'-4秒↑ CD'}, 
-            {key:'CD4_BaseH', label:`-4秒↑ CD + ${st.base}%↑ HP`, both:true}, {key:'CD4_U1H', label:`-4秒↑ CD + ${st.u1}%↑ HP`, both:true} ];
-        area.innerHTML = renderTable("帽子 (CD & 指定主屬)", r1) + renderTable("帽子 (CD & HP)", r2);
+            {key:'CD4_BaseH', label:`-4秒↑ CD + ${st.base}%↑ HP`, both:true}, {key:'CD4_U1H', label:`-4秒↑ CD + ${st.u1}%↑ HP`, both:true},
+            {key:'CD2_TopH', label:`-2秒 CD + 兩排 ${st.base}%↑ HP`, both:true}, {key:'CD2_SubH', label:`-2秒 CD + 兩排HP (${st.base}%+${st.u1}%↑)`, both:true} ];
+        let r3 = [ ...posRows, {key:'CD6', label:'-6秒↑ CD'}, {key:'CD5', label:'-5秒↑ CD'}, {key:'CD4_Any', label:'-4秒↑ CD'}, 
+            {key:'CD4_TopA', label:`-4秒↑ CD + ${st.u1}%↑ 全屬性`, both:true}, {key:'CD4_SubA', label:`-4秒↑ CD + ${st.u2}%↑ 全屬性`, both:true},
+            {key:'CD2_TopA', label:`-2秒 CD + 兩排 ${st.u1}%↑ 全屬性`, both:true}, {key:'CD2_SubA', label:`-2秒 CD + 兩排全屬 (${st.u1}%+${st.u2}%↑)`, both:true} ];
+        area.innerHTML = renderTable("帽子 (CD & 指定主屬)", r1) + renderTable("帽子 (CD & HP)", r2) + renderTable("帽子 (CD & 全屬性)", r3);
     } else if (mode === 'glove_crit') {
         let r1 = [ ...posRows, {key:'Crit3', label:'3排↑ 爆傷'}, {key:'Crit2_Any', label:'2排↑ 爆傷'}, 
             {key:'Crit2_BaseS', label:`2排↑ 爆傷 + ${st.base}%↑ 指定主屬`, both:true}, {key:'Crit2_U1S', label:`2排↑ 爆傷 + ${st.u1}%↑ 指定主屬`, both:true}, {key:'Crit2_U2S', label:`2排↑ 爆傷 + ${st.u2}%↑ 指定主屬`, both:true} ];
@@ -1446,18 +1499,20 @@ function renderResults(simRes, mode, mathData) {
         ];
         area.innerHTML = renderTable("飾品 (道具掉落率% & 楓幣獲得量%)", rows);
     } else if (mode === 'all_stat') {
+        // 只顯示「兩排湊不到」的門檻(val > 頂值×2)；兩排即可達成的低檔不列出
         let rows = [ ...posRows, {key:'2L_All', label:`雙排 ${st.u1}% 全屬性`, special:true} ];
-        for(let i=0; i<=3; i++) { let val = st.u1*3 - i*3; rows.push({key: 'All_Tier'+i, label: fmtLabel(val, '全屬性', 'all')}); }
+        for(let i=0; i<=3; i++) { let val = st.u1*3 - i*3; if(val > st.u1*2) rows.push({key: 'All_Tier'+i, label: fmtLabel(val, '全屬性', 'all')}); }
         let pName = document.getElementById('partSelect').options[document.getElementById('partSelect').selectedIndex].text;
         area.innerHTML = renderTable(`${pName} (全屬性)`, rows);
     } else if (mode === 'hp_stat') {
         let rows = [ ...posRows, {key:'2L_HP', label:`雙排 ${st.base}% HP`, special:true} ];
-        for(let i=0; i<=3; i++) { let val = st.base*3 - i*3; rows.push({key: 'HP_Tier'+i, label: fmtLabel(val, 'HP', 'hp')}); }
+        for(let i=0; i<=3; i++) { let val = st.base*3 - i*3; if(val > st.base*2) rows.push({key: 'HP_Tier'+i, label: fmtLabel(val, 'HP', 'hp')}); }
         let pName = document.getElementById('partSelect').options[document.getElementById('partSelect').selectedIndex].text;
         area.innerHTML = renderTable(`${pName} (HP%)`, rows);
     } else {
+        // 只顯示「兩排湊不到」的門檻(val > 頂值×2)；兩排即可達成的低檔(如24%↑含以下)不列出
         let rows = [ ...posRows, {key:'2L_STR', label:`雙排 ${st.base}% 指定主屬`, special:true} ];
-        for(let i=0; i<=6; i++) { let val = st.base*3 - i*3; rows.push({key: 'S_Tier'+i, label: fmtLabel(val, '指定主屬', 'str')}); }
+        for(let i=0; i<=6; i++) { let val = st.base*3 - i*3; if(val > st.base*2) rows.push({key: 'S_Tier'+i, label: fmtLabel(val, '指定主屬', 'str')}); }
         let pName = document.getElementById('partSelect').options[document.getElementById('partSelect').selectedIndex].text;
         area.innerHTML = renderTable(`指定主屬 (${pName})`, rows);
     }

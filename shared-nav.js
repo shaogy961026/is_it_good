@@ -303,6 +303,7 @@ document.addEventListener("DOMContentLoaded", function() {
             name: "潛在能力及附加潛在能力",
             items: [
                 { name: "潛能方塊分析",            url: toolUrl(13) },
+                { name: "潛能方塊最省洗練路線分析",  url: toolUrl(25) },
                 { name: "珍貴的附加方塊分析",        url: toolUrl(19) },
                 { name: "結合方塊/結合附加方塊分析", url: toolUrl(20) }
             ]
