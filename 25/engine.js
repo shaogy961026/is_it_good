@@ -397,6 +397,21 @@ function makeCritPlusGoal(need, extra, want, label){
 
 // ---- 各部位可選目標清單 ----
 // 回傳 [{id, build:(st)=>spec}]
+// 共用的「主屬/HP/全屬 頂%/次頂/次次頂」9 個目標(帽子與其他防具共用, 詞條機率與計算機13 一致)
+function statGoalSet(){
+  return [
+    {id:'str_top', name:'指定主屬 頂%', build:()=>makeStatGoal('STR',0,'主屬頂%')},
+    {id:'str_near', name:'指定主屬 次頂', build:()=>makeStatGoal('STR',1,'主屬次頂')},
+    {id:'str_near2', name:'指定主屬 次次頂', build:()=>makeStatGoal('STR',2,'主屬次次頂')},
+    {id:'hp_top', name:'HP% 頂%', build:()=>makeStatGoal('HP',0,'HP頂%')},
+    {id:'hp_near', name:'HP% 次頂', build:()=>makeStatGoal('HP',1,'HP次頂')},
+    {id:'hp_near2', name:'HP% 次次頂', build:()=>makeStatGoal('HP',2,'HP次次頂')},
+    {id:'all_top', name:'全屬性% 頂%', build:()=>makeStatGoal('All',0,'全屬頂%')},
+    {id:'all_near', name:'全屬性% 次頂', build:()=>makeStatGoal('All',1,'全屬次頂')},
+    {id:'all_near2', name:'全屬性% 次次頂', build:()=>makeStatGoal('All',2,'全屬次次頂')},
+  ];
+}
+
 const GOALS = {
   Weapon:[
     {id:'w_top', name:'頂%', build:()=>makeWeaponGoal(0,'頂%')},
@@ -424,12 +439,8 @@ const GOALS = {
     {id:'cd2_hp_sub', name:'CD -2秒 + 兩排HP(含次)', build:()=>makeCD2TwoStatGoal('HP',1,'CD-2秒+兩排HP(含次)')},
     {id:'cd2_all_top', name:'CD -2秒 + 兩排頂全屬', build:()=>makeCD2TwoStatGoal('All',0,'CD-2秒+兩排頂全屬')},
     {id:'cd2_all_sub', name:'CD -2秒 + 兩排全屬(含次)', build:()=>makeCD2TwoStatGoal('All',1,'CD-2秒+兩排全屬(含次)')},
-    {id:'str_top', name:'指定主屬 頂%', build:()=>makeStatGoal('STR',0,'主屬頂%')},
-    {id:'str_near', name:'指定主屬 次頂', build:()=>makeStatGoal('STR',1,'主屬次頂')},
-    {id:'str_near2', name:'指定主屬 次次頂', build:()=>makeStatGoal('STR',2,'主屬次次頂')},
-    {id:'hp_top', name:'HP% 頂%', build:()=>makeStatGoal('HP',0,'HP頂%')},
-    {id:'hp_near', name:'HP% 次頂', build:()=>makeStatGoal('HP',1,'HP次頂')},
-    {id:'hp_near2', name:'HP% 次次頂', build:()=>makeStatGoal('HP',2,'HP次次頂')},
+    // 主屬/HP/全屬 頂%/次頂/次次頂(與其他防具共用同一組定義)
+    ...statGoalSet(),
   ],
   Glove:[
     {id:'crit3', name:'三排爆傷', build:()=>makeCritGoal(3,'三排爆傷')},
@@ -442,30 +453,20 @@ const GOALS = {
     // 手套只保留有爆傷的目標；純主屬/HP/全屬無爆傷組合不列
   ],
   Accessory:[
-    {id:'drop3', name:'掉寶三排', build:()=>makeDropMesoGoal(3,'Drop','掉寶三排')},
-    {id:'meso3', name:'楓幣三排', build:()=>makeDropMesoGoal(3,'Meso','楓幣三排')},
-    {id:'dm_any2', name:'掉寶/楓幣 兩排', build:()=>makeDropMesoGoal(2,'Any','掉寶楓幣兩排')},
-    {id:'str_top', name:'指定主屬 頂%', build:()=>makeStatGoal('STR',0,'主屬頂%')},
-    {id:'str_near', name:'指定主屬 次頂', build:()=>makeStatGoal('STR',1,'主屬次頂')},
-    {id:'str_near2', name:'指定主屬 次次頂', build:()=>makeStatGoal('STR',2,'主屬次次頂')},
-    {id:'hp_top', name:'HP% 頂%', build:()=>makeStatGoal('HP',0,'HP頂%')},
-    {id:'hp_near', name:'HP% 次頂', build:()=>makeStatGoal('HP',1,'HP次頂')},
-    {id:'hp_near2', name:'HP% 次次頂', build:()=>makeStatGoal('HP',2,'HP次次頂')},
+    // 飾品專屬目標(道具掉落率/楓幣獲得量)，與計算機13 的目標集合一致
+    {id:'drop3', name:'三排 道具掉落率%', build:()=>makeDropMesoGoal(3,'Drop','三排 道具掉落率%')},
+    {id:'meso3', name:'三排 楓幣獲得量%', build:()=>makeDropMesoGoal(3,'Meso','三排 楓幣獲得量%')},
+    {id:'dm_any3', name:'任意三排 道具掉落率% 或 楓幣獲得量%', build:()=>makeDropMesoGoal(3,'Any','任意三排 道具掉落率% 或 楓幣獲得量%')},
+    {id:'drop2', name:'兩排 道具掉落率%', build:()=>makeDropMesoGoal(2,'Drop','兩排 道具掉落率%')},
+    {id:'meso2', name:'兩排 楓幣獲得量%', build:()=>makeDropMesoGoal(2,'Meso','兩排 楓幣獲得量%')},
+    {id:'dm_any2', name:'任意兩排 道具掉落率% 或 楓幣獲得量%', build:()=>makeDropMesoGoal(2,'Any','任意兩排 道具掉落率% 或 楓幣獲得量%')},
+    // 主屬/HP/全屬 頂%/次頂/次次頂(與帽子及其他防具共用同一組定義)
+    ...statGoalSet(),
   ],
 };
 // 防具類(帽子以外的 Top/Bottom/Shoes/Cape) 共用主屬/HP/全屬 頂%/次頂/次次頂目標
 ['Top','Bottom','Shoes','Cape'].forEach(part=>{
-  GOALS[part]=[
-    {id:'str_top', name:'指定主屬 頂%', build:()=>makeStatGoal('STR',0,'主屬頂%')},
-    {id:'str_near', name:'指定主屬 次頂', build:()=>makeStatGoal('STR',1,'主屬次頂')},
-    {id:'str_near2', name:'指定主屬 次次頂', build:()=>makeStatGoal('STR',2,'主屬次次頂')},
-    {id:'hp_top', name:'HP% 頂%', build:()=>makeStatGoal('HP',0,'HP頂%')},
-    {id:'hp_near', name:'HP% 次頂', build:()=>makeStatGoal('HP',1,'HP次頂')},
-    {id:'hp_near2', name:'HP% 次次頂', build:()=>makeStatGoal('HP',2,'HP次次頂')},
-    {id:'all_top', name:'全屬性% 頂%', build:()=>makeStatGoal('All',0,'全屬頂%')},
-    {id:'all_near', name:'全屬性% 次頂', build:()=>makeStatGoal('All',1,'全屬次頂')},
-    {id:'all_near2', name:'全屬性% 次次頂', build:()=>makeStatGoal('All',2,'全屬次次頂')},
-  ];
+  GOALS[part]=statGoalSet();
 });
 
 // 部位中文名
@@ -665,7 +666,70 @@ function solve(part, spec, level, costs, allowMystic){
     if(delta<0.005) break;
   }
 
-  return {V, POL, maxT, idx, decode, reached, start:idx(0,0,0)};
+  // ---- 依最佳策略 POL 計算各方塊種類的「期望顆數」 ----
+  // 對每個狀態, 取其最佳動作的 (selfP, trans), 動作本身消耗 1 顆該 type 的方塊。
+  // 期望顆數遞迴(策略評估)：N_t[i] = ( [該動作type==t] + Σ p·N_t[next] ) / (1 - selfP)
+  // 整洗型(violet/equal/mirror)的候選狀態由收斂後 V 決定(取 V 最小者), 與成本計算一致。
+  const CUBE_TYPES = ['violet','mystic','equal','mirror','combine'];
+
+  // 取某狀態最佳動作的 {type, selfP, trans:[{k,p}]}
+  function actCell(i){
+    const act=POL[i];
+    if(!act) return null;
+    if(act.type==='violet'||act.type==='equal'||act.type==='mirror'){
+      const entries=WHOLE[act.type];
+      let selfP=0; const agg={};
+      for(let e=0;e<entries.length;e++){
+        const cands=entries[e].cands, p=entries[e].p;
+        let bv=V[cands[0]], bk=cands[0];
+        for(let j=1;j<cands.length;j++){ const kk=cands[j]; if(V[kk]<bv){bv=V[kk];bk=kk;} }
+        if(bk===i) selfP+=p; else agg[bk]=(agg[bk]||0)+p;
+      }
+      const trans=[]; for(const k in agg) trans.push({k:+k,p:agg[k]});
+      return {type:act.type, selfP, trans};
+    }
+    if(act.type==='mystic'){ const cell=MYST[act.lock][i]; return {type:'mystic', selfP:cell.selfP, trans:cell.trans}; }
+    if(act.type==='combine'){
+      // combWsets 與 COMBC 同索引; 由 act.W 找回索引
+      let wi=-1; for(let w=0;w<combWsets.length;w++){ if(combWsets[w].length===act.W.length && combWsets[w].every((x,ix)=>x===act.W[ix])){ wi=w; break; } }
+      const cell=COMBC[wi][i]; return {type:'combine', selfP:cell.selfP, trans:cell.trans};
+    }
+    return null;
+  }
+
+  // 預先取出每個非達標狀態的動作 cell
+  const CELL=new Array(nStates);
+  for(let i=0;i<nStates;i++){ if(!REACH[i] && V[i]<1e14) CELL[i]=actCell(i); }
+
+  // 各 type 一組 N 陣列, 用值迭代解
+  const COUNTS={};
+  CUBE_TYPES.forEach(type=>{
+    const N=new Float64Array(nStates); // 達標狀態 N=0
+    for(let iter=0; iter<6000; iter++){
+      let delta=0;
+      for(let i=0;i<nStates;i++){
+        if(REACH[i] || V[i]>=1e14) continue;
+        const cell=CELL[i]; if(!cell || cell.selfP>0.9999999) continue;
+        let acc = (cell.type===type)?1:0;
+        const tr=cell.trans;
+        for(let j=0;j<tr.length;j++) acc+=tr[j].p*N[tr[j].k];
+        const nv=acc/(1-cell.selfP);
+        const d=Math.abs(nv-N[i]); if(d>delta) delta=d;
+        N[i]=nv;
+      }
+      if(delta<1e-6) break;
+    }
+    COUNTS[type]=N;
+  });
+
+  // 便捷存取: 回傳某狀態各方塊期望顆數 {violet, mystic, equal, mirror, combine}(0 的省略)
+  function countsAt(stateIdx){
+    const out={};
+    CUBE_TYPES.forEach(type=>{ const v=COUNTS[type][stateIdx]; if(v>1e-9) out[type]=v; });
+    return out;
+  }
+
+  return {V, POL, maxT, idx, decode, reached, start:idx(0,0,0), COUNTS, countsAt};
 }
 
 E.solve = solve;

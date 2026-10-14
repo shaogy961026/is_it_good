@@ -639,7 +639,7 @@ function checkCombination(combo, mode, achieved) {
         if (totalDM >= 3) achieved['3L_DM'] = true;
         if (totalDM >= 2) achieved['2L_DM'] = true;
         if (dropCount >= 3) achieved['3L_Drop'] = true;
-        if (dropCount >= 2 && mesoCount >= 1) achieved['2L_Drop_1L_Meso'] = true;
+        if (mesoCount >= 3) achieved['3L_Meso'] = true;
         if (dropCount >= 2) achieved['2L_Drop'] = true;
         if (mesoCount >= 2) achieved['2L_Meso'] = true;
 
@@ -1183,7 +1183,7 @@ function calcMath_AccessoryDropMeso(useRules, lockedInfo) {
         if (totalDM >= 3) validMap['3L_DM'] = true;
         if (totalDM >= 2) validMap['2L_DM'] = true;
         if (dropCount >= 3) validMap['3L_Drop'] = true;
-        if (dropCount >= 2 && mesoCount >= 1) validMap['2L_Drop_1L_Meso'] = true;
+        if (mesoCount >= 3) validMap['3L_Meso'] = true;
         if (dropCount >= 2) validMap['2L_Drop'] = true;
         if (mesoCount >= 2) validMap['2L_Meso'] = true;
     };
@@ -1492,7 +1492,7 @@ function renderResults(simRes, mode, mathData) {
             ...posRows,
             {key:'3L_DM', label:`任意三排 道具掉落率% 或 楓幣獲得量%${toolTipHtml3L}`, special:true},
             {key:'3L_Drop', label:'三排 道具掉落率%', special:true},
-            {key:'2L_Drop_1L_Meso', label:'兩排 道具掉落率% + 一排 楓幣獲得量%', special:true},
+            {key:'3L_Meso', label:'三排 楓幣獲得量%', special:true},
             {key:'2L_DM', label:`任意兩排 道具掉落率% 或 楓幣獲得量%${toolTipHtml2L}`, special:true},
             {key:'2L_Drop', label:'兩排 道具掉落率%', special:true}, 
             {key:'2L_Meso', label:'兩排 楓幣獲得量%', special:true}

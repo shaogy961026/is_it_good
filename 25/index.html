@@ -44,6 +44,9 @@ th { background:#f1f5f9; color:#334155; font-weight:700; }
 .note { font-size:13px; color:#64748b; line-height:1.7; margin-top:10px; }
 .cube-tag { display:inline-block; padding:2px 8px; border-radius:6px; font-size:12px; font-weight:700; margin-right:4px; }
 .c-violet{background:#f3e8ff;color:#7c3aed;} .c-mystic{background:#fee2e2;color:#dc2626;} .c-equal{background:#dcfce7;color:#16a34a;} .c-mirror{background:#e0f2fe;color:#0284c7;} .c-combine{background:#fef3c7;color:#b45309;}
+.cube-qty{display:inline-flex;align-items:center;white-space:nowrap;margin:2px 8px 2px 0;font-size:13px;font-weight:600;color:#334155;}
+.cube-qty .cube-tag{margin-right:4px;}
+.qty-cell{line-height:1.9;}
 #prob-info { margin-top:28px; }
 .info-card { background:#fff; border:1px solid #e2e8f0; border-radius:10px; margin-bottom:16px; overflow:hidden; }
 .info-head { background:#f1f5f9; color:#334155; padding:12px 18px; font-weight:700; font-size:15px; border-bottom:1px solid #e2e8f0; }
@@ -156,6 +159,29 @@ load25();
 function cubeTag(type){
   const cls={violet:'c-violet',mystic:'c-mystic',equal:'c-equal',mirror:'c-mirror',combine:'c-combine'}[type]||'';
   return '<span class="cube-tag '+cls+'">'+E.CUBE_NAME[type]+'</span>';
+}
+
+// 顆數格式：一律四捨五入到小數第二位
+function fmtQty(n){
+  if(!(n>0)) return '0';
+  return (Math.round(n*100)/100).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2});
+}
+// 把某狀態的各方塊期望顆數組成「方塊標籤 × 顆數」的 HTML（含複合多方塊）
+// counts: {violet:x, mystic:y, ...}（0 的已省略）
+function cubeQtyHtml(counts){
+  // 依「實際操作先後」排序：整洗型起手(閃炫/對等/鏡射) → 紅閃鎖排 → 結合收尾
+  const order=['violet','equal','mirror','mystic','combine'];
+  const items=order.filter(t=>counts[t]>1e-6);
+  if(!items.length) return '<span class="tier-none">—</span>';
+  return items.map(t=>'<span class="cube-qty">'+cubeTag(t)+'× '+fmtQty(counts[t])+' 顆</span>').join(' ');
+}
+// 由策略允許的方塊集合重算一次，取得起點各方塊期望顆數
+function countsForLimited(part, spec, level, costs, allowSet){
+  const c2={violet:null,mystic:null,equal:null,mirror:null,combine:null};
+  ['violet','mystic','equal','mirror','combine'].forEach(k=>{ if(allowSet[k]) c2[k]=costs[k]; });
+  const r=E.solve(part,spec,level,c2, c2.mystic!=null);
+  if(!isFinite(r.V[r.start])||r.V[r.start]>=1e14) return null;
+  return r.countsAt(r.start);
 }
 
 // ===== 底部：計算採用的機率數值（透明化，資料與計算機13 同源）=====
@@ -289,17 +315,18 @@ function doSolve(){
   }
   const en=k=>costs[k]!=null; // 該方塊是否啟用
   const label=(set)=>set.map(k=>CN[k]).join(' + ');
+  // compare 項目: [label, cost, allowSet]
   // 起手工具(整洗型): 使用者有填的 violet/equal/mirror 各自搭配 紅閃(若有)+結合(若有)
   ['violet','equal','mirror'].forEach(starter=>{
     if(!en(starter)) return;
     // 全組合: starter + (紅閃?) + (結合?)
     const base={}; base[starter]=1;
-    if(en('mystic')&&en('combine')){ const s=Object.assign({},base,{mystic:1,combine:1}); compare.push([label([starter,'mystic','combine']), solveLimited(s)]); }
-    if(en('mystic')){ const s=Object.assign({},base,{mystic:1}); compare.push([label([starter,'mystic']), solveLimited(s)]); }
-    if(en('combine')){ const s=Object.assign({},base,{combine:1}); compare.push([label([starter,'combine']), solveLimited(s)]); }
-    compare.push(['只用'+CN[starter], solveLimited(base)]);
+    if(en('mystic')&&en('combine')){ const s=Object.assign({},base,{mystic:1,combine:1}); compare.push([label([starter,'mystic','combine']), solveLimited(s), s]); }
+    if(en('mystic')){ const s=Object.assign({},base,{mystic:1}); compare.push([label([starter,'mystic']), solveLimited(s), s]); }
+    if(en('combine')){ const s=Object.assign({},base,{combine:1}); compare.push([label([starter,'combine']), solveLimited(s), s]); }
+    compare.push(['只用'+CN[starter], solveLimited(base), Object.assign({},base)]);
   });
-  if(en('combine')) compare.push(['全程只用結合', solveLimited({combine:1})]);
+  if(en('combine')) compare.push(['全程只用結合', solveLimited({combine:1}), {combine:1}]);
   // 依成本排序取前三名(去除無法達成/重複成本)
   compare.sort((a,b)=>a[1]-b[1]);
   const top3=[]; const seenCost=new Set();
@@ -318,16 +345,21 @@ function doSolve(){
   html+='<div>目標：<b>'+E.PART_NAMES[part]+' — '+g.name+'</b></div>';
   html+='<div class="note">納入計算的方塊：'+enabledCubes.join('、')+'</div>';
   html+='<div style="margin-top:10px;">期望總成本 <span class="cost-highlight">'+Math.round(total).toLocaleString()+'</span> <span class="cost-sub">(精確值 '+total.toFixed(1)+')</span></div>';
-  html+='<div class="note">實際會用到的方塊：'+[...usedTypes].map(t=>cubeTag(t)).join('')+'</div>';
+  const startCounts=res.countsAt(res.start);
+  html+='<div class="note">實際會用到的方塊（期望顆數）：</div>';
+  html+='<div style="margin:6px 0 2px;">'+cubeQtyHtml(startCounts)+'</div>';
+  html+='<div class="note">顆數為四捨五入後的平均值，實際會因運氣上下波動，單次可能更多或更少，或甚至為 0。</div>';
   html+='</div></div>';
 
   // 操作指引
   html+='<div class="result-card"><div class="result-head">逐步操作指引（看目前裝備狀態 → 照著做下一步）</div><div class="result-body">';
   html+='<div class="note">潛能是隨機的，所以沒有固定步數。請對照「目前三排的狀態」查出下一步該用哪種方塊，重複直到達標。「剩餘期望成本」是從目前狀態繼續洗到達標、平均還要花多少。</div>';
-  html+='<table><thead><tr><th style="width:40%">目前裝備狀態（三排）</th><th>下一步最省操作</th><th style="width:16%">剩餘期望成本</th></tr></thead><tbody>';
+  html+='<table><thead><tr><th style="width:34%">目前裝備狀態（三排）</th><th>下一步最省操作</th><th style="width:15%">剩餘期望成本</th><th style="width:22%">剩餘期望方塊顆數</th></tr></thead><tbody>';
   guide.forEach(r=>{
     const rem=(isFinite(r.cost)&&r.cost<1e12)?Math.round(r.cost).toLocaleString():'—';
-    html+='<tr class="guide-row"><td>'+fmtState(spec,r.tiers)+'</td><td>'+cubeTag(r.act.type)+E.actionDesc(spec,r.act)+'</td><td style="text-align:right;font-weight:600;color:#1E40AF;">'+rem+'</td></tr>';
+    const sidx=res.idx(r.tiers[0],r.tiers[1],r.tiers[2]);
+    const qty=(isFinite(r.cost)&&r.cost<1e12)?cubeQtyHtml(res.countsAt(sidx)):'<span class="tier-none">—</span>';
+    html+='<tr class="guide-row"><td>'+fmtState(spec,r.tiers)+'</td><td>'+cubeTag(r.act.type)+E.actionDesc(spec,r.act)+'</td><td style="text-align:right;font-weight:600;color:#1E40AF;">'+rem+'</td><td class="qty-cell">'+qty+'</td></tr>';
   });
   html+='</tbody></table>';
   html+='<div class="note"><b>達標條件：</b>'+goalReachedDesc(spec)+'</div>';
@@ -335,14 +367,16 @@ function doSolve(){
 
   // 成本對照（前三名）
   html+='<div class="result-card"><div class="result-head">策略成本排名（前三名）</div><div class="result-body">';
-  html+='<table class="cmp-table"><thead><tr><th style="width:12%">名次</th><th>策略</th><th style="width:26%">期望總成本</th></tr></thead><tbody>';
+  html+='<table class="cmp-table"><thead><tr><th style="width:10%">名次</th><th style="width:22%">策略</th><th style="width:20%">期望總成本</th><th>期望方塊顆數</th></tr></thead><tbody>';
   top3.forEach((c,i)=>{
     const cls=(i===0)?' class="best"':'';
     const val=Math.round(c[1]).toLocaleString();
-    html+='<tr><td>第 '+(i+1)+' 名</td><td>'+c[0]+'</td><td'+cls+'>'+val+'</td></tr>';
+    const cnt=countsForLimited(part, spec, level, costs, c[2]);
+    const qty=cnt?cubeQtyHtml(cnt):'<span class="tier-none">—</span>';
+    html+='<tr><td>第 '+(i+1)+' 名</td><td>'+c[0]+'</td><td'+cls+'>'+val+'</td><td class="qty-cell">'+qty+'</td></tr>';
   });
   html+='</tbody></table>';
-  html+='<div class="note">成本 = 期望方塊顆數 × 你填的單價。數字為期望值，實際會因運氣上下波動。成本相同的等價策略只列一個。</div>';
+  html+='<div class="note">成本 = 期望方塊顆數 × 單價。成本相同的等價策略只列一個。</div>';
   html+='</div></div>';
 
   document.getElementById('result').innerHTML=html;
