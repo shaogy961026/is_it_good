@@ -127,7 +127,18 @@ function fillGoals(){
   const prev=goalSel.value;          // 記住切換前的目標
   goalSel.innerHTML='';
   const part=partSel.value;
-  E.GOALS[part].forEach(g=>{ const o=document.createElement('option'); o.value=g.id; o.textContent=g.name; goalSel.appendChild(o); });
+  // 依 group 欄位分類成 <optgroup>，依出現順序保留群組排列；無 group 的直接掛在最外層
+  const groups=new Map();           // group名 -> <optgroup>
+  E.GOALS[part].forEach(g=>{
+    const o=document.createElement('option'); o.value=g.id; o.textContent=g.name;
+    if(g.group){
+      let og=groups.get(g.group);
+      if(!og){ og=document.createElement('optgroup'); og.label=g.group; groups.set(g.group,og); goalSel.appendChild(og); }
+      og.appendChild(o);
+    } else {
+      goalSel.appendChild(o);
+    }
+  });
   // 若新部位也有相同目標(id)，保留原選擇，不重設為第一項
   if(prev && [...goalSel.options].some(o=>o.value===prev)) goalSel.value=prev;
 }
