@@ -2164,10 +2164,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     updateTargetStarOptions();
     if (initialSettings?.targetStar !== undefined) {
-        dom.targetStarSelect.value = initialSettings.targetStar;
+        const hasOption = (sel, v) => Array.from(sel.options).some(o => o.value === String(v));
+        if (hasOption(dom.targetStarSelect, initialSettings.targetStar)) {
+            dom.targetStarSelect.value = initialSettings.targetStar;
+        }
         updateStartStarOptions();
-        if (initialSettings.startStar !== undefined) dom.startStarSelect.value = initialSettings.startStar;
+        if (initialSettings.startStar !== undefined && hasOption(dom.startStarSelect, initialSettings.startStar)) {
+            dom.startStarSelect.value = initialSettings.startStar;
+        }
     }
+    updateStatPreview();
     if (g_savedCustomPath?.enabled && enableCustomPathCheckbox && customPathSettings) {
         enableCustomPathCheckbox.checked = true;
         customPathSettings.style.display = 'block';
