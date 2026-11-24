@@ -87,6 +87,16 @@ const enhancementCosts = {
     '250': [435000, 869100, 1303100, 1737100, 2171100, 2605200, 3039200, 3473200, 3907300, 4341300, 17740600, 40802800, 74312000, 123728500, 218718100, 222861900, 273434000, 348068200, 984561100, 1696211500, 387009800, 438804400, 494760300, 555008800, 619680000, 688902000, 762801400, 841503600, 925132300, 1013810000],
 };
 
+// 未來改版預覽：200/250 等裝備 0→1 ~ 19→20 星基礎強化費用減半（預設關閉＝現行版本，不寫入存檔）
+let g_halfCostFuture = false;
+
+function getStarBaseCost(equipLevel, n) {
+    const base = enhancementCosts[equipLevel][n];
+    if (base === undefined) return base;
+    if (g_halfCostFuture && parseInt(equipLevel, 10) >= 200 && n <= 19) return base / 2;
+    return base;
+}
+
 const SETTINGS_KEY = 'starforceSimulatorSettings_v6';
 
 const DEFAULT_SETTINGS = {
@@ -367,7 +377,7 @@ function solveMDPExact(targetStar, equipLevel, compensationPrice, couponPrices, 
                 }
             };
 
-            const originalBaseCost = enhancementCosts[equipLevel][n];
+            const originalBaseCost = getStarBaseCost(equipLevel, n);
             let totalDiscountRate = 0;
             if (costDiscount) totalDiscountRate += 0.30;
             if (n <= 16) totalDiscountRate += vipDiscount;
@@ -454,7 +464,7 @@ function extrapolateMDPStep(baseMDP, n, equipLevel, compensationPrice, activePro
 
     const probs = activeProbabilities[n];
     const p = probs.success, r = probs.destroy;
-    const rawC = enhancementCosts[equipLevel][n];
+    const rawC = getStarBaseCost(equipLevel, n);
     const c = costDiscount ? rawC * 0.7 : rawC;
 
     const ts = 22;
@@ -1003,6 +1013,7 @@ document.addEventListener('DOMContentLoaded', () => {
         dom.dataTablesTitle.textContent = "基礎數據參考 (基於當前設定)";
 
         const costsMods = [];
+        if (g_halfCostFuture && parseInt(equipLevel, 10) >= 200) costsMods.push('未來改版：0~19星基礎費用減半');
         if (costDiscount) costsMods.push('活動30%折扣');
         if (vipDiscount > 0) costsMods.push(`VIP ${Math.round(vipDiscount * 100)}%折扣`);
         dom.costsTableTitle.innerHTML = costsMods.length > 0
@@ -1018,7 +1029,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
         let costsHtml = '<table class="data-table"><thead><tr><th>星等</th><th>強化費用(楓幣)</th></tr></thead><tbody>';
         for(let n = 0; n < maxStar; n++) {
-            const originalBaseCost = enhancementCosts[equipLevel][n];
+            const originalBaseCost = getStarBaseCost(equipLevel, n);
             let finalCost = originalBaseCost;
             let totalDiscountRate = 0;
             if (costDiscount) totalDiscountRate += 0.30;
@@ -2054,6 +2065,15 @@ document.addEventListener('DOMContentLoaded', () => {
              displayFinalResult();
          }
     });
+    const futureHalfToggle = document.getElementById('future-half-cost-toggle');
+    if (futureHalfToggle) {
+        futureHalfToggle.addEventListener('change', () => {
+            g_halfCostFuture = futureHalfToggle.checked;
+            const modeLabel = document.getElementById('future-half-cost-mode-label');
+            if (modeLabel) modeLabel.textContent = g_halfCostFuture ? '未來改版（預覽）' : '現行版本';
+            document.body.classList.toggle('future-half-cost-on', g_halfCostFuture);
+        });
+    }
     dom.equipLevelSelect.addEventListener('change', updateTargetStarOptions);
     dom.targetStarSelect.addEventListener('change', updateStartStarOptions); 
     dom.startStarSelect.addEventListener('change', updateStatPreview);
